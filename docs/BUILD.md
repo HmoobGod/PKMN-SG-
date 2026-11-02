@@ -1,4 +1,4 @@
-# Reproduce checkpoint16265 with private inputs
+# Reproduce checkpoint16266 with private inputs
 
 Requires Python3, Zig0.13.0 and the packages pinned in tools/requirements-build.txt. Install dependencies into your own virtual environment. No network download is performed by the builder.
 
@@ -6,10 +6,10 @@ Python dependency versions are pinned; distribution/wheel hashes are not pinned.
 
 ```
 python3 -m pip install -r tools/requirements-build.txt
-python3 tools/build_private.py --zig /path/to/zig --base-rom /private/SoulGold_16264.gba --out-dir build/16265
+python3 tools/build_private.py --zig /path/to/zig --base-rom /private/SoulGold_16265.gba --out-dir build/16266
 ```
 
-The base must be exactly16264 SHA256 db9142c47bbf636f101f3459020c346d838cef9a67d4703d776f24de32f66156. This is a private experimental base, not an original commercial ROM or historical16249 base. Recover it separately. The builder needs no old work directories or saves. It rejects another input before compiling or writing outputs, checks Zig version, compiles public C, assembles the public wrapper, and verifies cave/ROM/IPS hashes before writing anything. Output directory must differ from the input ROM directory.
+The base must be exactly16265 SHA256 deef0016003b281137ef2b85479e4e3691c909f7a2df51725149bf600d22442a. This is a private experimental base, not an original commercial ROM or historical16249 base. Recover it separately. The builder needs no old work directories or saves. It rejects another input before compiling or writing outputs, checks Zig version, compiles public C, assembles the public wrapper, and verifies cave/ROM/IPS hashes before writing anything. Output directory must differ from the input ROM directory.
 
 Outputs are ignored private artifacts: ROM, cave, ELF, incremental IPS and a receipt listing public source SHA256 values. Exact expected identities are in docs/checkpoint.json. The receipt is a local reproduction record, not an emulator test or action-authority certificate. Public CI has no ROM and runs source checks only.
 

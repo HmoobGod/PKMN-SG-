@@ -1,4 +1,4 @@
-# Development status — 16265
+# Development status — 16266
 
 Local baseline imported November 2, 2026. Source-only GitHub migration; original playable ROM and save remain separate.
 
@@ -9,6 +9,8 @@ Local baseline imported November 2, 2026. Source-only GitHub migration; original
 16263's eligibility refactor received independent static review with no defect found. The combined 16264/16265 code review remains pending. No automatic enablement, Current promotion or phone trial approval.
 
 ## Current behavior and constraints
+
+16266 adds pending-request exclusions to both captures. A missing actor pending bit or a request opcode other than19 rejects the first capture before allocation. If this specific phase check fails after scoring, status0 chains the native path without writing the cursor or installing the preview chooser. Other failed rechecks retain the reviewed status5 manual fallback. This is a negative phase check, not ownership or an epoch token. Independent review of this shipped-code change is pending.
 
 - Human confirmation is required; a recommendation is not action authority.
 - Supported held-B override: actor 0, player-controller signature, flags 4/count 2 wild context only.
@@ -21,7 +23,7 @@ Local baseline imported November 2, 2026. Source-only GitHub migration; original
 
 1. Finish combined 16264/16265 independent source review.
 2. Effect-specific target resolver overrides now have isolated original-instruction coverage (see NATIVE_TARGET_CONTRACT.md). Native target selection, controller/session ownership and automatic submission remain unproven.
-3. Private-input build migration implemented: tools/build_private.py reproduces the exact16265 hashes from a SHA-pinned private16264 ROM. Native replay migration and reconstruction of that base remain pending.
+3. Private-input build migration implemented: tools/build_private.py reproduces the exact16266 hashes from a SHA-pinned private16265 ROM. Native replay migration and reconstruction of that base remain pending.
 4. Expand natural encounters, settings-screen default tests and metadata/UI checks; stack headroom, IRQ, Android/speed-up and cave reference closure remain open.
 
 The historical source checklist being complete does not mean in-game Smart AI integration is complete. Overall percentage estimates are retired; track these milestones and automatic acceptance 0/20.
@@ -30,4 +32,4 @@ The historical source checklist being complete does not mean in-game Smart AI in
 
 PR1 at0a5648b378e25b412c817192ea597b34563cecce received source-import approval with no blocker (reviewer inspected the archive, did not independently verify GitHub identity/CI). GitHub CI was independently checked before merging. That approval does not certify installed hooks, native replay or automatic enablement.
 
-checkpoint.json base_sha256 is the private16264 experimental ROM (db9142...), not the historical16249 safety base (abec93...). The new incremental builder consumes16264; its base already contains the held-B hooks and safety patch. It replaces only the scorer cave. Exact local reproduction passed for ROM, cave and IPS.
+checkpoint.json base_sha256 is now the private16265 ROM (deef0016...). The earlier PR2 builder consumed16264 (db9142...). Both bases inherit the held-B hooks and safety patch. The current builder replaces only the scorer cave; exact local16266 reproduction passed for ROM, cave and IPS.
