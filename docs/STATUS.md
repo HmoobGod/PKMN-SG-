@@ -20,7 +20,7 @@ Local baseline imported November 2, 2026. Source-only GitHub migration; original
 ## Next work
 
 1. Finish combined 16264/16265 independent source review.
-2. Classify effect-specific native target resolver overrides and controller/session ownership before any automatic adapter.
+2. Effect-specific target resolver overrides now have isolated original-instruction coverage (see NATIVE_TARGET_CONTRACT.md). Native target selection, controller/session ownership and automatic submission remain unproven.
 3. Private-input build migration implemented: tools/build_private.py reproduces the exact16265 hashes from a SHA-pinned private16264 ROM. Native replay migration and reconstruction of that base remain pending.
 4. Expand natural encounters, settings-screen default tests and metadata/UI checks; stack headroom, IRQ, Android/speed-up and cave reference closure remain open.
 
