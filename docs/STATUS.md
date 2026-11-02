@@ -21,7 +21,13 @@ Local baseline imported November 2, 2026. Source-only GitHub migration; original
 
 1. Finish combined 16264/16265 independent source review.
 2. Classify effect-specific native target resolver overrides and controller/session ownership before any automatic adapter.
-3. Migrate build scripts to explicit private input paths, eliminating older-checkpoint directory assumptions.
+3. Private-input build migration implemented: tools/build_private.py reproduces the exact16265 hashes from a SHA-pinned private16264 ROM. Native replay migration and reconstruction of that base remain pending.
 4. Expand natural encounters, settings-screen default tests and metadata/UI checks; stack headroom, IRQ, Android/speed-up and cave reference closure remain open.
 
 The historical source checklist being complete does not mean in-game Smart AI integration is complete. Overall percentage estimates are retired; track these milestones and automatic acceptance 0/20.
+
+## Import review and build migration
+
+PR1 at0a5648b378e25b412c817192ea597b34563cecce received source-import approval with no blocker (reviewer inspected the archive, did not independently verify GitHub identity/CI). GitHub CI was independently checked before merging. That approval does not certify installed hooks, native replay or automatic enablement.
+
+checkpoint.json base_sha256 is the private16264 experimental ROM (db9142...), not the historical16249 safety base (abec93...). The new incremental builder consumes16264; its base already contains the held-B hooks and safety patch. It replaces only the scorer cave. Exact local reproduction passed for ROM, cave and IPS.

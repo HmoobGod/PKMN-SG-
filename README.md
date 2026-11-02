@@ -16,6 +16,6 @@ Run `python3 tools/check_source.py` with Python 3 and a C compiler. CI performs 
 
 ## Private build environment
 
-ROMs, saves, savestates, emulator/runtime binaries, extracted original-code windows and full review archives are excluded. Local ROM compilation still uses the existing private 16261/16263 checkpoint infrastructure. This initial public import is a source checkpoint, not a replacement for those recovery archives or a standalone reproducible ROM build. Migration of the private-input build interface is pending.
+ROMs, saves, savestates, emulator/runtime binaries, extracted original-code windows and full review archives are excluded. `tools/build_private.py` reproduces the exact 16265 ROM, cave and IPS from the public source plus an explicitly supplied private 16264 base ROM. See `docs/BUILD.md`. Recovering that base ROM still requires the private archives; the repository does not build the base from an original commercial ROM. Local emulator replay infrastructure remains private.
 
 No repository-wide license is selected yet. Source provenance/licensing must be reviewed before choosing one. Adding this code to GitHub does not license third-party game material.
