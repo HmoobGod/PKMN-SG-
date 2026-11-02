@@ -1,0 +1,26 @@
+# Private inputs and generated game/runtime artifacts
+private/
+project_sources/
+States/
+Evidence/
+Build/
+build/
+vendor/
+toolchain_zig/
+*.gba
+*.sav
+*.ss
+*.state
+*.elf
+*.o
+*.so
+*.so.*
+*.bin
+*.zip
+*.7z
+*.tar*
+*.b64
+__pycache__/
+*.pyc
+.env
+.env.*

@@ -1,0 +1,30 @@
+push {r0,r1,r2,r3,r4,r5,r6,r7,lr}
+mov r0,r12
+push {r0}
+sub sp,#48
+movs r0,r4
+mov r1,sp
+bl 0x09f20100
+capture_complete:
+cmp r0,#4
+beq assist
+cmp r0,#5
+beq assist
+add sp,#48
+pop {r0}
+mov r12,r0
+pop {r0,r1,r2,r3,r4,r5,r6,r7}
+pop {r3}
+mov lr,r3
+ldr r3,=0x09f1f001
+bx r3
+assist:
+add sp,#48
+pop {r0}
+mov r12,r0
+pop {r0,r1,r2,r3,r4,r5,r6,r7}
+pop {r3}
+mov lr,r3
+movs r6,#0
+ldr r3,=0x08065a97
+bx r3
