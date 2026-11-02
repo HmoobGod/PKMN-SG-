@@ -2,6 +2,8 @@
 
 Requires Python3, Zig0.13.0 and the packages pinned in tools/requirements-build.txt. Install dependencies into your own virtual environment. No network download is performed by the builder.
 
+Python dependency versions are pinned; distribution/wheel hashes are not pinned. The final artifact hash checks verify this checkpoint's output, not the provenance of installed dependencies.
+
 ```
 python3 -m pip install -r tools/requirements-build.txt
 python3 tools/build_private.py --zig /path/to/zig --base-rom /private/SoulGold_16264.gba --out-dir build/16265
