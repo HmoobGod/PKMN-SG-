@@ -10,4 +10,5 @@ jobs:
       - name: Check public boundary and C syntax
         run: |
           python3 tools/test_source_boundary.py
+          python3 tools/test_build_boundary.py
           python3 tools/check_source.py
