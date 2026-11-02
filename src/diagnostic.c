@@ -67,7 +67,11 @@ uint32_t sg_run_diagnostic(uint32_t actor,struct result *r) {
      r->move==observed.moves[r->slot] && observed.pp[r->slot]) {
   /* Recheck local recommendation inputs after scratch lifetime ends.
      No persisting token or permission claim; no call to a restriction helper. */
-  if (!sg_capture_diagnostic(actor,&observed) &&
+  uint32_t check=sg_capture_diagnostic(actor,&observed);
+  /* A replaced/completed request belongs to the native dispatcher. Do not
+     install a manual chooser for a request that is no longer current. */
+  if(check==7)return r->status=0;
+  if (!check &&
       observed.battle_type_flags==4 && observed.count==2 && observed.present_mask==3 &&
       observed.moves[r->slot]==r->move && observed.buffer_moves[r->slot]==r->move &&
       observed.pp[r->slot] && !(observed.native_restricted_mask&(1u<<r->slot)) && observed.disabled_move!=r->move &&

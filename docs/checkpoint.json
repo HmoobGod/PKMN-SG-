@@ -1,10 +1,14 @@
 {
-  "base_sha256": "db9142c47bbf636f101f3459020c346d838cef9a67d4703d776f24de32f66156",
-  "rom_sha256": "deef0016003b281137ef2b85479e4e3691c909f7a2df51725149bf600d22442a",
-  "ips_sha256": "2d016f702ae654427a583abf96ea605ef6cc194e382119f2f7c787f87bd1cb34",
-  "cave_sha256": "2585b6c3b0e64e93733f93af63dc71a89dfa3d3a5a1af4a898a54dcfe0674330",
-  "checkpoint": 16265,
-  "scope": "experimental assisted preview; private local build artifacts; not shipped here",
+  "base_sha256": "deef0016003b281137ef2b85479e4e3691c909f7a2df51725149bf600d22442a",
+  "rom_sha256": "6be1201f7c492d2621a3b8f88aac3acbcd07231457da3f78fd2f1224e879a6de",
+  "ips_sha256": "6c57a3fc6f2dac7ce34cab45b0eaeada052352d5effdb386e71dffe93719ebf0",
+  "cave_sha256": "e5ce91e043f0631c8f6bfe3863ac74195bc852ccfff1c053caed12c3934f005c",
+  "checkpoint": 16266,
+  "scope": "experimental assisted preview; pending-request exclusions; human confirmation; private artifacts not shipped here",
   "automatic_smart_ai_enabled": false,
-  "independent_16264_16265_review": "pending"
+  "independent_16264_16265_review": "pending",
+  "cave_bytes": 5886,
+  "wrapper_bytes": 68,
+  "manual_confirmation_required": true,
+  "independent_16266_review": "pending"
 }

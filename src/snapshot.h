@@ -24,6 +24,6 @@ struct sg_diagnostic_snapshot {
  uint32_t native_restricted_mask;
 };
 _Static_assert(sizeof(struct sg_diagnostic_snapshot)==76,"snapshot layout");
-/* 0 success; 1 actor outside sampled scope; 2 count; 3 EWRAM pointers;4 null output;5 observed controller class excluded;6 unsupported diagnostic context. */
+/* 0 success; 1 actor outside sampled scope; 2 count; 3 EWRAM pointers;4 null output;5 observed controller class excluded;6 unsupported diagnostic context;7 no pending move-choice request. */
 uint32_t sg_capture_diagnostic(uint32_t actor,struct sg_diagnostic_snapshot *out);
 #endif

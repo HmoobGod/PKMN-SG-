@@ -28,6 +28,10 @@ uint32_t sg_capture_diagnostic(uint32_t actor,struct sg_diagnostic_snapshot *out
  uint32_t sel=R32(0x02001e90),res=R32(0x02001c6c);
  /* Conservative half-open EWRAM bounds; validate before derived reads. */
  if (sel<0x02000000 || sel>0x02040000-0x10a || res<0x02000000 || res>0x02040000-(actor*512+28) || (res&1))return 3;
+ /* Native dispatcher admits a request only while this actor's pending bit
+    is set; opcode 19 dispatches the move chooser. Negative phase guards,
+    not an ownership token or permission to submit an automatic action. */
+ if (!(R32(0x02001d2c)&(1u<<actor)) || R8(res+0x10+actor*512)!=19)return 7;
  uint32_t live=0x02001ecc+actor*152;
  out->actor=actor;out->count=count;out->kind=kind;
  out->completion=completion;out->run=R32(0x03002e58+actor*4);
