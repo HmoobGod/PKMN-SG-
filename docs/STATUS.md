@@ -10,7 +10,7 @@ Local baseline imported November 2, 2026. Source-only GitHub migration; original
 
 ## Current behavior and constraints
 
-16266 adds pending-request exclusions to both captures. A missing actor pending bit or a request opcode other than19 rejects the first capture before allocation. If this specific phase check fails after scoring, status0 chains the native path without writing the cursor or installing the preview chooser. Other failed rechecks retain the reviewed status5 manual fallback. This is a negative phase check, not ownership or an epoch token. Independent review of this shipped-code change is pending.
+16266 adds pending-request exclusions to both captures. A missing actor pending bit or a request opcode other than19 rejects the first capture before allocation. If this specific phase check fails after scoring, status0 chains the native path without writing the cursor or installing the preview chooser. Other failed rechecks retain the reviewed status5 manual fallback. This is a negative phase check, not ownership or an epoch token. Claude approved the exact PR5 source change at8dfe5b8db4ffca6b6b76fcf738c18bce66b1d5ad with no blocking finding. Original dispatcher provenance and runtime/build claims remain unverified by that reviewer.
 
 - Human confirmation is required; a recommendation is not action authority.
 - Supported held-B override: actor 0, player-controller signature, flags 4/count 2 wild context only.
@@ -33,3 +33,7 @@ The historical source checklist being complete does not mean in-game Smart AI in
 PR1 at0a5648b378e25b412c817192ea597b34563cecce received source-import approval with no blocker (reviewer inspected the archive, did not independently verify GitHub identity/CI). GitHub CI was independently checked before merging. That approval does not certify installed hooks, native replay or automatic enablement.
 
 checkpoint.json base_sha256 is now the private16265 ROM (deef0016...). The earlier PR2 builder consumed16264 (db9142...). Both bases inherit the held-B hooks and safety patch. The current builder replaces only the scorer cave; exact local16266 reproduction passed for ROM, cave and IPS.
+
+## Review scope clarification
+
+PR5 source-level phase-guard review is approved; exact-head CI was rechecked before source merge. Capture and diagnostic return meanings are in STATUS_CODES.md. PR1 approved the source import, PR2 the builder/boundary tooling, and PR5 the phase-guard diff. Those scopes do not constitute the earlier combined16264/16265 installed-hook and target-filter implementation review. That earlier scope remains open deliberately; it is not resolved by relabeling it. No automatic enablement, ownership or choice-epoch claim is approved.

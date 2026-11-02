@@ -9,7 +9,7 @@ python3 -m pip install -r tools/requirements-build.txt
 python3 tools/build_private.py --zig /path/to/zig --base-rom /private/SoulGold_16265.gba --out-dir build/16266
 ```
 
-The base must be exactly16265 SHA256 deef0016003b281137ef2b85479e4e3691c909f7a2df51725149bf600d22442a. This is a private experimental base, not an original commercial ROM or historical16249 base. Recover it separately. The builder needs no old work directories or saves. It rejects another input before compiling or writing outputs, checks Zig version, compiles public C, assembles the public wrapper, and verifies cave/ROM/IPS hashes before writing anything. Output directory must differ from the input ROM directory.
+The base must be exactly16265 SHA256 deef0016003b281137ef2b85479e4e3691c909f7a2df51725149bf600d22442a. This is a private experimental base, not an original commercial ROM or historical16249 base. Recover it separately. The builder needs no old work directories or saves. It rejects another input before compiling or writing outputs, checks Zig version, rejects a cave shorter than the pinned5850-byte base cave rather than leaving a stale tail, compiles public C, assembles the public wrapper, and verifies cave/ROM/IPS hashes before writing anything. Output directory must differ from the input ROM directory.
 
 Outputs are ignored private artifacts: ROM, cave, ELF, incremental IPS and a receipt listing public source SHA256 values. Exact expected identities are in docs/checkpoint.json. The receipt is a local reproduction record, not an emulator test or action-authority certificate. Public CI has no ROM and runs source checks only.
 

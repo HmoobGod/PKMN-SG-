@@ -6,7 +6,11 @@ BASE='deef0016003b281137ef2b85479e4e3691c909f7a2df51725149bf600d22442a'
 EXPECTED='6be1201f7c492d2621a3b8f88aac3acbcd07231457da3f78fd2f1224e879a6de'
 CAVE='e5ce91e043f0631c8f6bfe3863ac74195bc852ccfff1c053caed12c3934f005c'
 IPS='6c57a3fc6f2dac7ce34cab45b0eaeada052352d5effdb386e71dffe93719ebf0'
+BASE_CAVE_BYTES=5850
 def sha(data):return hashlib.sha256(data).hexdigest()
+def validate_cave_span(size):
+ if size<BASE_CAVE_BYTES:
+  raise ValueError('New cave would leave an old tail; explicit migration required')
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--base-rom',type=Path,required=True);p.add_argument('--out-dir',type=Path,required=True);p.add_argument('--zig',required=True);a=p.parse_args()
  base=a.base_rom.resolve().read_bytes()
@@ -29,6 +33,7 @@ def main():
   wrapper,_=Ks(KS_ARCH_ARM,KS_MODE_THUMB).asm((ROOT/'src/wrapper.s').read_text(),addr=0x09f20000,as_bytes=True)
   assert len(wrapper)<256 and len(code)<0x2f00
   cave=bytearray(b'\xff'*(256+len(code)));cave[:len(wrapper)]=wrapper;cave[256:]=code
+  validate_cave_span(len(cave))
   if sha(cave)!=CAVE:raise RuntimeError('Compiled cave differs from pinned16266; no outputs written')
   rom=bytearray(base);offset=0x1f20000;rom[offset:offset+len(cave)]=cave
   if sha(rom)!=EXPECTED:raise RuntimeError('ROM differs from pinned16266; no outputs written')

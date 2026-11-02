@@ -6,9 +6,9 @@
   "checkpoint": 16266,
   "scope": "experimental assisted preview; pending-request exclusions; human confirmation; private artifacts not shipped here",
   "automatic_smart_ai_enabled": false,
-  "independent_16264_16265_review": "pending",
+  "independent_16264_16265_review": "implementation scope not covered by PR1 import, PR2 builder or PR5 phase-guard reviews",
   "cave_bytes": 5886,
   "wrapper_bytes": 68,
   "manual_confirmation_required": true,
-  "independent_16266_review": "pending"
+  "independent_16266_review": "source_approved_at_8dfe5b8; private evidence not independently verified"
 }
