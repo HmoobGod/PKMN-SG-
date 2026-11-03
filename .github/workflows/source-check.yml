@@ -20,6 +20,9 @@ jobs:
           python3 tools/test_live_context.py
           python3 tools/test_native_manual_legality.py
           python3 tools/test_shadow_menu.py
+          python3 tools/test_fresh_wild_request.py
+          python3 -m py_compile tools/probe_fresh_wild_constructor.py tools/probe_fresh_wild_request.py tools/verify_fresh_wild_request.py
+          cc -std=c11 -Wall -Wextra -Werror -pedantic -fsyntax-only tools/stop_at_wild_ctor.c tools/wait_original_player.c
           python3 -m py_compile tools/probe_shadow_menu.py tools/verify_shadow_menu.py
           python3 -m py_compile tools/probe_native_manual_legality.py tools/verify_native_manual_legality.py
           cc -std=c11 -Wall -Wextra -Werror -pedantic -fsyntax-only tools/trace_manual_native.c
