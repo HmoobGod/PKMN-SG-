@@ -10,5 +10,6 @@
   "cave_bytes": 5886,
   "wrapper_bytes": 68,
   "manual_confirmation_required": true,
-  "independent_16266_review": "source_approved_at_8dfe5b8; private evidence not independently verified"
+  "independent_16266_review": "source approved; pending/opcode semantics decoded from supplied excerpts; ROM origin and runtime not independently verified",
+  "independent_pr6_review": "documentation, tooling and tests approved at34ac04bf; no shipped change"
 }
