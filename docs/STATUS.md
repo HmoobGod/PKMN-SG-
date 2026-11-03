@@ -1,5 +1,8 @@
 # Development status — 16266
 
+**Latest R6 research-only source update (November 3, 2026):** Added an optional, SHA-pinned native debugger observer at original copier entry 0x0806B370, byte-store PC 0x0806B3BE, and static post-loop candidate 0x0806B3C6. Its offline verifier demands 44 ordered store-PC observations and identical final source/destination bytes, and cannot grant player ownership, move legality, or automatic commands. Public synthetic tests: four unittest methods and 37 negative mutations pass. No private mGBA debugger runtime is present; no new post-copy native trace, game ROM patch, acceptance pass, Android certification or Current promotion. See [R6_COMPLETED_COPY_PROBE.md](R6_COMPLETED_COPY_PROBE.md).
+
+
 **Latest source-only follow-up, 16266R5 (November 3, 2026):** Native copier entry0x0806B370 and original buffer-A post-loop candidate0x0806B3C6 are distinct. The prior eleven observed entries are not proven completed writes. Static Current/experimental16266 branch/loop structure and sixteen private negative perturbations checked; historic six-report replay now opens zero leases; no new native emulator run, source gameplay patch, or auto-enable. See [R5_COPY_BOUNDARY.md](R5_COPY_BOUNDARY.md).
 
 Local baseline imported November 2, 2026. Source-only GitHub migration; original playable ROM and save remain separate.
