@@ -12,4 +12,5 @@ jobs:
           python3 tools/test_source_boundary.py
           python3 tools/test_build_boundary.py
           python3 tools/test_choice_protocol.py
+          python3 tools/test_choice_lease.py
           python3 tools/check_source.py
