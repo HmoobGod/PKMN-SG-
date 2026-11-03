@@ -1,5 +1,7 @@
 # Revision 16266R4 — request-scoped lease reference model
 
+**R5 correction:** The historical R4 optional replayer passed `original_copy_executed=True` for records taken at the **0x0806B370 copier entry**. Those records did not observe post-loop completion. The R5 replayer now passes `False`, yielding six valid historical ledgers but **zero certified copy events and zero leases**. R4's C lease tests remain valid as *hypothetical* unit tests, not runtime authority. See [R5_COPY_BOUNDARY.md](R5_COPY_BOUNDARY.md).
+
 This is a **research-only, ROM-free C state machine**. It does not implement automatic Smart AI or modify the game. The model cannot produce positive player ownership or complete move/target legality evidence. The Current ROM/save and experimental 16266 ROM remain unchanged.
 
 ## Contract
