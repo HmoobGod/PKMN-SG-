@@ -1,5 +1,7 @@
 # Native choice lifecycle — 16266 evidence follow-up
 
+**R5 correction (November 3, 2026):** The trace's `copy` callback is at **function entry 0x0806B370**, before copy-path selection. Thus the 11 new `copy` events below are *copier-entry attempts*, not independently observed completed buffer-A writes. Subsequent emitter/reply/consumer observations remain recorded. See [R5_COPY_BOUNDARY.md](R5_COPY_BOUNDARY.md). The original reports and source hashes are retained as historical evidence; no runtime hook has been added.
+
 No shipped-code or ROM change. These are local mGBA observations, not independently reproduced acceptance or permission certificates. Human confirmation remains required; automatic Smart AI acceptance stays0/20.
 
 ## Boundaries measured
