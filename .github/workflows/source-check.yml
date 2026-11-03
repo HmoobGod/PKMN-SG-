@@ -19,6 +19,8 @@ jobs:
           python3 tools/test_alternate_mgba_copy.py
           python3 tools/test_live_context.py
           python3 tools/test_native_manual_legality.py
+          python3 tools/test_shadow_menu.py
+          python3 -m py_compile tools/probe_shadow_menu.py tools/verify_shadow_menu.py
           python3 -m py_compile tools/probe_native_manual_legality.py tools/verify_native_manual_legality.py
           cc -std=c11 -Wall -Wextra -Werror -pedantic -fsyntax-only tools/trace_manual_native.c
           python3 -m py_compile tools/probe_live_context.py tools/verify_live_context.py
