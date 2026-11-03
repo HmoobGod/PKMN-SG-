@@ -37,3 +37,7 @@ checkpoint.json base_sha256 is now the private16265 ROM (deef0016...). The earli
 ## Review scope clarification
 
 PR5 source-level phase-guard review is approved; exact-head CI was rechecked before source merge. Capture and diagnostic return meanings are in STATUS_CODES.md. PR1 approved the source import, PR2 the builder/boundary tooling, and PR5 the phase-guard diff. Those scopes do not constitute the earlier combined16264/16265 installed-hook and target-filter implementation review. That earlier scope remains open deliberately; it is not resolved by relabeling it. No automatic enablement, ownership or choice-epoch claim is approved.
+
+## Provenance and assignment follow-up
+
+Claude independently decoded the supplied dispatcher/table/non-link completion excerpts and confirmed the pending-bit/opcode semantics. The binding of those excerpts to the ROM hash and runtime replays was not independently verified. PR6 documentation/tooling/tests approval received at34ac04bf. New local controller-assignment evidence is in CONTROLLER_ASSIGNMENT.md: two fresh native processes plus12 isolated installer cases. This narrows the assignment question for those fixtures; general ownership and a current choice epoch remain open. No new shipped code or automatic enablement.
