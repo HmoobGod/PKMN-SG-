@@ -41,3 +41,8 @@ PR5 source-level phase-guard review is approved; exact-head CI was rechecked bef
 ## Provenance and assignment follow-up
 
 Claude independently decoded the supplied dispatcher/table/non-link completion excerpts and confirmed the pending-bit/opcode semantics. The binding of those excerpts to the ROM hash and runtime replays was not independently verified. PR6 documentation/tooling/tests approval received at34ac04bf. New local controller-assignment evidence is in CONTROLLER_ASSIGNMENT.md: two fresh native processes plus12 isolated installer cases. This narrows the assignment question for those fixtures; general ownership and a current choice epoch remain open. No new shipped code or automatic enablement.
+
+
+## Request lifetime follow-up
+
+CHOICE_LIFECYCLE.md records six fresh human-input/constructed-restriction processes:11 submissions each paired with one reply copy and completion; native results6accepted/4rejected/1cancelled. Recovery can issue an identical44-byte request, so payload equality is not an epoch ID. Cached restrictions remain zero at first recovery in the four constructed rejection cases. Effective choice-item/trait lock classification remains the next permission gap; no unconditional stored-lock filter or extra validator call is introduced. No shipped source/ROM change or automatic enablement.
