@@ -16,5 +16,8 @@ jobs:
           python3 tools/test_copy_postloop.py
           python3 tools/test_entry_only_replay.py
           python3 tools/test_native_copy_pairs.py
+          python3 tools/test_alternate_mgba_copy.py
+          cc -std=c11 -Wall -Wextra -Werror -pedantic -fsyntax-only tools/alternate_mgba_trace_frames.c tools/alternate_mgba_capture_player_copy.c
+          python3 -m py_compile tools/probe_alternate_mgba_copy.py tools/verify_alternate_mgba_copy.py
           python3 -m py_compile tools/probe_completed_copy.py tools/verify_native_copy_pairs.py
           python3 tools/check_source.py
