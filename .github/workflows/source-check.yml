@@ -13,4 +13,6 @@ jobs:
           python3 tools/test_build_boundary.py
           python3 tools/test_choice_protocol.py
           python3 tools/test_choice_lease.py
+          python3 tools/test_copy_postloop.py
+          python3 tools/test_entry_only_replay.py
           python3 tools/check_source.py

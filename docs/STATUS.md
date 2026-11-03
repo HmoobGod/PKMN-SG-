@@ -1,5 +1,7 @@
 # Development status — 16266
 
+**Latest source-only follow-up, 16266R5 (November 3, 2026):** Native copier entry0x0806B370 and original buffer-A post-loop candidate0x0806B3C6 are distinct. The prior eleven observed entries are not proven completed writes. Static Current/experimental16266 branch/loop structure and sixteen private negative perturbations checked; historic six-report replay now opens zero leases; no new native emulator run, source gameplay patch, or auto-enable. See [R5_COPY_BOUNDARY.md](R5_COPY_BOUNDARY.md).
+
 Local baseline imported November 2, 2026. Source-only GitHub migration; original playable ROM and save remain separate.
 
 ## Verified locally before import

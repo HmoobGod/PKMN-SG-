@@ -1,5 +1,7 @@
 # Request-epoch consistency verifier — 16266 source-only follow-up
 
+**R5 correction:** The validator checks the internal ordering of the existing *entry-only* copier observations and native replies. It does **not** prove that the original buffer-A loop ran or that a copy completed. An entry-only observer counter is not a native epoch identity or lease authorization. See [R5_COPY_BOUNDARY.md](R5_COPY_BOUNDARY.md); R5's corrected replay grants zero leases.
+
 This is an **offline, read-only observer report validator**. It does not modify the 16266 scorer, installed hooks, ROM, save, state, enemy/NPC AI, or manual confirmation. It is not a runtime action gate, legal-target certificate, player-ownership check or proof that an automatic adapter is safe.
 
 The native observer in `tools/probe_choice_lifecycle.py` records actor-0 buffer-A copies, emitter calls, six-byte replies, non-link completions, native restriction outcomes, and (for accepted non-cancel requests) slot/move/target commits. Its epoch IDs are **host-side observation counters**, not native identifiers.
