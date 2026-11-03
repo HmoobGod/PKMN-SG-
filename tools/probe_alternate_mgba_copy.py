@@ -85,8 +85,8 @@ def run(host, rom, save, state, output, compiler='cc'):
         # All emulated input files are disposable copies. No writing to originals.
         for original, name in [(rom, 'game.gba'), (save, 'game.sav'), (state, 'state.ss')]:
             shutil.copyfile(original, tmp / name)
-        for src, name in [('trace_frames.c', 'trace.so'),
-                          ('capture_player_copy.c', 'capture.so')]:
+        for src, name in [('alternate_mgba_trace_frames.c', 'trace.so'),
+                          ('alternate_mgba_capture_player_copy.c', 'capture.so')]:
             subprocess.run([compiler, '-std=c11', '-O2', '-fPIC', '-shared',
                             '-Wall', '-Wextra', '-Werror', str(HERE / src),
                             '-o', str(tmp / name)], check=True)
