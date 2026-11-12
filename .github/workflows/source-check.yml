@@ -46,6 +46,9 @@ jobs:
           python3 tools/test_exact_terminal_gate.py
           python3 tools/test_exact_pp_writer.py
           python3 tools/test_exact_next_wild.py
+          python3 tools/test_exact_main_callback.py
+          python3 -m py_compile tools/verify_exact_main_callback.py
+          cc -std=c11 -Wall -Wextra -Werror -pedantic -fsyntax-only tools/trace_exact_main_callback.c
           python3 -m py_compile tools/verify_exact_next_wild.py
           cc -std=c11 -Wall -Wextra -Werror -pedantic -fsyntax-only tools/trace_exact_next_wild_flags.c
           python3 -m py_compile tools/verify_exact_pp_writer.py
