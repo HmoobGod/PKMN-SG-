@@ -152,7 +152,9 @@ def verify_capture(capture, console, mode='v5-full'):
         require(run['run_id'] == 'legacy:'+run.get('console_sha256',''),
                 'legacy run ID must be derived from console digest')
     else:
-        require(run['process_id_observed'] is True, 'instrumented run needs observed process marker')
+        require(run['process_id_observed'] is True and
+                run.get('start_marker') == 'RUN_START '+run['run_id'],
+                'instrumented run needs matching observed RUN_START marker')
     require(all(type(e) is dict and e.get('run_id') == run['run_id'] for e in events),
             'mixed-process or missing per-event run IDs')
     proof = parse_console(console, events, run)
