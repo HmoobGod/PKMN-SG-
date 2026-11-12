@@ -1,6 +1,24 @@
 --- a/src/battle_controller_player.c
 +++ b/src/battle_controller_player.c
-@@ -2191,9 +2191,147 @@
+@@ -216,10 +216,17 @@
+     }
+ }
+ 
++/* Only the disposable LAB's own staging token is cancelled here.
++ * The original controller command is still dispatched normally. */
++static void SourceFirstInvalidateWildLease(void);
++
+ static void PlayerBufferRunCommand(enum BattlerId battler)
+ {
+     if (IsBattleControllerActiveOnLocal(battler))
+     {
++        /* Any intervening request closes a staged Fight authorization. */
++        if (gBattleResources->bufferA[battler][0] != CONTROLLER_CHOOSEMOVE)
++            SourceFirstInvalidateWildLease();
+         if (gBattleResources->bufferA[battler][0] < ARRAY_COUNT(sPlayerBufferCommands))
+             sPlayerBufferCommands[gBattleResources->bufferA[battler][0]](battler);
+         else
+@@ -2191,9 +2198,156 @@
      }
  }
  
@@ -53,13 +71,21 @@
 +    enum BattlerId foe;
 +    u16 moves[MAX_MON_MOVES];
 +    u8 pp[MAX_MON_MOVES];
++    u8 partyIndex;
 +} sSourceFirstWildLease;
++
++static void SourceFirstInvalidateWildLease(void)
++{
++    /* Cancel staged automation without touching engine/guest ownership. */
++    sSourceFirstWildLease.armed = FALSE;
++}
 +
 +static void SourceFirstArmWildLease(enum BattlerId battler)
 +{
 +    u32 slot;
 +    sSourceFirstWildLease.owner = battler;
 +    sSourceFirstWildLease.foe = GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT);
++    sSourceFirstWildLease.partyIndex = gBattlerPartyIndexes[battler];
 +    for (slot = 0; slot < MAX_MON_MOVES; slot++)
 +    {
 +        sSourceFirstWildLease.moves[slot] = gBattleMons[battler].moves[slot];
@@ -77,6 +103,7 @@
 +    sSourceFirstWildLease.armed = FALSE;
 +    if (!armed || battler != sSourceFirstWildLease.owner ||
 +        !SourceFirstWildSingleOwner(battler) ||
++        gBattlerPartyIndexes[battler] != sSourceFirstWildLease.partyIndex ||
 +        GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT) != sSourceFirstWildLease.foe)
 +        return FALSE;
 +    for (slot = 0; slot < MAX_MON_MOVES; slot++)
@@ -135,8 +162,8 @@
      s32 i;
 +    u32 unusedReply = 0;
 +
-+    /* Every new action request invalidates an unfinished previous proposal. */
-+    sSourceFirstWildLease.armed = FALSE;
++    /* A new action request invalidates any unfinished old reply. */
++    SourceFirstInvalidateWildLease();
 +    if (SourceFirstWildSingleMove(battler, FALSE, &unusedReply))
 +    {
 +        SourceFirstArmWildLease(battler);
@@ -148,7 +175,7 @@
  
      gBattlerControllerFuncs[battler] = HandleChooseActionAfterDma3;
      BattleTv_ClearExplosionFaintCause();
-@@ -2291,6 +2429,16 @@
+@@ -2291,6 +2445,16 @@
  
  void PlayerHandleChooseMove(enum BattlerId battler)
  {
