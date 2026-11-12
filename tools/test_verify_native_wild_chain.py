@@ -107,15 +107,18 @@ class NativeChainStrictTests(unittest.TestCase):
     def test_native_instrumented_marker_can_be_checked(self):
         raw=synthetic();log=console_for(raw)
         run_id='native-run-unique-001'
-        log=log.replace('GDB S02\n','RUN_START '+run_id+'\n',1)
+        log=log.replace('GDB S02\n','RUN_START '+run_id+' pid=43210 start=1700000000.25\n',1)
         norm=v.normalize_legacy_archive(raw,console_for(raw))
-        norm['run']={'run_id':run_id,'start_marker':'RUN_START '+run_id,
+        norm['run']={'run_id':run_id,'start_marker':'RUN_START '+run_id+' pid=43210 start=1700000000.25',
                      'console_sha256':v.hashlib.sha256(log.encode()).hexdigest(),
-                     'provenance':'INSTRUMENTED_RUN','process_id_observed':True}
+                     'provenance':'INSTRUMENTED_RUN','process_id_observed':True,
+                     'pid':43210,'started_epoch':1700000000.25,'initial_save_sha256':SAVE}
         for e in norm['original_cpu_events']:
             e['run_id']=run_id
         result=v.verify_capture(norm,log)
         self.assertTrue(result['same_emulator_process_log'])
+        self.assertEqual(result['process_identity_level'],'CAPTURE_MARKER_ATTESTED_PID_AND_START')
+        self.assertTrue(result['post_save_unchanged'])
         self.assertEqual(result['complete_cpu_episodes'],2)
 
     def test_console_none_rejected(self):
@@ -207,5 +210,87 @@ class NativeChainStrictTests(unittest.TestCase):
                 self.assertEqual(r['mode'],mode)
                 self.assertFalse(r['same_emulator_process_log'])
 
+
+
+    def test_wrong_instrumented_pid_rejected(self):
+        raw=synthetic();log=console_for(raw);run_id='native-run-unique-001'
+        log=log.replace('GDB S02\n','RUN_START '+run_id+' pid=43210 start=1700000000.25\n',1)
+        cap=v.normalize_legacy_archive(raw,console_for(raw))
+        cap['run']={'run_id':run_id,'start_marker':'RUN_START '+run_id+' pid=43210 start=1700000000.25',
+                    'console_sha256':v.hashlib.sha256(log.encode()).hexdigest(),
+                    'provenance':'INSTRUMENTED_RUN','process_id_observed':True,
+                    'pid':43211,'started_epoch':1700000000.25,'initial_save_sha256':SAVE}
+        for e in cap['original_cpu_events']:e['run_id']=run_id
+        with self.assertRaisesRegex(ValueError,'instrumented run needs matching'):
+            v.verify_capture(cap,log)
+
+    def test_wrong_instrumented_start_time_rejected(self):
+        raw=synthetic();log=console_for(raw);run_id='native-run-unique-001'
+        log=log.replace('GDB S02\n','RUN_START '+run_id+' pid=43210 start=1700000000.25\n',1)
+        cap=v.normalize_legacy_archive(raw,console_for(raw))
+        cap['run']={'run_id':run_id,'start_marker':'RUN_START '+run_id+' pid=43210 start=1700000000.25',
+                    'console_sha256':v.hashlib.sha256(log.encode()).hexdigest(),
+                    'provenance':'INSTRUMENTED_RUN','process_id_observed':True,
+                    'pid':43210,'started_epoch':1700000001.25,'initial_save_sha256':SAVE}
+        for e in cap['original_cpu_events']:e['run_id']=run_id
+        with self.assertRaisesRegex(ValueError,'instrumented run needs matching'):
+            v.verify_capture(cap,log)
+
+    def test_post_save_modified_rejected(self):
+        raw=synthetic()
+        log=console_for(raw).replace(SAVE, '0'*64)
+        with self.assertRaisesRegex(ValueError,'post-save hash differs'):
+            verify(raw,console=log)
+
+    def test_recorded_initial_save_mismatch_rejected(self):
+        raw=synthetic();log=console_for(raw);cap=v.normalize_legacy_archive(raw,log)
+        cap['save_sha256']='0'*64
+        with self.assertRaisesRegex(ValueError,'capture save SHA metadata'):
+            v.verify_capture(cap,log)
+
+    def test_unknown_breakpoint_refused(self):
+        raw=synthetic();log=console_for(raw).replace('BP 0x808e336 OK','BP 0x2000000 OK')
+        with self.assertRaisesRegex(ValueError,'unknown debugger breakpoint'):
+            verify(raw,console=log)
+
+    def test_unknown_snap_name_refused(self):
+        raw=synthetic();log=console_for(raw).replace('SNAP title','SNAP load_savestate')
+        with self.assertRaisesRegex(ValueError,'unknown host console line'):
+            verify(raw,console=log)
+
+    def test_known_original_snap_labels_are_allowed(self):
+        raw=synthetic();log=console_for(raw).replace('SNAP title\n',
+            'SNAP title\nSNAP continue_loaded\nSNAP movement_2\nSNAP stop_25\nSNAP finished\n')
+        r=verify(raw,console=log)
+        self.assertTrue(r['snap_names_allowlisted'])
+        self.assertTrue(r['breakpoint_addresses_allowlisted'])
+
+    def test_consistent_mixed_v3_v5_cpu_stream_rejected_in_full_mode(self):
+        # A forged single-start console and EVENTS count are NOT sufficient to
+        # reclassify a v3 (no state load/terminal) episode as v5 grade.
+        v3=synthetic('v3-basic',cycles=1)
+        v5=synthetic('v5-full',cycles=1)
+        mixed=deepcopy(v3)
+        late=deepcopy(v5['original_cpu_events'])
+        for e in late:e['t']+=10
+        mixed['original_cpu_events']+=late
+        log=console_for(mixed)
+        with self.assertRaisesRegex(ValueError,'missing mandatory original CPU stage'):
+            verify(mixed,mode='v5-full',console=log)
+
+    def test_intentionally_forged_consistent_two_v5_episodes_cannot_be_detected(self):
+        # Explicit documented limitation: the verifier validates consistency,
+        # not hardware/OS authenticity of a coherent attacker-crafted transcript.
+        fabricated=synthetic('v5-full')
+        result=verify(fabricated)
+        self.assertFalse(result['same_emulator_process_log'])
+        self.assertEqual(result['complete_cpu_episodes'],2)
+        self.assertEqual(result['original_rom_identity'].split(';')[0],
+                         'RECORDED_HASH_FIELD_PLUS_GDB_POST_HASH')
+
+    def test_direct_json_nan_isfinite_defense_in_depth(self):
+        raw=synthetic();raw['original_cpu_events'][3]['t']=float('nan')
+        with self.assertRaisesRegex(ValueError,'non-finite'):
+            verify(raw)
 
 if __name__=='__main__':unittest.main()
