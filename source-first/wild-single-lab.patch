@@ -48,7 +48,7 @@
 +    foe = GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT);
 +    if (verifyReply)
 +        moveInfo = (struct ChooseMoveStruct *)&gBattleResources->bufferA[battler][4];
-+    unusable = CheckMoveLimitations(battler, 0, MOVE_LIMITATIONS_ALL);
++    unusable = verifyReply ? CheckMoveLimitations(battler, 0, MOVE_LIMITATIONS_ALL) : 0;
 +    for (slot = 0; slot < MAX_MON_MOVES; slot++)
 +    {
 +        enum Move move = gBattleMons[battler].moves[slot];
