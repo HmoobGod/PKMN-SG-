@@ -1,6 +1,6 @@
 --- a/src/battle_controller_player.c
 +++ b/src/battle_controller_player.c
-@@ -2191,9 +2191,89 @@
+@@ -2191,9 +2191,136 @@
      }
  }
  
@@ -30,6 +30,50 @@
 +        return FALSE;
 +    if (!IsBattlerAlive(battler) || !IsBattlerAlive(foe))
 +        return FALSE;
++    return TRUE;
++}
++
++/* A single-use source-LAB staging token. The actual modified-ROM engine
++ * still needs independent per-request CPU/ownership certification. */
++static struct
++{
++    bool32 armed;
++    enum BattlerId owner;
++    enum BattlerId foe;
++    u16 moves[MAX_MON_MOVES];
++    u8 pp[MAX_MON_MOVES];
++} sSourceFirstWildLease;
++
++static void SourceFirstArmWildLease(enum BattlerId battler)
++{
++    u32 slot;
++    sSourceFirstWildLease.owner = battler;
++    sSourceFirstWildLease.foe = GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT);
++    for (slot = 0; slot < MAX_MON_MOVES; slot++)
++    {
++        sSourceFirstWildLease.moves[slot] = gBattleMons[battler].moves[slot];
++        sSourceFirstWildLease.pp[slot] = gBattleMons[battler].pp[slot];
++    }
++    sSourceFirstWildLease.armed = TRUE;
++}
++
++static bool32 SourceFirstConsumeWildLease(enum BattlerId battler)
++{
++    u32 slot;
++    bool32 armed = sSourceFirstWildLease.armed;
++
++    /* Consume BEFORE any potentially side-effecting restrictions or reply. */
++    sSourceFirstWildLease.armed = FALSE;
++    if (!armed || battler != sSourceFirstWildLease.owner ||
++        !SourceFirstWildSingleOwner(battler) ||
++        GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT) != sSourceFirstWildLease.foe)
++        return FALSE;
++    for (slot = 0; slot < MAX_MON_MOVES; slot++)
++    {
++        if (sSourceFirstWildLease.moves[slot] != gBattleMons[battler].moves[slot] ||
++            sSourceFirstWildLease.pp[slot] != gBattleMons[battler].pp[slot])
++            return FALSE;
++    }
 +    return TRUE;
 +}
 +
@@ -80,8 +124,11 @@
      s32 i;
 +    u32 unusedReply = 0;
 +
++    /* Every new action request invalidates an unfinished previous proposal. */
++    sSourceFirstWildLease.armed = FALSE;
 +    if (SourceFirstWildSingleMove(battler, FALSE, &unusedReply))
 +    {
++        SourceFirstArmWildLease(battler);
 +        BtlController_EmitTwoReturnValues(battler, B_COMM_TO_ENGINE, B_ACTION_USE_MOVE, 0);
 +        BtlController_Complete(battler);
 +        return;
@@ -90,13 +137,14 @@
  
      gBattlerControllerFuncs[battler] = HandleChooseActionAfterDma3;
      BattleTv_ClearExplosionFaintCause();
-@@ -2291,6 +2371,15 @@
+@@ -2291,6 +2418,16 @@
  
  void PlayerHandleChooseMove(enum BattlerId battler)
  {
 +    u32 autoReply;
 +
-+    if (SourceFirstWildSingleMove(battler, TRUE, &autoReply))
++    if (SourceFirstConsumeWildLease(battler) &&
++        SourceFirstWildSingleMove(battler, TRUE, &autoReply))
 +    {
 +        BtlController_EmitTwoReturnValues(battler, B_COMM_TO_ENGINE, B_ACTION_EXEC_SCRIPT, autoReply);
 +        BtlController_Complete(battler);
