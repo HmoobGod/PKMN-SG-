@@ -52,6 +52,9 @@ jobs:
           grep -Fq 'if (verifyReply && slot != sSourceFirstWildLease.proposedSlot)' src/battle_controller_player.c
           grep -Fq 'gBattleMons[battler].status1 != sSourceFirstWildLease.status1' src/battle_controller_player.c
           grep -Fq 'sSourceFirstWildLease.proposedSlot = proposedSlot;' src/battle_controller_player.c
+          grep -Fq 'gBattleMons[battler].volatiles.encoreTimer != sSourceFirstWildLease.encoreTimer' src/battle_controller_player.c
+          grep -Fq 'sSourceFirstWildLease.innates[slot] != gBattleMons[battler].innates[slot]' src/battle_controller_player.c
+          grep -Fq 'if (verifyReply && (!SourceFirstWildSingleOwner(battler) ||' src/battle_controller_player.c
           grep -Fq 'unusable = verifyReply ? CheckMoveLimitations(battler, 0, MOVE_LIMITATIONS_ALL) : 0;' src/battle_controller_player.c
           grep -q 'B_ACTION_USE_MOVE, 0' src/battle_controller_player.c
           grep -q 'B_ACTION_EXEC_SCRIPT, autoReply' src/battle_controller_player.c

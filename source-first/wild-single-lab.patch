@@ -18,7 +18,7 @@
          if (gBattleResources->bufferA[battler][0] < ARRAY_COUNT(sPlayerBufferCommands))
              sPlayerBufferCommands[gBattleResources->bufferA[battler][0]](battler);
          else
-@@ -2191,9 +2198,175 @@
+@@ -2191,9 +2198,237 @@
      }
  }
  
@@ -76,6 +76,21 @@
 +    u16 species;
 +    u16 hp;
 +    u32 status1;
++    /* The original request can straddle volatile rule/held-item changes.
++     * Read them only; never try to repair opponent or player state. */
++    enum Ability ability;
++    enum Ability innates[MAX_MON_INNATES_INTERNAL];
++    enum Item items[MAX_MON_ITEMS_INTERNAL];
++    enum Item item;
++    enum Type types[3];
++    u32 tauntTimer;
++    u32 disableTimer;
++    u32 encoreTimer;
++    u32 tormentTimer;
++    u16 foeSpecies;
++    u16 foeHp;
++    u32 foeStatus1;
++    enum Ability foeAbility;
 +} sSourceFirstWildLease;
 +
 +static void SourceFirstInvalidateWildLease(void)
@@ -93,6 +108,22 @@
 +    sSourceFirstWildLease.species = gBattleMons[battler].species;
 +    sSourceFirstWildLease.hp = gBattleMons[battler].hp;
 +    sSourceFirstWildLease.status1 = gBattleMons[battler].status1;
++    sSourceFirstWildLease.ability = gBattleMons[battler].ability;
++    sSourceFirstWildLease.item = gBattleMons[battler].item;
++    sSourceFirstWildLease.tauntTimer = gBattleMons[battler].volatiles.tauntTimer;
++    sSourceFirstWildLease.disableTimer = gBattleMons[battler].volatiles.disableTimer;
++    sSourceFirstWildLease.encoreTimer = gBattleMons[battler].volatiles.encoreTimer;
++    sSourceFirstWildLease.tormentTimer = gBattleMons[battler].volatiles.tormentTimer;
++    sSourceFirstWildLease.foeSpecies = gBattleMons[sSourceFirstWildLease.foe].species;
++    sSourceFirstWildLease.foeHp = gBattleMons[sSourceFirstWildLease.foe].hp;
++    sSourceFirstWildLease.foeStatus1 = gBattleMons[sSourceFirstWildLease.foe].status1;
++    sSourceFirstWildLease.foeAbility = gBattleMons[sSourceFirstWildLease.foe].ability;
++    for (slot = 0; slot < MAX_MON_ITEMS_INTERNAL; slot++)
++        sSourceFirstWildLease.items[slot] = gBattleMons[battler].items[slot];
++    for (slot = 0; slot < MAX_MON_INNATES_INTERNAL; slot++)
++        sSourceFirstWildLease.innates[slot] = gBattleMons[battler].innates[slot];
++    for (slot = 0; slot < 3; slot++)
++        sSourceFirstWildLease.types[slot] = gBattleMons[battler].types[slot];
 +    for (slot = 0; slot < MAX_MON_MOVES; slot++)
 +    {
 +        sSourceFirstWildLease.moves[slot] = gBattleMons[battler].moves[slot];
@@ -115,8 +146,33 @@
 +        gBattleMons[battler].species != sSourceFirstWildLease.species ||
 +        gBattleMons[battler].hp != sSourceFirstWildLease.hp ||
 +        gBattleMons[battler].status1 != sSourceFirstWildLease.status1 ||
-+        GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT) != sSourceFirstWildLease.foe)
++        gBattleMons[battler].ability != sSourceFirstWildLease.ability ||
++        gBattleMons[battler].item != sSourceFirstWildLease.item ||
++        gBattleMons[battler].volatiles.tauntTimer != sSourceFirstWildLease.tauntTimer ||
++        gBattleMons[battler].volatiles.disableTimer != sSourceFirstWildLease.disableTimer ||
++        gBattleMons[battler].volatiles.encoreTimer != sSourceFirstWildLease.encoreTimer ||
++        gBattleMons[battler].volatiles.tormentTimer != sSourceFirstWildLease.tormentTimer ||
++        GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT) != sSourceFirstWildLease.foe ||
++        gBattleMons[sSourceFirstWildLease.foe].species != sSourceFirstWildLease.foeSpecies ||
++        gBattleMons[sSourceFirstWildLease.foe].hp != sSourceFirstWildLease.foeHp ||
++        gBattleMons[sSourceFirstWildLease.foe].status1 != sSourceFirstWildLease.foeStatus1 ||
++        gBattleMons[sSourceFirstWildLease.foe].ability != sSourceFirstWildLease.foeAbility)
 +        return FALSE;
++    for (slot = 0; slot < MAX_MON_ITEMS_INTERNAL; slot++)
++    {
++        if (sSourceFirstWildLease.items[slot] != gBattleMons[battler].items[slot])
++            return FALSE;
++    }
++    for (slot = 0; slot < MAX_MON_INNATES_INTERNAL; slot++)
++    {
++        if (sSourceFirstWildLease.innates[slot] != gBattleMons[battler].innates[slot])
++            return FALSE;
++    }
++    for (slot = 0; slot < 3; slot++)
++    {
++        if (sSourceFirstWildLease.types[slot] != gBattleMons[battler].types[slot])
++            return FALSE;
++    }
 +    for (slot = 0; slot < MAX_MON_MOVES; slot++)
 +    {
 +        if (sSourceFirstWildLease.moves[slot] != gBattleMons[battler].moves[slot] ||
@@ -149,6 +205,12 @@
 +    if (verifyReply)
 +        moveInfo = (struct ChooseMoveStruct *)&gBattleResources->bufferA[battler][4];
 +    unusable = verifyReply ? CheckMoveLimitations(battler, 0, MOVE_LIMITATIONS_ALL) : 0;
++    /* Restrictions may trigger engine side effects. Recheck ownership and
++     * command after that call, before producing any automatic reply. */
++    if (verifyReply && (!SourceFirstWildSingleOwner(battler) ||
++        gBattleResources == NULL ||
++        !(gBattleResources->bufferA[battler][0] == CONTROLLER_CHOOSEMOVE)))
++        return FALSE;
 +    for (slot = 0; slot < MAX_MON_MOVES; slot++)
 +    {
 +        enum Move move = gBattleMons[battler].moves[slot];
@@ -194,7 +256,7 @@
  
      gBattlerControllerFuncs[battler] = HandleChooseActionAfterDma3;
      BattleTv_ClearExplosionFaintCause();
-@@ -2291,6 +2464,16 @@
+@@ -2291,6 +2526,16 @@
  
  void PlayerHandleChooseMove(enum BattlerId battler)
  {
