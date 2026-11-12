@@ -106,19 +106,7 @@ jobs:
                   digest = hashlib.sha256(gba[offset:offset + size]).hexdigest()
                   print(f'{size}\t{offset:08x}\t{digest}')
           PYCODE
-          arm-none-eabi-nm -n Soulgold.elf | grep -E ' (PlayerBufferRunCommand|PlayerHandleChooseMove|BtlController_EmitTwoReturnValues|CheckMoveLimitations|PlayerHandleChooseAction|BattleAI_ChooseMoveIndex)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: soulgold-source-first-build-report
-          retention-days: 14
-          if-no-files-found: warn
-          path: |
-            source-first-build.log
-            source-first-identity-report.txt
-            source-first-region-hashes.tsv
-            source-first-controller-symbols.txt
- | tee ../source-first-controller-symbols.txt || true
+          arm-none-eabi-nm -n Soulgold.elf | grep -E ' (PlayerBufferRunCommand|PlayerHandleChooseMove|BtlController_EmitTwoReturnValues|CheckMoveLimitations|PlayerHandleChooseAction|BattleAI_ChooseMoveIndex)$' | tee ../source-first-controller-symbols.txt || true
 
       - name: Upload text logs and hashes only - NEVER game ROMs or saves
         if: always()
@@ -130,3 +118,5 @@ jobs:
           path: |
             source-first-build.log
             source-first-identity-report.txt
+            source-first-region-hashes.tsv
+            source-first-controller-symbols.txt
