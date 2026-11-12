@@ -18,7 +18,7 @@
          if (gBattleResources->bufferA[battler][0] < ARRAY_COUNT(sPlayerBufferCommands))
              sPlayerBufferCommands[gBattleResources->bufferA[battler][0]](battler);
          else
-@@ -2191,9 +2198,156 @@
+@@ -2191,9 +2198,175 @@
      }
  }
  
@@ -72,6 +72,10 @@
 +    u16 moves[MAX_MON_MOVES];
 +    u8 pp[MAX_MON_MOVES];
 +    u8 partyIndex;
++    u8 proposedSlot;
++    u16 species;
++    u16 hp;
++    u32 status1;
 +} sSourceFirstWildLease;
 +
 +static void SourceFirstInvalidateWildLease(void)
@@ -86,6 +90,9 @@
 +    sSourceFirstWildLease.owner = battler;
 +    sSourceFirstWildLease.foe = GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT);
 +    sSourceFirstWildLease.partyIndex = gBattlerPartyIndexes[battler];
++    sSourceFirstWildLease.species = gBattleMons[battler].species;
++    sSourceFirstWildLease.hp = gBattleMons[battler].hp;
++    sSourceFirstWildLease.status1 = gBattleMons[battler].status1;
 +    for (slot = 0; slot < MAX_MON_MOVES; slot++)
 +    {
 +        sSourceFirstWildLease.moves[slot] = gBattleMons[battler].moves[slot];
@@ -104,6 +111,10 @@
 +    if (!armed || battler != sSourceFirstWildLease.owner ||
 +        !SourceFirstWildSingleOwner(battler) ||
 +        gBattlerPartyIndexes[battler] != sSourceFirstWildLease.partyIndex ||
++        sSourceFirstWildLease.proposedSlot >= MAX_MON_MOVES ||
++        gBattleMons[battler].species != sSourceFirstWildLease.species ||
++        gBattleMons[battler].hp != sSourceFirstWildLease.hp ||
++        gBattleMons[battler].status1 != sSourceFirstWildLease.status1 ||
 +        GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT) != sSourceFirstWildLease.foe)
 +        return FALSE;
 +    for (slot = 0; slot < MAX_MON_MOVES; slot++)
@@ -142,6 +153,11 @@
 +    {
 +        enum Move move = gBattleMons[battler].moves[slot];
 +
++        /* Keep the one proposed slot for this two-stage request. If it
++         * becomes disabled/Choiced/Encored/Imprisoned or otherwise illegal,
++         * never silently switch the automatic move; fall back to manual. */
++        if (verifyReply && slot != sSourceFirstWildLease.proposedSlot)
++            continue;
 +        if ((unusable & (1u << slot)) || move == MOVE_NONE || gBattleMons[battler].pp[slot] == 0)
 +            continue;
 +        if (GetBattlerMoveTargetType(battler, move) != TARGET_SELECTED ||
@@ -152,6 +168,8 @@
 +            continue;
 +        if (verifyReply)
 +            *reply = slot | (foe << 8); // Normal, non-gimmick move+target reply.
++        else
++            *reply = slot; // Record proposal, without a preliminary move-limitations call.
 +        return TRUE;
 +    }
 +    return FALSE;
@@ -160,13 +178,14 @@
  static void PlayerHandleChooseAction(enum BattlerId battler)
  {
      s32 i;
-+    u32 unusedReply = 0;
++    u32 proposedSlot = MAX_MON_MOVES;
 +
 +    /* A new action request invalidates any unfinished old reply. */
 +    SourceFirstInvalidateWildLease();
-+    if (SourceFirstWildSingleMove(battler, FALSE, &unusedReply))
++    if (SourceFirstWildSingleMove(battler, FALSE, &proposedSlot) && proposedSlot < MAX_MON_MOVES)
 +    {
 +        SourceFirstArmWildLease(battler);
++        sSourceFirstWildLease.proposedSlot = proposedSlot;
 +        BtlController_EmitTwoReturnValues(battler, B_COMM_TO_ENGINE, B_ACTION_USE_MOVE, 0);
 +        BtlController_Complete(battler);
 +        return;
@@ -175,7 +194,7 @@
  
      gBattlerControllerFuncs[battler] = HandleChooseActionAfterDma3;
      BattleTv_ClearExplosionFaintCause();
-@@ -2291,6 +2445,16 @@
+@@ -2291,6 +2464,16 @@
  
  void PlayerHandleChooseMove(enum BattlerId battler)
  {
