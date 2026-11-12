@@ -1,0 +1,94 @@
+name: SoulGold LAB player-owned wild-single auto-move
+
+on:
+  push:
+    branches:
+      - source-first/rom-identity
+    paths:
+      - .github/workflows/source-first-wild-single-lab.yml
+      - source-first/wild-single-lab.patch
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compile-disposable-source-lab:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    env:
+      SOURCE_SHA: 3f4d90aa8f8bc50054c817d7bd59fcdfcfb4933d
+      GAME_VERSION: EMERALD
+      GAME_REVISION: "0"
+      GAME_LANGUAGE: ENGLISH
+      COMPARE: "0"
+      UNUSED_ERROR: "0"
+      DEPRECATED_ERROR: "0"
+    steps:
+      - name: Check out public source patch only
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Clone exact upstream source in disposable workspace
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout https://github.com/Eemeliri/soulgold.git upstream-source
+          git -C upstream-source fetch --depth=1 origin "$SOURCE_SHA"
+          git -C upstream-source checkout --detach "$SOURCE_SHA"
+          test "$(git -C upstream-source rev-parse HEAD)" = "$SOURCE_SHA"
+          echo "deb649e441dd28909ade7053119b4af29450c9686e43000f319149d44c43e594  upstream-source/src/battle_controller_player.c" | sha256sum --check
+
+      - name: Apply player-only guarded source patch and verify scope
+        run: |
+          set -euo pipefail
+          cd upstream-source
+          git apply --check ../source-first/wild-single-lab.patch
+          git apply ../source-first/wild-single-lab.patch
+          git diff --check
+          actual="$(git diff --name-only)"
+          test "$actual" = "src/battle_controller_player.c"
+          grep -q 'SourceFirstWildSingleOwner' src/battle_controller_player.c
+          grep -q 'CheckMoveLimitations(battler, 0, MOVE_LIMITATIONS_ALL)' src/battle_controller_player.c
+          grep -q 'B_ACTION_USE_MOVE, 0' src/battle_controller_player.c
+          grep -q 'B_ACTION_EXEC_SCRIPT, autoReply' src/battle_controller_player.c
+          sha256sum src/battle_controller_player.c
+
+      - name: Install GNU ARM build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            binutils-arm-none-eabi gcc-arm-none-eabi \
+            libnewlib-arm-none-eabi libpng-dev python3
+
+      - name: Compile disposable laboratory source
+        working-directory: upstream-source
+        shell: bash
+        run: |
+          set -o pipefail
+          make -j2 -O all 2>&1 | tee ../wild-single-lab-build.log
+
+      - name: Report lab ROM identity and native functions - metadata only
+        working-directory: upstream-source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s Soulgold.gba
+          test -s Soulgold.elf
+          {
+            echo "STATUS: laboratory source compilation succeeded; NOT a playable or save-compatibility certification"
+            echo "Source baseline: $SOURCE_SHA"
+            echo "LAB ROM SHA256: $(sha256sum Soulgold.gba | cut -d' ' -f1)"
+            echo "LAB ROM size: $(stat -c %s Soulgold.gba)"
+            echo "Relevant native controller/chooser symbols:"
+            arm-none-eabi-nm -n Soulgold.elf | grep -E ' (PlayerBufferRunCommand|PlayerHandleChooseMove|SourceFirstWildSingleOwner|SourceFirstWildSingleMove)$' || true
+          } | tee ../wild-single-lab-report.txt
+
+      - name: Publish text evidence only - no ROM or save
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: soulgold-wild-single-source-lab-evidence
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            wild-single-lab-build.log
+            wild-single-lab-report.txt
