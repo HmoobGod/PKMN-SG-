@@ -47,7 +47,11 @@ def audit(r):
     require(first["flags"]==4 and first["battlers"]==2,"not a witnessed wild-single start")
     require(all(row["flags"] in (0,4) and row["battlers"] in (0,2) for row in rows),
             "unexpected battle engine state transition")
-    quiet=sum(1 for x in reversed(rows) if x["events"]==0 and x["auto"]==0)
+    quiet=0
+    for x in reversed(rows):
+        if x["events"]!=0 or x["auto"]!=0:
+            break
+        quiet+=1
     require(quiet>=3,"insufficient no-event tail; cannot assess")
     unresolved=(last["flags"]==4 and last["battlers"]==2 and last["pending"]==0)
     # A cleared flag alone still does NOT show a trusted original battle
