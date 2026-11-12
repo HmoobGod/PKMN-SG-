@@ -1,6 +1,6 @@
 --- a/src/battle_controller_player.c
 +++ b/src/battle_controller_player.c
-@@ -2191,9 +2191,136 @@
+@@ -2191,9 +2191,139 @@
      }
  }
  
@@ -18,6 +18,9 @@
 +    if (gBattlersCount != 2 || battler != 0 || battler >= gBattlersCount)
 +        return FALSE;
 +    if (gBattlerBattleController[battler] != BATTLE_CONTROLLER_PLAYER)
++        return FALSE;
++    /* Only answer the original engine's currently active player request. */
++    if (!IsBattleControllerActiveOnLocal(battler))
 +        return FALSE;
 +    if (GetBattlerPosition(battler) != B_POSITION_PLAYER_LEFT)
 +        return FALSE;
@@ -137,7 +140,7 @@
  
      gBattlerControllerFuncs[battler] = HandleChooseActionAfterDma3;
      BattleTv_ClearExplosionFaintCause();
-@@ -2291,6 +2418,16 @@
+@@ -2291,6 +2421,16 @@
  
  void PlayerHandleChooseMove(enum BattlerId battler)
  {
