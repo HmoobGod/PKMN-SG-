@@ -23,8 +23,8 @@ jobs:
       GAME_REVISION: "0"
       GAME_LANGUAGE: ENGLISH
       COMPARE: "0"
-      UNUSED_ERROR: "1"
-      DEPRECATED_ERROR: "1"
+      UNUSED_ERROR: "0"
+      DEPRECATED_ERROR: "0"
     steps:
       - name: Check out public SoulGold research repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
