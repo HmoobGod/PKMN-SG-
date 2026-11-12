@@ -1,6 +1,6 @@
 --- a/src/battle_controller_player.c
 +++ b/src/battle_controller_player.c
-@@ -2191,9 +2191,143 @@
+@@ -2191,9 +2191,147 @@
      }
  }
  
@@ -18,6 +18,10 @@
 +    /* Terminal outcome cancels all automatic player actions, even if the
 +     * old controller's actor/pending bits have not yet been torn down. */
 +    if (gBattleOutcome != 0)
++        return FALSE;
++    /* An original field-return CPU trace proves old battle flags can stay 4
++     * after Main exits battle. Deny stale player auto replies in that state. */
++    if (!gMain.inBattle)
 +        return FALSE;
 +    if (gBattlersCount != 2 || battler != 0 || battler >= gBattlersCount)
 +        return FALSE;
@@ -144,7 +148,7 @@
  
      gBattlerControllerFuncs[battler] = HandleChooseActionAfterDma3;
      BattleTv_ClearExplosionFaintCause();
-@@ -2291,6 +2425,16 @@
+@@ -2291,6 +2429,16 @@
  
  void PlayerHandleChooseMove(enum BattlerId battler)
  {
