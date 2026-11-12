@@ -1,6 +1,6 @@
 --- a/src/battle_controller_player.c
 +++ b/src/battle_controller_player.c
-@@ -2191,9 +2191,80 @@
+@@ -2191,9 +2191,89 @@
      }
  }
  
@@ -13,9 +13,9 @@
 +    /* BATTLE_TYPE_IS_MASTER is set in normal non-link battles. Reject all
 +     * other battle modes, including trainers, doubles, Palace, partners,
 +     * safari, link, roaming, special/legendary and recorded encounters. */
-+    if (gBattleTypeFlags & ~BATTLE_TYPE_IS_MASTER)
++    if (gBattleTypeFlags != BATTLE_TYPE_IS_MASTER)
 +        return FALSE;
-+    if (gBattlersCount != 2 || battler >= gBattlersCount)
++    if (gBattlersCount != 2 || battler != 0 || battler >= gBattlersCount)
 +        return FALSE;
 +    if (gBattlerBattleController[battler] != BATTLE_CONTROLLER_PLAYER)
 +        return FALSE;
@@ -23,7 +23,8 @@
 +        return FALSE;
 +
 +    foe = GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT);
-+    if (foe >= gBattlersCount || foe == battler)
++    if (foe >= gBattlersCount || foe == battler ||
++        GetBattlerPosition(foe) != B_POSITION_OPPONENT_LEFT || IsBattlerAlly(battler, foe))
 +        return FALSE;
 +    if (gAbsentBattlerFlags & ((1u << battler) | (1u << foe)))
 +        return FALSE;
@@ -45,6 +46,12 @@
 +    if (!SourceFirstWildSingleOwner(battler))
 +        return FALSE;
 +
++    /* The original command byte is a required, read-only request witness. */
++    if (gBattleResources == NULL ||
++        gBattleResources->bufferA[battler][0] !=
++        (verifyReply ? CONTROLLER_CHOOSEMOVE : CONTROLLER_CHOOSEACTION))
++        return FALSE;
++
 +    foe = GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT);
 +    if (verifyReply)
 +        moveInfo = (struct ChooseMoveStruct *)&gBattleResources->bufferA[battler][4];
@@ -55,9 +62,11 @@
 +
 +        if ((unusable & (1u << slot)) || move == MOVE_NONE || gBattleMons[battler].pp[slot] == 0)
 +            continue;
-+        if (GetBattlerMoveTargetType(battler, move) != TARGET_SELECTED)
++        if (GetBattlerMoveTargetType(battler, move) != TARGET_SELECTED ||
++            !CanTargetBattler(battler, foe, move))
 +            continue;
-+        if (verifyReply && (moveInfo->moves[slot] != move || moveInfo->currentPp[slot] == 0))
++        if (verifyReply && (moveInfo->moves[slot] != move ||
++                           moveInfo->currentPp[slot] != gBattleMons[battler].pp[slot]))
 +            continue;
 +        if (verifyReply)
 +            *reply = slot | (foe << 8); // Normal, non-gimmick move+target reply.
@@ -81,7 +90,7 @@
  
      gBattlerControllerFuncs[battler] = HandleChooseActionAfterDma3;
      BattleTv_ClearExplosionFaintCause();
-@@ -2291,6 +2362,15 @@
+@@ -2291,6 +2371,15 @@
  
  void PlayerHandleChooseMove(enum BattlerId battler)
  {
