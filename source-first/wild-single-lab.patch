@@ -1,0 +1,99 @@
+--- a/src/battle_controller_player.c
++++ b/src/battle_controller_player.c
+@@ -2191,9 +2191,80 @@
+     }
+ }
+ 
++/* SOURCE-FIRST LAB ONLY: this code is applied to a disposable upstream checkout.
++ * It is not installed in the protected Current ROM or existing save. */
++static bool32 SourceFirstWildSingleOwner(enum BattlerId battler)
++{
++    enum BattlerId foe;
++
++    /* BATTLE_TYPE_IS_MASTER is set in normal non-link battles. Reject all
++     * other battle modes, including trainers, doubles, Palace, partners,
++     * safari, link, roaming, special/legendary and recorded encounters. */
++    if (gBattleTypeFlags & ~BATTLE_TYPE_IS_MASTER)
++        return FALSE;
++    if (gBattlersCount != 2 || battler >= gBattlersCount)
++        return FALSE;
++    if (gBattlerBattleController[battler] != BATTLE_CONTROLLER_PLAYER)
++        return FALSE;
++    if (GetBattlerPosition(battler) != B_POSITION_PLAYER_LEFT)
++        return FALSE;
++
++    foe = GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT);
++    if (foe >= gBattlersCount || foe == battler)
++        return FALSE;
++    if (gAbsentBattlerFlags & ((1u << battler) | (1u << foe)))
++        return FALSE;
++    if (!IsBattlerAlive(battler) || !IsBattlerAlive(foe))
++        return FALSE;
++    return TRUE;
++}
++
++/* Conservative baseline selector, not Smart AI scoring. No enemy AI state,
++ * battle RNG, bag, capture, partner or target reassignment is touched.
++ * Zero eligible moves => NO auto reply; engine's normal input path remains. */
++static bool32 SourceFirstWildSingleMove(enum BattlerId battler, bool32 verifyReply, u32 *reply)
++{
++    u32 unusable;
++    u32 slot;
++    enum BattlerId foe;
++    struct ChooseMoveStruct *moveInfo = NULL;
++
++    if (!SourceFirstWildSingleOwner(battler))
++        return FALSE;
++
++    foe = GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT);
++    if (verifyReply)
++        moveInfo = (struct ChooseMoveStruct *)&gBattleResources->bufferA[battler][4];
++    unusable = CheckMoveLimitations(battler, 0, MOVE_LIMITATIONS_ALL);
++    for (slot = 0; slot < MAX_MON_MOVES; slot++)
++    {
++        enum Move move = gBattleMons[battler].moves[slot];
++
++        if ((unusable & (1u << slot)) || move == MOVE_NONE || gBattleMons[battler].pp[slot] == 0)
++            continue;
++        if (GetBattlerMoveTargetType(battler, move) != TARGET_SELECTED)
++            continue;
++        if (verifyReply && (moveInfo->moves[slot] != move || moveInfo->currentPp[slot] == 0))
++            continue;
++        if (verifyReply)
++            *reply = slot | (foe << 8); // Normal, non-gimmick move+target reply.
++        return TRUE;
++    }
++    return FALSE;
++}
++
+ static void PlayerHandleChooseAction(enum BattlerId battler)
+ {
+     s32 i;
++    u32 unusedReply = 0;
++
++    if (SourceFirstWildSingleMove(battler, FALSE, &unusedReply))
++    {
++        BtlController_EmitTwoReturnValues(battler, B_COMM_TO_ENGINE, B_ACTION_USE_MOVE, 0);
++        BtlController_Complete(battler);
++        return;
++    }
++
+ 
+     gBattlerControllerFuncs[battler] = HandleChooseActionAfterDma3;
+     BattleTv_ClearExplosionFaintCause();
+@@ -2291,6 +2362,15 @@
+ 
+ void PlayerHandleChooseMove(enum BattlerId battler)
+ {
++    u32 autoReply;
++
++    if (SourceFirstWildSingleMove(battler, TRUE, &autoReply))
++    {
++        BtlController_EmitTwoReturnValues(battler, B_COMM_TO_ENGINE, B_ACTION_EXEC_SCRIPT, autoReply);
++        BtlController_Complete(battler);
++        return;
++    }
++
+     if (gBattleTypeFlags & BATTLE_TYPE_PALACE)
+     {
+         gBattleStruct->arenaMindPoints[battler] = 8;
