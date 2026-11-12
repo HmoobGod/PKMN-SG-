@@ -18,7 +18,7 @@
          if (gBattleResources->bufferA[battler][0] < ARRAY_COUNT(sPlayerBufferCommands))
              sPlayerBufferCommands[gBattleResources->bufferA[battler][0]](battler);
          else
-@@ -2191,9 +2198,237 @@
+@@ -2191,9 +2198,254 @@
      }
  }
  
@@ -76,6 +76,11 @@
 +    u16 species;
 +    u16 hp;
 +    u32 status1;
++    /* Read the original engine's turn; an abandoned two-stage request must
++     * never be reused after the turn changes. This is not an engine epoch. */
++    u16 turnCounter;
++    u8 foePartyIndex;
++    enum Type foeTypes[3];
 +    /* The original request can straddle volatile rule/held-item changes.
 +     * Read them only; never try to repair opponent or player state. */
 +    enum Ability ability;
@@ -108,6 +113,8 @@
 +    sSourceFirstWildLease.species = gBattleMons[battler].species;
 +    sSourceFirstWildLease.hp = gBattleMons[battler].hp;
 +    sSourceFirstWildLease.status1 = gBattleMons[battler].status1;
++    sSourceFirstWildLease.turnCounter = gBattleTurnCounter;
++    sSourceFirstWildLease.foePartyIndex = gBattlerPartyIndexes[sSourceFirstWildLease.foe];
 +    sSourceFirstWildLease.ability = gBattleMons[battler].ability;
 +    sSourceFirstWildLease.item = gBattleMons[battler].item;
 +    sSourceFirstWildLease.tauntTimer = gBattleMons[battler].volatiles.tauntTimer;
@@ -123,7 +130,10 @@
 +    for (slot = 0; slot < MAX_MON_INNATES_INTERNAL; slot++)
 +        sSourceFirstWildLease.innates[slot] = gBattleMons[battler].innates[slot];
 +    for (slot = 0; slot < 3; slot++)
++    {
 +        sSourceFirstWildLease.types[slot] = gBattleMons[battler].types[slot];
++        sSourceFirstWildLease.foeTypes[slot] = gBattleMons[sSourceFirstWildLease.foe].types[slot];
++    }
 +    for (slot = 0; slot < MAX_MON_MOVES; slot++)
 +    {
 +        sSourceFirstWildLease.moves[slot] = gBattleMons[battler].moves[slot];
@@ -146,6 +156,8 @@
 +        gBattleMons[battler].species != sSourceFirstWildLease.species ||
 +        gBattleMons[battler].hp != sSourceFirstWildLease.hp ||
 +        gBattleMons[battler].status1 != sSourceFirstWildLease.status1 ||
++        gBattleTurnCounter != sSourceFirstWildLease.turnCounter ||
++        gBattlerPartyIndexes[sSourceFirstWildLease.foe] != sSourceFirstWildLease.foePartyIndex ||
 +        gBattleMons[battler].ability != sSourceFirstWildLease.ability ||
 +        gBattleMons[battler].item != sSourceFirstWildLease.item ||
 +        gBattleMons[battler].volatiles.tauntTimer != sSourceFirstWildLease.tauntTimer ||
@@ -170,7 +182,8 @@
 +    }
 +    for (slot = 0; slot < 3; slot++)
 +    {
-+        if (sSourceFirstWildLease.types[slot] != gBattleMons[battler].types[slot])
++        if (sSourceFirstWildLease.types[slot] != gBattleMons[battler].types[slot] ||
++            sSourceFirstWildLease.foeTypes[slot] != gBattleMons[sSourceFirstWildLease.foe].types[slot])
 +            return FALSE;
 +    }
 +    for (slot = 0; slot < MAX_MON_MOVES; slot++)
@@ -208,6 +221,7 @@
 +    /* Restrictions may trigger engine side effects. Recheck ownership and
 +     * command after that call, before producing any automatic reply. */
 +    if (verifyReply && (!SourceFirstWildSingleOwner(battler) ||
++        gBattleTurnCounter != sSourceFirstWildLease.turnCounter ||
 +        gBattleResources == NULL ||
 +        !(gBattleResources->bufferA[battler][0] == CONTROLLER_CHOOSEMOVE)))
 +        return FALSE;
@@ -220,7 +234,10 @@
 +         * never silently switch the automatic move; fall back to manual. */
 +        if (verifyReply && slot != sSourceFirstWildLease.proposedSlot)
 +            continue;
-+        if ((unusable & (1u << slot)) || move == MOVE_NONE || gBattleMons[battler].pp[slot] == 0)
++        /* Engine-required Struggle is a distinct unapproved path. Do not
++         * proactively select it, even if a custom moveset exposes it. */
++        if ((unusable & (1u << slot)) || move == MOVE_NONE || move == MOVE_STRUGGLE ||
++            gBattleMons[battler].pp[slot] == 0)
 +            continue;
 +        if (GetBattlerMoveTargetType(battler, move) != TARGET_SELECTED ||
 +            !CanTargetBattler(battler, foe, move))
@@ -256,7 +273,7 @@
  
      gBattlerControllerFuncs[battler] = HandleChooseActionAfterDma3;
      BattleTv_ClearExplosionFaintCause();
-@@ -2291,6 +2526,16 @@
+@@ -2291,6 +2543,16 @@
  
  void PlayerHandleChooseMove(enum BattlerId battler)
  {
