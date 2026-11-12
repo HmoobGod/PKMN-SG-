@@ -47,7 +47,7 @@ jobs:
           actual="$(git diff --name-only)"
           test "$actual" = "src/battle_controller_player.c"
           grep -q 'SourceFirstWildSingleOwner' src/battle_controller_player.c
-          grep -q 'CheckMoveLimitations(battler, 0, MOVE_LIMITATIONS_ALL)' src/battle_controller_player.c
+          grep -Fq 'unusable = verifyReply ? CheckMoveLimitations(battler, 0, MOVE_LIMITATIONS_ALL) : 0;' src/battle_controller_player.c
           grep -q 'B_ACTION_USE_MOVE, 0' src/battle_controller_player.c
           grep -q 'B_ACTION_EXEC_SCRIPT, autoReply' src/battle_controller_player.c
           sha256sum src/battle_controller_player.c
