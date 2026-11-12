@@ -26,10 +26,11 @@ class FakeGDB:
                  trunc=None, exit_stop=False, cleanup_fail=False, on_resume=None,
                  epilogue_dest=m.DST_PLAYER0, interrupt_responds=True,
                  stale_after_stop=False, keyboard_interrupt_once=False,
-                 install_fail=False, pp_wrong_address=False):
+                 install_fail=False, pp_wrong_address=False, pp_r0=0,
+                 step_pc_delta=2, double_interrupt_stop=False, rle_g=False):
         self.buf = bytearray()
         self.commands = []
-        self.stop_pcs = list(stop_pcs or [m.COPY_ENTRY, m.COPY_DONE, m.PP_WRITER, m.MAIN_CLEAR])
+        self.stop_pcs = list(stop_pcs or [m.COPY_ENTRY, m.COPY_POST_A, m.PP_WRITER, m.MAIN_CLEAR])
         self.bias = bias
         self.hang = hang
         self.corrupted = corrupted
@@ -43,6 +44,10 @@ class FakeGDB:
         self.keyboard_interrupt_once = keyboard_interrupt_once
         self.install_fail = install_fail
         self.pp_wrong_address = pp_wrong_address
+        self.pp_r0 = pp_r0
+        self.step_pc_delta = step_pc_delta
+        self.double_interrupt_stop = double_interrupt_stop
+        self.rle_g = rle_g
         self.n = 0
         self.stepped = False
         self.interrupts = 0
@@ -60,6 +65,8 @@ class FakeGDB:
             self.interrupts += 1
             if self.interrupt_responds:
                 self.buf.extend(packet(b'S02'))
+                if self.double_interrupt_stop:
+                    self.buf.extend(packet(b'T05thread:1;'))
             return
         assert data.startswith(b'$') and b'#' in data
         request, crc = data[1:].rsplit(b'#', 1)
@@ -87,15 +94,18 @@ class FakeGDB:
             original_pc = self.stop_pcs[min(max(self.n-1,0), len(self.stop_pcs)-1)]
             observed_bias = 4 if self.drift_bias and self.n == 2 else self.bias
             if self.stepped:
-                response = registers(original_pc+observed_bias+2, r1=m.PP_BASE, r6=19)
-            elif original_pc == m.COPY_DONE:
+                response = registers(original_pc+observed_bias+self.step_pc_delta, r1=m.PP_BASE, r6=19)
+            elif original_pc == m.COPY_POST_A:
                 response = registers(original_pc+observed_bias, r0=self.epilogue_dest,
                                      r1=6, r2=6, r4=m.SRC_BASE)
             elif original_pc == m.PP_WRITER:
                 response = registers(original_pc+observed_bias,
+                                     r0=self.pp_r0,
                                      r1=0x03000100 if self.pp_wrong_address else m.PP_BASE, r6=19)
             else:
                 response = registers(original_pc+observed_bias)
+            if self.rle_g:
+                response = b'00*xxx'
         elif cmd.startswith('m'):
             address, size = cmd[1:].split(',')
             address, size = int(address,16), int(size,16)
@@ -233,6 +243,8 @@ class CaptureTests(unittest.TestCase):
         self.assertTrue(report['input_files_unchanged'])
         self.assertTrue(report['events'][1]['destination_is_player0_buffer'])
         self.assertTrue(report['events'][1]['six_byte_pair_equal'])
+        self.assertTrue(report['events'][1]['post_a_loop_candidate_reached'])
+        self.assertEqual(report['events'][1]['copy_index_r1'],6)
         self.assertTrue(report['events'][2]['pp_decrement_observed'])
         self.assertTrue(report['events'][2]['pp_store_value_matches_r6'])
         self.assertEqual(report['events'][3]['main_byte_before_only'],2)
@@ -242,6 +254,8 @@ class CaptureTests(unittest.TestCase):
         self.assertEqual(file.stat().st_mode & 0o777,0o600)
         self.assertFalse(report['emulator_loaded_rom_verified'])
         self.assertEqual(report['host_input_during_battle'],'NOT_EXCLUDED')
+        self.assertEqual(report['raw_wire_trace']['format'],'ordered_raw_rsp_hex_v1')
+        self.assertFalse(report['raw_wire_trace']['truncated'])
         with patch.object(m,'EXACT_ROM',self.rom_sha),patch.object(m,'EXACT_SAVE',self.save_sha):
             with self.assertRaisesRegex(ValueError,'output exists'):
                 m.run_capture(self.rom,self.save,file,2345,max_stops=2)
@@ -250,7 +264,36 @@ class CaptureTests(unittest.TestCase):
         report,*_ = self.run_fake(FakeGDB(epilogue_dest=m.DST_OTHER),max_stops=2)
         self.assertFalse(report['events'][1]['destination_is_player0_buffer'])
         self.assertTrue(report['events'][1]['destination_is_other_buffer'])
-        self.assertEqual(report['events'][1]['epilogue_r0_candidate_destination'],f'0x{m.DST_OTHER:08x}')
+        self.assertEqual(report['events'][1]['post_a_loop_r0_destination_candidate'],f'0x{m.DST_OTHER:08x}')
+        self.assertFalse(report['events'][1]['actor0_marker_only'])
+
+    def test_source_self_comparison_never_counts_as_equal(self):
+        report,*_ = self.run_fake(FakeGDB(epilogue_dest=m.SRC_BASE),max_stops=2)
+        post = report['events'][1]
+        self.assertIsNone(post['six_byte_pair_equal'])
+        self.assertIn('self-comparison',post['destination_unreadable'])
+        self.assertFalse(post['destination_is_player0_buffer'])
+
+    def test_unknown_destination_explicitly_unreadable(self):
+        report,*_ = self.run_fake(FakeGDB(epilogue_dest=0x0203F000),max_stops=2)
+        post = report['events'][1]
+        self.assertIsNone(post['six_byte_pair_equal'])
+        self.assertIn('independently pinned',post['destination_unreadable'])
+        self.assertIsNone(report['failure'])  # Research note, not a certified copy.
+
+    def test_shared_epilogue_is_not_a_completed_copy(self):
+        stub=FakeGDB(stop_pcs=[m.COPY_ENTRY,m.COPY_SHARED_EPILOGUE])
+        report,*_=self.run_fake(stub,max_stops=2)
+        event=report['events'][1]
+        self.assertTrue(event['shared_epilogue_reached'])
+        self.assertFalse(event['copy_completion_proven_here'])
+        self.assertNotIn('six_byte_pair_equal',event)
+
+    def test_post_a_loop_without_entry_is_unusable(self):
+        stub=FakeGDB(stop_pcs=[m.COPY_POST_A])
+        report,*_=self.run_fake(stub,max_stops=1)
+        self.assertIn('no immediately paired',report['events'][0]['copy_observation_unusable'])
+        self.assertNotIn('six_byte_pair_equal',report['events'][0])
 
     def test_bias_consistent_plus_two(self):
         report,*_ = self.run_fake(FakeGDB(bias=2),max_stops=4)
@@ -308,6 +351,50 @@ class CaptureTests(unittest.TestCase):
         self.assertNotIn('pp_before',report['events'][2])
         self.assertNotIn('s',stub.commands)
         self.assertEqual(report['events'][2]['pp_register_r1_address'],'0x03000100')
+
+    def test_pp_r0_is_not_used_as_actor_authority(self):
+        stub=FakeGDB(pp_r0=1234)
+        report,*_=self.run_fake(stub,max_stops=3)
+        e=report['events'][2]
+        self.assertEqual(e['pp_register_r0_unverified'],1234)
+        self.assertEqual(e['pp_before'],20)
+        self.assertTrue(e['pp_decrement_observed'])
+        self.assertIn('s',stub.commands)
+
+    def test_failed_pp_step_keeps_before_and_failure(self):
+        stub=FakeGDB(step_pc_delta=4)
+        report,*_=self.run_fake(stub,max_stops=3)
+        e=report['events'][2]
+        self.assertEqual(report['marker_stop_count'],3)
+        self.assertEqual(e['pp_before'],20)
+        self.assertIn('did not advance',e['pp_step_error'])
+        self.assertNotIn('pp_after',e)
+        self.assertIn('did not advance',report['failure'])
+
+    def test_probe_corrupted_g_preserves_private_wire(self):
+        report,*_=self.run_fake(FakeGDB(corrupted='g'),probe_only=True)
+        self.assertIn('checksum',report['failure'])
+        wire=report['raw_wire_trace']
+        rx=b''.join(bytes.fromhex(e['hex']) for e in wire['events'] if e['direction']=='rx')
+        self.assertIn(b'$' + registers(m.COPY_ENTRY),rx)
+        self.assertIn(b'#00',rx)
+        self.assertTrue(report['probe_only'])
+        self.assertIn('stop_raw_ascii',report['probe_transcript'])
+
+    def test_probe_unsupported_rle_keeps_raw_response(self):
+        report,*_=self.run_fake(FakeGDB(rle_g=True),probe_only=True)
+        self.assertIn('unsupported',report['failure'])
+        rx=b''.join(bytes.fromhex(e['hex']) for e in report['raw_wire_trace']['events'] if e['direction']=='rx')
+        self.assertIn(b'00*xxx',rx)
+        self.assertTrue(report['raw_wire_trace']['recorded_bytes']>0)
+
+    def test_interrupt_double_stop_drained_before_cleanup(self):
+        remote=FakeGDB(hang=True,double_interrupt_stop=True)
+        report,*_=self.run_fake(remote,max_stops=2,timeout=0.003,deadline_seconds=0.015)
+        self.assertTrue(report['deadline_reached'])
+        self.assertEqual(report['leftover_breakpoints'],[])
+        self.assertEqual(report['raw_wire_trace']['interrupt_drain_stops'],['T05thread:1;'])
+        self.assertFalse(any('did not ACK' in msg for msg in report['cleanup_errors']))
 
     def test_breakpoint_removal_failure_is_visible(self):
         stub=FakeGDB(cleanup_fail=True)

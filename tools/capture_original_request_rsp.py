@@ -18,10 +18,13 @@ from pathlib import Path
 
 EXACT_ROM = '4b2585e10265805da12016819c880a4acd50eda2aa24ce977d1dbcc705d3ee44'
 EXACT_SAVE = '8c6cb520de6dc475e5fde31cb78ddd49ceb6add89f5c208598977886fa5579a4'
-PCS = (0x0806BD80, 0x0806B370, 0x0806B3A6, 0x0806261C,
+PCS = (0x0806BD80, 0x0806B370, 0x0806B3C6, 0x0806B3A6, 0x0806261C,
        0x08094330, 0x0809435C, 0x08094374, 0x08094380,
        0x0809E6BA, 0x0808E336)
-COPY_ENTRY, COPY_DONE, PP_WRITER, MAIN_CLEAR = 0x0806B370, 0x0806B3A6, 0x0809E6BA, 0x0808E336
+COPY_ENTRY, COPY_POST_A, COPY_SHARED_EPILOGUE = 0x0806B370, 0x0806B3C6, 0x0806B3A6
+# Compatibility name for archived research only: this PC is NOT copy completion.
+COPY_DONE = COPY_SHARED_EPILOGUE
+PP_WRITER, MAIN_CLEAR = 0x0809E6BA, 0x0808E336
 SRC_BASE, DST_PLAYER0, DST_OTHER = 0x0201CF94, 0x0201C794, 0x0201C994
 PP_BASE, MAIN_BYTE = 0x02001EF1, 0x03005A0D
 # ONLY independently observed original memory locations. A valid EWRAM pointer
@@ -30,6 +33,8 @@ READ_WINDOWS = ((SRC_BASE, SRC_BASE+6), (DST_PLAYER0, DST_PLAYER0+6),
                 (DST_OTHER, DST_OTHER+6), (PP_BASE, PP_BASE+4),
                 (MAIN_BYTE, MAIN_BYTE+1))
 MAX_PACKET = 65536
+MAX_WIRE_BYTES = 524288  # Bounded, private, raw sent/received RSP transcript.
+MAX_WIRE_EVENTS = 8192
 HEX = re.compile(rb'[0-9a-fA-F]*\Z')
 
 
@@ -67,9 +72,52 @@ class RSP:
         self.sock = sock
         self.running = False
         self._pp_step_armed = False
+        self._wire_events = []
+        self._wire_bytes = 0
+        self._wire_omitted_bytes = 0
+        self._wire_event_overflow = False
+        self.drained_interrupt_stops = []
+
+    def _log_wire(self, direction, data):
+        """Preserve actual raw bytes without relying on successful decoding.
+
+        Each wire direction change creates a new entry, so packet failures retain
+        the raw framing and ordering. Both entry count and bytes are capped.
+        """
+        if not data:
+            return
+        remaining = MAX_WIRE_BYTES-self._wire_bytes
+        taken = data[:max(0, remaining)]
+        self._wire_omitted_bytes += len(data)-len(taken)
+        if not taken:
+            return
+        if self._wire_events and self._wire_events[-1]['direction'] == direction:
+            self._wire_events[-1]['data'].extend(taken)
+        elif len(self._wire_events) < MAX_WIRE_EVENTS:
+            self._wire_events.append({'direction': direction, 'data': bytearray(taken)})
+        else:
+            self._wire_event_overflow = True
+            self._wire_omitted_bytes += len(taken)
+            return
+        self._wire_bytes += len(taken)
+
+    def wire_trace(self):
+        return {'format': 'ordered_raw_rsp_hex_v1',
+                'events': [{'direction': x['direction'], 'hex': x['data'].hex()}
+                           for x in self._wire_events],
+                'recorded_bytes': self._wire_bytes,
+                'omitted_bytes': self._wire_omitted_bytes,
+                'truncated': bool(self._wire_omitted_bytes or self._wire_event_overflow),
+                'interrupt_drain_stops': list(self.drained_interrupt_stops)}
+
+    def _send_bytes(self, data):
+        # "tx" means attempted send; it is not proof the stub received it.
+        self._log_wire('tx', data)
+        self.sock.sendall(data)
 
     def _byte(self):
         b = self.sock.recv(1)
+        self._log_wire('rx', b)
         if not b:
             raise ConnectionError('GDB disconnected')
         return b
@@ -107,7 +155,7 @@ class RSP:
         else:
             self._pp_step_armed = False  # no deferred stepping after intervening commands
         data = command.encode('ascii')
-        self.sock.sendall(b'$' + data + b'#%02x' % (sum(data) & 255))
+        self._send_bytes(b'$' + data + b'#%02x' % (sum(data) & 255))
         require(self._byte() == b'+', 'GDB did not ACK request')
 
     def receive(self):
@@ -121,24 +169,35 @@ class RSP:
         else:
             raise ValueError('missing GDB response frame')
         payload = bytearray()
+        unsupported_encoding = False
+        escaped_next = False
         try:
             while True:
                 b = self._byte()
-                if b == b'#':
+                if b == b'#' and not escaped_next:
                     break
-                require(len(payload) < MAX_PACKET and b != b'$',
+                require(len(payload) < MAX_PACKET and (b != b'$' or escaped_next),
                         'oversize or nested GDB packet')
-                # Unsupported RSP escape or RLE must fail closed, not misdecode.
-                require(b not in (b'}', b'*'), 'unsupported GDB escaped/RLE payload')
+                # Read the *entire wire frame* before rejecting unsupported
+                # encodings, so even a surprising first real mGBA response is
+                # retained privately. An escaped '#' is not a frame trailer.
+                if escaped_next:
+                    escaped_next = False
+                elif b == b'}':
+                    unsupported_encoding = True
+                    escaped_next = True
+                elif b == b'*':
+                    unsupported_encoding = True
                 payload.extend(b)
             trailer = self._byte()+self._byte()
         except socket.timeout as error:
             raise ValueError('timeout inside GDB response frame') from error
         require(re.fullmatch(rb'[0-9a-fA-F]{2}', trailer), 'invalid GDB checksum text')
+        require(not unsupported_encoding, 'unsupported GDB escaped/RLE payload')
         if sum(payload) & 255 != int(trailer, 16):
-            self.sock.sendall(b'-')
+            self._send_bytes(b'-')
             raise ValueError('GDB packet checksum mismatch')
-        self.sock.sendall(b'+')
+        self._send_bytes(b'+')
         return bytes(payload)
 
     def send(self, command):
@@ -178,12 +237,13 @@ class RSP:
                 return stop, False
             # Overall deadline: interrupt and drain before removing any BP.
             return self.interrupt_stop(max_wait=min(3.0, per_receive_timeout)), True
-        except BaseException:
-            raise
+        finally:
+            # A near-deadline short read must not poison subsequent g/m/s.
+            self.sock.settimeout(per_receive_timeout)
 
     def interrupt_stop(self, max_wait=2.0):
         require(self.running, 'interrupt reserved for running target')
-        self.sock.sendall(b'\x03')  # GDB out-of-band interrupt; no guest write
+        self._send_bytes(b'\x03')  # GDB out-of-band interrupt; no guest write
         deadline = time.monotonic()+max_wait
         while time.monotonic() < deadline:
             self.sock.settimeout(max(0.001, min(0.2, deadline-time.monotonic())))
@@ -192,8 +252,29 @@ class RSP:
             except socket.timeout:
                 continue
             self.running = False
+            self._drain_interrupt_stops()
             return stop
         raise TimeoutError('GDB interrupt stop not received; breakpoints left installed')
+
+    def _drain_interrupt_stops(self):
+        """Drain only surplus stop frames preceding breakpoint cleanup.
+
+        A breakpoint may stop just as Ctrl-C stops the same run. Stale replies
+        cannot be left queued to masquerade as the next z0 ACK. Read for at
+        most 0.2 s and 4 frames; never dismiss a malformed surplus frame.
+        """
+        deadline = time.monotonic()+0.2
+        for _ in range(4):
+            remaining = deadline-time.monotonic()
+            if remaining <= 0:
+                return
+            self.sock.settimeout(min(0.04, remaining))
+            try:
+                raw = self.receive()
+            except socket.timeout:
+                return
+            self.drained_interrupt_stops.append(parse_stop(raw))
+        raise ValueError('interrupt drain exceeded four additional stop replies')
 
 
 def parse_registers(packet):
@@ -256,7 +337,7 @@ def run_capture(rom, save, output, port, max_stops=40, timeout=10,
         emulator_loaded_rom_verified=False, emulator_loaded_save_verified=False,
         new_auto_hook_executed_proven=False, engine_issued_one_use_request_proven=False,
         dynamic_legality_proven=False, native_acceptance=0,
-        probe_only=probe_only, probe_transcript=None, events=[],
+        probe_only=probe_only, probe_transcript=None, raw_wire_trace=None, events=[],
         marker_stop_count=0, stop_budget_reached=False, deadline_reached=False,
         failure=None, pc_bias=None,
         interrupt_stop=None, input_files_unchanged=False,
@@ -272,16 +353,25 @@ def run_capture(rom, save, output, port, max_stops=40, timeout=10,
                 stop = rsp.send('?')
                 parse_stop(stop)
                 if probe_only:
+                    # Retain partial probe steps even if the next response fails.
+                    # The raw wire trace, saved unconditionally below, includes
+                    # malformed/corrupt replies that .send() cannot return.
+                    report['probe_transcript'] = dict(
+                        stop_raw_ascii=stop.decode('ascii'),
+                        registers_raw_hex=None,
+                        named_memory_response_hex=None,
+                        register_payload_bytes=None,
+                        decoder_state='INCOMPLETE')
                     raw_regs = rsp.send('g')
+                    report['probe_transcript']['registers_raw_hex'] = raw_regs.decode('ascii', errors='replace')
                     parse_registers(raw_regs)
+                    report['probe_transcript']['register_payload_bytes'] = len(raw_regs)//2
                     raw_bytes = rsp.send(f'm{SRC_BASE:08x},6')
+                    report['probe_transcript']['named_memory_response_hex'] = raw_bytes.decode('ascii',errors='replace')
                     require(len(raw_bytes) == 12 and HEX.fullmatch(raw_bytes),
                             'invalid GDB probe memory response')
-                    report['probe_transcript'] = dict(
-                        stop_raw_ascii=stop.decode('ascii'), registers_raw_hex=raw_regs.decode('ascii'),
-                        register_payload_bytes=len(raw_regs)//2,
-                        named_memory_address=f'0x{SRC_BASE:08x}',
-                        named_memory_response_hex=raw_bytes.decode('ascii'))
+                    report['probe_transcript']['named_memory_address'] = f'0x{SRC_BASE:08x}'
+                    report['probe_transcript']['decoder_state'] = 'SYNTHETIC_OR_UNVERIFIED_LAYOUT'
                 else:
                     absolute_deadline = started + deadline_seconds
                     for pc in PCS:
@@ -310,55 +400,86 @@ def run_capture(rom, save, output, port, max_stops=40, timeout=10,
                                      candidate_original_pc=f'0x{marker:08x}',
                                      registers_r0_r15=[f'0x{x:08x}' for x in regs],
                                      actor0_marker_only=False)
+                        # Preserve a stopped CPU witness even if a later read
+                        # or single-step fails. It is partial, not certified.
+                        report['events'].append(event)
+                        report['marker_stop_count'] += 1
                         if marker == COPY_ENTRY and regs[0] == 0 and regs[1] == 1 and regs[3] == 6:
                             ptr = regs[2]
                             event['copy_entry_src_register_r2'] = f'0x{ptr:08x}'
-                            if permitted_memory(ptr, 6):
+                            if ptr == SRC_BASE:
                                 active_copy = (ptr, read_memory(rsp, ptr, 6))
                                 event['source6_hex_private'] = active_copy[1].hex()
                                 event['actor0_marker_only'] = True
-                        elif marker == COPY_DONE and active_copy is not None:
+                            else:
+                                event['source_unreadable'] = 'entry r2 is not the pinned original source buffer'
+                                active_copy = None
+                        elif marker == COPY_POST_A:
+                            event['post_a_loop_candidate_reached'] = True
+                            # Original static A-loop uses r0 as destination base,
+                            # r1 as copy index and r2 as count. This must still be
+                            # confirmed in the running exact modified ROM.
+                            event['post_a_loop_r0_destination_candidate'] = f'0x{regs[0]:08x}'
+                            event['copy_index_r1'] = regs[1]
+                            event['copy_count_r2'] = regs[2]
+                            if active_copy is None:
+                                event['copy_observation_unusable'] = 'no immediately paired actor0 entry'
+                                continue
                             src, before = active_copy
-                            # r0 is an observed candidate pointer, NOT a proven engine destination.
                             candidate = regs[0]
-                            event['epilogue_r0_candidate_destination'] = f'0x{candidate:08x}'
                             event['destination_is_player0_buffer'] = candidate == DST_PLAYER0
                             event['destination_is_other_buffer'] = candidate == DST_OTHER
                             event['copy_register_r4_matches_entry_src'] = regs[4] == src
-                            if regs[4] == src and permitted_memory(candidate, 6):
+                            event['six_byte_pair_equal'] = None
+                            if candidate == src:
+                                event['destination_unreadable'] = 'self-comparison forbidden'
+                            elif candidate not in (DST_PLAYER0, DST_OTHER):
+                                event['destination_unreadable'] = 'r0 is not an independently pinned destination'
+                            elif regs[4] != src or regs[1] != 6 or regs[2] != 6:
+                                event['destination_unreadable'] = 'A-loop register identity/count mismatch'
+                            else:
                                 source_now = read_memory(rsp, src, 6)
                                 destination = read_memory(rsp, candidate, 6)
                                 event['six_byte_pair_equal'] = before == source_now == destination
                                 event['dest6_hex_private'] = destination.hex()
-                                event['actor0_marker_only'] = True
+                                event['actor0_marker_only'] = candidate == DST_PLAYER0
+                            active_copy = None
+                        elif marker == COPY_SHARED_EPILOGUE:
+                            event['shared_epilogue_reached'] = True
+                            event['copy_completion_proven_here'] = False
+                            # Paths other than the non-link A-loop reach this PC.
                             active_copy = None
                         elif marker == PP_WRITER:
-                            event['pp_register_r0_actor'] = regs[0]
+                            event['pp_register_r0_unverified'] = regs[0]
                             event['pp_register_r1_address'] = f'0x{regs[1]:08x}'
                             event['pp_register_r6_value'] = f'0x{regs[6]:08x}'
-                            if regs[0] == 0 and PP_BASE <= regs[1] < PP_BASE+4:
+                            # Original STRB r6,[r1]. Only the r1 player0 PP
+                            # range carries known ownership; r0 is unproven.
+                            if PP_BASE <= regs[1] < PP_BASE+4:
                                 before = read_memory(rsp, regs[1], 1)[0]
                                 event['pp_before'] = before
-                                rsp.arm_pp_step(marker)
-                                step_stop = rsp.send('s')
-                                step_regs = parse_registers(rsp.send('g'))
-                                require(step_regs[15] == raw_pc+2,
-                                        'PP single-step did not advance one Thumb instruction')
-                                after = read_memory(rsp, regs[1], 1)[0]
-                                event.update(pp_single_step_stop=parse_stop(step_stop),
-                                             pp_after=after,
-                                             pp_decrement_observed=(before > 0 and after == before-1 and
-                                                                    after == (regs[6] & 255)),
-                                             pp_store_value_matches_r6=(after == (regs[6] & 255)))
+                                try:
+                                    rsp.arm_pp_step(marker)
+                                    step_stop = rsp.send('s')
+                                    step_regs = parse_registers(rsp.send('g'))
+                                    require(step_regs[15] == raw_pc+2,
+                                            'PP single-step did not advance one Thumb instruction')
+                                    after = read_memory(rsp, regs[1], 1)[0]
+                                    event.update(pp_single_step_stop=parse_stop(step_stop),
+                                                 pp_after=after,
+                                                 pp_decrement_observed=(before > 0 and after == before-1 and
+                                                                        after == (regs[6] & 255)),
+                                                 pp_store_value_matches_r6=(after == (regs[6] & 255)))
+                                except BaseException as error:
+                                    event['pp_step_error'] = type(error).__name__+': '+str(error)
+                                    raise
                         elif marker == MAIN_CLEAR:
                             event['main_byte_before_only'] = read_memory(rsp, MAIN_BYTE, 1)[0]
                         # A copy must be adjacent in the observed marker sequence.
                         # Never join an entry with a later unrelated epilogue.
-                        if active_copy is not None and marker not in (COPY_ENTRY, COPY_DONE):
+                        if active_copy is not None and marker not in (COPY_ENTRY, COPY_POST_A):
                             active_copy = None
                             event['incomplete_previous_copy_pair'] = True
-                        report['events'].append(event)
-                        report['marker_stop_count'] += 1
                     else:
                         report['stop_budget_reached'] = True
             finally:
@@ -383,6 +504,8 @@ def run_capture(rom, save, output, port, max_stops=40, timeout=10,
                         except (OSError, ConnectionError, TimeoutError, ValueError) as error:
                             report['cleanup_errors'].append(f'0x{pc:08x}: '+str(error))
                 report['leftover_breakpoints'] = [f'0x{x:08x}' for x in installed]
+                if rsp is not None:
+                    report['raw_wire_trace'] = rsp.wire_trace()
     except (Exception, KeyboardInterrupt) as error:
         report['failure'] = type(error).__name__+': '+str(error)
     try:
