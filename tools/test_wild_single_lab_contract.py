@@ -24,6 +24,7 @@ def contract_ok(text: str) -> bool:
         "gBattleTypeFlags != BATTLE_TYPE_IS_MASTER",
         "gBattlersCount != 2 || battler != 0",
         "gBattlerBattleController[battler] != BATTLE_CONTROLLER_PLAYER",
+        "!IsBattleControllerActiveOnLocal(battler)",
         "GetBattlerPosition(battler) != B_POSITION_PLAYER_LEFT",
         "GetBattlerPosition(foe) != B_POSITION_OPPONENT_LEFT",
         "IsBattlerAlly(battler, foe)",
@@ -81,6 +82,11 @@ class WildSingleLabContractTests(unittest.TestCase):
 
     def test_actor_ownership_tampering_fails(self):
         self.assertFalse(contract_ok(self.text.replace("battler != 0", "battler != 9")))
+
+    def test_inactive_original_engine_request_is_denied(self):
+        self.assertFalse(contract_ok(self.text.replace(
+            "!IsBattleControllerActiveOnLocal(battler)",
+            "IsBattleControllerActiveOnLocal(battler) == FALSE && 0")))
 
     def test_request_opcode_tampering_fails(self):
         self.assertFalse(contract_ok(self.text.replace("CONTROLLER_CHOOSEMOVE", "CONTROLLER_OPENBAG")))
