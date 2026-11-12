@@ -18,7 +18,7 @@
          if (gBattleResources->bufferA[battler][0] < ARRAY_COUNT(sPlayerBufferCommands))
              sPlayerBufferCommands[gBattleResources->bufferA[battler][0]](battler);
          else
-@@ -2191,9 +2198,272 @@
+@@ -2191,9 +2198,281 @@
      }
  }
  
@@ -255,6 +255,15 @@
 +        if (GetBattlerMoveTargetType(battler, move) != TARGET_SELECTED ||
 +            !CanTargetBattler(battler, foe, move))
 +            continue;
++        /* Original targeting helpers may change the live player command or
++         * replace the engine's ChooseMove request buffer. Before dereferencing
++         * its earlier pointer, require that the same original buffer and
++         * command still belong to the live player0 request. A stale buffer
++         * must never be used to authorize a new automatic reply. */
++        if (verifyReply && (gBattleResources == NULL ||
++            gBattleResources->bufferA[battler][0] != CONTROLLER_CHOOSEMOVE ||
++            moveInfo != (struct ChooseMoveStruct *)&gBattleResources->bufferA[battler][4]))
++            return FALSE;
 +        if (verifyReply && (moveInfo->moves[slot] != move ||
 +                           moveInfo->currentPp[slot] != gBattleMons[battler].pp[slot]))
 +            continue;
@@ -291,14 +300,17 @@
  
      gBattlerControllerFuncs[battler] = HandleChooseActionAfterDma3;
      BattleTv_ClearExplosionFaintCause();
-@@ -2291,6 +2561,16 @@
+@@ -2291,6 +2570,19 @@
  
  void PlayerHandleChooseMove(enum BattlerId battler)
  {
 +    u32 autoReply;
 +
 +    if (SourceFirstConsumeWildLease(battler) &&
-+        SourceFirstWildSingleMove(battler, TRUE, &autoReply))
++        SourceFirstWildSingleMove(battler, TRUE, &autoReply) &&
++        SourceFirstWildSingleOwner(battler) &&
++        gBattleResources != NULL &&
++        gBattleResources->bufferA[battler][0] == CONTROLLER_CHOOSEMOVE)
 +    {
 +        BtlController_EmitTwoReturnValues(battler, B_COMM_TO_ENGINE, B_ACTION_EXEC_SCRIPT, autoReply);
 +        BtlController_Complete(battler);

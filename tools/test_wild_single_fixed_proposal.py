@@ -47,6 +47,9 @@ def static_contract(source):
     needed.remove('gBattlerControllerFuncs[battler] = HandleChooseMoveAfterDma3;')
     if not all(x in s for x in needed): return False
     if s.count('CheckMoveLimitations(') != 1: return False
+    # Both the original post-limit guard and the fresh post-target guard must
+    # verify the engine's live CHOOSEMOVE opcode; losing either is unsafe.
+    if s.count('gBattleResources->bufferA[battler][0] != CONTROLLER_CHOOSEMOVE') < 2: return False
     if not (s.index('if (verifyReply && slot != sSourceFirstWildLease.proposedSlot)')
             < s.index('if ((unusable & (1u << slot))')
             < s.index('*reply = slot | (foe << 8);')): return False
