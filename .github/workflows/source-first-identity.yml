@@ -91,6 +91,35 @@ jobs:
             arm-none-eabi-nm -n Soulgold.elf | grep -E ' PlayerBufferRunCommand$' || echo "Symbol not found"
           } | tee ../source-first-identity-report.txt
 
+      - name: Fingerprint compiled ROM regions without publishing game bytes
+        working-directory: upstream-source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYCODE' | tee ../source-first-region-hashes.tsv
+          from pathlib import Path
+          import hashlib
+          gba = Path('Soulgold.gba').read_bytes()
+          print('chunk_bytes\toffset_hex\tsha256')
+          for size, end in ((65536, len(gba)), (4096, min(2 * 1024 * 1024, len(gba)))):
+              for offset in range(0, end, size):
+                  digest = hashlib.sha256(gba[offset:offset + size]).hexdigest()
+                  print(f'{size}\t{offset:08x}\t{digest}')
+          PYCODE
+          arm-none-eabi-nm -n Soulgold.elf | grep -E ' (PlayerBufferRunCommand|PlayerHandleChooseMove|BtlController_EmitTwoReturnValues|CheckMoveLimitations|PlayerHandleChooseAction|BattleAI_ChooseMoveIndex)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: soulgold-source-first-build-report
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            source-first-build.log
+            source-first-identity-report.txt
+            source-first-region-hashes.tsv
+            source-first-controller-symbols.txt
+ | tee ../source-first-controller-symbols.txt || true
+
       - name: Upload text logs and hashes only - NEVER game ROMs or saves
         if: always()
         uses: actions/upload-artifact@v4
