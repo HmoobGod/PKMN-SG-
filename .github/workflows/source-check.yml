@@ -43,6 +43,8 @@ jobs:
           python3 tools/test_wild_single_lab_contract.py
           python3 tools/test_exact_modified_autoplay.py
           python3 tools/test_second_wild_auto.py
+          python3 tools/test_exact_terminal_gate.py
+          cc -std=c11 -Wall -Wextra -Werror -pedantic -fsyntax-only tools/trace_exact_terminal_gate.c
           python3 -m py_compile tools/verify_second_wild_auto.py
           python3 -m py_compile tools/verify_exact_modified_autoplay.py tools/probe_exact_modified_autoplay.py
           cc -std=c11 -Wall -Wextra -Werror -pedantic -fsyntax-only tools/trace_exact_modified_autoplay.c

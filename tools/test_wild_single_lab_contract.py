@@ -22,6 +22,7 @@ def inserted_source(patch: str) -> str:
 def contract_ok(text: str) -> bool:
     checks = (
         "gBattleTypeFlags != BATTLE_TYPE_IS_MASTER",
+        "gBattleOutcome != 0",
         "gBattlersCount != 2 || battler != 0",
         "gBattlerBattleController[battler] != BATTLE_CONTROLLER_PLAYER",
         "!IsBattleControllerActiveOnLocal(battler)",
@@ -87,6 +88,10 @@ class WildSingleLabContractTests(unittest.TestCase):
         self.assertFalse(contract_ok(self.text.replace(
             "!IsBattleControllerActiveOnLocal(battler)",
             "IsBattleControllerActiveOnLocal(battler) == FALSE && 0")))
+
+    def test_terminal_outcome_blocks_auto(self):
+        self.assertFalse(contract_ok(self.text.replace(
+            "gBattleOutcome != 0", "gBattleOutcome == 0")))
 
     def test_request_opcode_tampering_fails(self):
         self.assertFalse(contract_ok(self.text.replace("CONTROLLER_CHOOSEMOVE", "CONTROLLER_OPENBAG")))
