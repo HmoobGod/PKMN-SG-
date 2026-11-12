@@ -18,7 +18,7 @@
          if (gBattleResources->bufferA[battler][0] < ARRAY_COUNT(sPlayerBufferCommands))
              sPlayerBufferCommands[gBattleResources->bufferA[battler][0]](battler);
          else
-@@ -2191,9 +2198,254 @@
+@@ -2191,9 +2198,272 @@
      }
  }
  
@@ -142,15 +142,14 @@
 +    sSourceFirstWildLease.armed = TRUE;
 +}
 +
-+static bool32 SourceFirstConsumeWildLease(enum BattlerId battler)
++/* Pure read-only revalidation, including original engine ownership and all
++ * staged player/opponent states. This helper deliberately does NOT require the
++ * lease to remain armed: Consume destroys the token before invoking any
++ * original move limitation or target helper with potential side effects. */
++static bool32 SourceFirstWildLeaseSnapshotMatches(enum BattlerId battler)
 +{
 +    u32 slot;
-+    bool32 armed = sSourceFirstWildLease.armed;
-+
-+    /* Consume BEFORE any potentially side-effecting restrictions or reply. */
-+    sSourceFirstWildLease.armed = FALSE;
-+    if (!armed || battler != sSourceFirstWildLease.owner ||
-+        !SourceFirstWildSingleOwner(battler) ||
++    if (!SourceFirstWildSingleOwner(battler) ||
 +        gBattlerPartyIndexes[battler] != sSourceFirstWildLease.partyIndex ||
 +        sSourceFirstWildLease.proposedSlot >= MAX_MON_MOVES ||
 +        gBattleMons[battler].species != sSourceFirstWildLease.species ||
@@ -195,6 +194,19 @@
 +    return TRUE;
 +}
 +
++
++static bool32 SourceFirstConsumeWildLease(enum BattlerId battler)
++{
++    bool32 armed = sSourceFirstWildLease.armed;
++
++    /* Consume BEFORE any potentially side-effecting restrictions or reply. */
++    sSourceFirstWildLease.armed = FALSE;
++    if (!armed || battler != sSourceFirstWildLease.owner ||
++        !SourceFirstWildLeaseSnapshotMatches(battler))
++        return FALSE;
++    return TRUE;
++}
++
 +/* Conservative baseline selector, not Smart AI scoring. No enemy AI state,
 + * battle RNG, bag, capture, partner or target reassignment is touched.
 + * Zero eligible moves => NO auto reply; engine's normal input path remains. */
@@ -222,6 +234,7 @@
 +     * command after that call, before producing any automatic reply. */
 +    if (verifyReply && (!SourceFirstWildSingleOwner(battler) ||
 +        gBattleTurnCounter != sSourceFirstWildLease.turnCounter ||
++        !SourceFirstWildLeaseSnapshotMatches(battler) ||
 +        gBattleResources == NULL ||
 +        !(gBattleResources->bufferA[battler][0] == CONTROLLER_CHOOSEMOVE)))
 +        return FALSE;
@@ -245,6 +258,11 @@
 +        if (verifyReply && (moveInfo->moves[slot] != move ||
 +                           moveInfo->currentPp[slot] != gBattleMons[battler].pp[slot]))
 +            continue;
++        /* Target checks may also be stateful in modded source. Fail closed if
++         * they changed the owner, target or proposed move since arming. This
++         * happens before the original controller reply is ever emitted. */
++        if (verifyReply && !SourceFirstWildLeaseSnapshotMatches(battler))
++            return FALSE;
 +        if (verifyReply)
 +            *reply = slot | (foe << 8); // Normal, non-gimmick move+target reply.
 +        else
@@ -273,7 +291,7 @@
  
      gBattlerControllerFuncs[battler] = HandleChooseActionAfterDma3;
      BattleTv_ClearExplosionFaintCause();
-@@ -2291,6 +2543,16 @@
+@@ -2291,6 +2561,16 @@
  
  void PlayerHandleChooseMove(enum BattlerId battler)
  {

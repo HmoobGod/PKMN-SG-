@@ -57,6 +57,8 @@ jobs:
           grep -Fq 'gBattleTurnCounter != sSourceFirstWildLease.turnCounter' src/battle_controller_player.c
           grep -Fq 'sSourceFirstWildLease.foeTypes[slot] != gBattleMons[sSourceFirstWildLease.foe].types[slot]' src/battle_controller_player.c
           grep -Fq 'move == MOVE_STRUGGLE' src/battle_controller_player.c
+          grep -Fq 'static bool32 SourceFirstWildLeaseSnapshotMatches(enum BattlerId battler)' src/battle_controller_player.c
+          grep -Fq 'if (verifyReply && !SourceFirstWildLeaseSnapshotMatches(battler))' src/battle_controller_player.c
           grep -Fq 'if (verifyReply && (!SourceFirstWildSingleOwner(battler) ||' src/battle_controller_player.c
           grep -Fq 'unusable = verifyReply ? CheckMoveLimitations(battler, 0, MOVE_LIMITATIONS_ALL) : 0;' src/battle_controller_player.c
           grep -q 'B_ACTION_USE_MOVE, 0' src/battle_controller_player.c

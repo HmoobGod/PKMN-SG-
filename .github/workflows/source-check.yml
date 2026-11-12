@@ -45,6 +45,7 @@ jobs:
           python3 tools/test_wild_single_fixed_proposal.py
           python3 tools/test_wild_single_dynamic_state.py
           python3 tools/test_wild_single_turn_binding.py
+          python3 tools/test_wild_single_postcheck.py
           python3 tools/test_exact_modified_autoplay.py
           python3 tools/test_second_wild_auto.py
           python3 tools/test_exact_terminal_gate.py
