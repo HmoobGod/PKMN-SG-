@@ -30,11 +30,20 @@ MODES = {
 }
 SHA256_RE = re.compile(r'[0-9a-f]{64}\Z')
 KEY_RE = re.compile(r'KEY (x|Left|Right|Up|Down) (\d+(?:\.\d+)?)\Z')
-BP_RE = re.compile(r'BP 0x[0-9a-f]+ OK\Z')
-SNAP_RE = re.compile(r'SNAP [A-Za-z0-9_-]+\Z')
+BP_RE = re.compile(r'BP (0x[0-9a-f]+) OK\Z')
+SNAP_RE = re.compile(r'SNAP (title|continue_loaded|finished|movement_\d+|stop_\d+)\Z')
+ALLOWED_BP_ADDRESSES = frozenset({
+    '0x808e31a', '0x808e322', '0x808e336', '0x808e370',
+    '0x808e372', '0x808e374', '0x809e6ba',
+})
+# SNAP is restricted to existing recorder screenshot names. It MUST NOT load,
+# create, or restore an emulator savestate. Exact capture scripts remain a
+# separate dependency; allowlisted names alone cannot prove screenshot-only behavior.
 EVENTS_RE = re.compile(r'EVENTS (\d+)\Z')
 POST_HASH_RE = re.compile(r'ORIGINAL_POST_HASH ([0-9a-f]{64}) ([0-9a-f]{64})\Z')
-RUN_START_RE = re.compile(r'RUN_START ([a-zA-Z0-9:_-]{8,120})\Z')
+RUN_START_RE = re.compile(
+    r'RUN_START ([a-zA-Z0-9:_-]{8,120}) pid=([1-9][0-9]{0,9}) start=([0-9]+(?:\.[0-9]+)?)\Z'
+)
 
 
 def require(ok, message):
@@ -63,8 +72,15 @@ def parse_console(console, events, run):
     marker = run.get('start_marker')
     require(type(marker) is str and marker == lines[0], 'run start marker mismatch')
     if marker != 'GDB S02':
-        require(RUN_START_RE.fullmatch(marker) is not None and marker == 'RUN_START '+run_id,
+        parsed = RUN_START_RE.fullmatch(marker)
+        require(parsed is not None and parsed.group(1) == run_id,
                 'unexpected native run start marker')
+        require(type(run.get('pid')) is int and run['pid'] > 0 and
+                str(run['pid']) == parsed.group(2), 'instrumented PID marker mismatch')
+        started = run.get('started_epoch')
+        require(type(started) in (int, float) and math.isfinite(started) and
+                started > 0 and float(parsed.group(3)) == started,
+                'instrumented start epoch mismatch')
     require(console.count(marker+'\n') <= 1, 'multiple run start markers')
     require(hashlib.sha256(console.encode('utf-8')).hexdigest() == run.get('console_sha256'),
             'recorded GDB console SHA mismatch')
@@ -79,8 +95,10 @@ def parse_console(console, events, run):
             seen_marker_count += 1
         elif line == 'GDB S02' or RUN_START_RE.fullmatch(line):
             raise ValueError('second GDB run marker')
-        elif BP_RE.fullmatch(line) or SNAP_RE.fullmatch(line):
-            pass  # Observational debugger setup/screenshots, not game controls.
+        elif (match := BP_RE.fullmatch(line)) is not None:
+            require(match.group(1) in ALLOWED_BP_ADDRESSES, 'unknown debugger breakpoint address')
+        elif SNAP_RE.fullmatch(line) is not None:
+            pass  # Allowlisted screenshot labels ONLY; not savestate operations.
         elif line.startswith('KEY '):
             match = KEY_RE.fullmatch(line)
             require(match is not None, 'unrecognized host key/command')
@@ -107,11 +125,24 @@ def parse_console(console, events, run):
     require(len(event_counts) == 1 and event_counts[0] == len(events), 'console event count mismatch')
     require(len(post_hashes) == 1 and post_hashes[0][0] == EXACT_ROM_SHA256,
             'console original ROM post-hash mismatch')
+    initial_save = run.get('initial_save_sha256')
+    # Legacy archive uses capture.save_sha256; new recorder must carry both.
+    if run.get('provenance') == 'INSTRUMENTED_RUN':
+        require(type(initial_save) is str and SHA256_RE.fullmatch(initial_save) is not None,
+                'instrumented initial save SHA missing')
+    else:
+        initial_save = run.get('capture_save_sha256')
+    require(type(initial_save) is str and SHA256_RE.fullmatch(initial_save) is not None,
+            'initial save SHA attestation missing')
+    require(post_hashes[0][1] == initial_save, 'post-save hash differs from initial save')
     require(len(stop_rows) == len(events), 'console STOP count mismatch')
     for index, (logged, recorded) in enumerate(zip(stop_rows, events)):
         require(logged == _strip_run_id(recorded), 'CPU STOP mismatch to raw console at index '+str(index))
     return {'console_rows_checked': len(stop_rows), 'console_sha256': run['console_sha256'],
-            'host_input_checked': True, 'post_rom_sha256': post_hashes[0][0]}
+            'host_input_checked': True, 'post_rom_sha256': post_hashes[0][0],
+            'post_save_unchanged': True,
+            'post_save_hash_basis': 'RECORDED_GDB_POST_HASH_MATCHES_RECORDED_INITIAL_SAVE',
+            'snap_names_allowlisted': True, 'breakpoint_addresses_allowlisted': True}
 
 
 def normalize_legacy_archive(capture, console):
@@ -131,7 +162,8 @@ def normalize_legacy_archive(capture, console):
     run_id = 'legacy:'+digest
     out = dict(capture)
     out['run'] = {'run_id': run_id, 'start_marker':'GDB S02', 'console_sha256':digest,
-                  'provenance':'LEGACY_POSTHOC_IMPORT', 'process_id_observed':False}
+                  'provenance':'LEGACY_POSTHOC_IMPORT', 'process_id_observed':False,
+                  'capture_save_sha256': capture.get('save_sha256')}
     out['original_cpu_events'] = [dict(e, run_id=run_id) for e in capture['original_cpu_events']]
     return out
 
@@ -153,10 +185,21 @@ def verify_capture(capture, console, mode='v5-full'):
                 'legacy run ID must be derived from console digest')
     else:
         require(run['process_id_observed'] is True and
-                run.get('start_marker') == 'RUN_START '+run['run_id'],
-                'instrumented run needs matching observed RUN_START marker')
+                type(run.get('pid')) is int and run['pid'] > 0 and
+                type(run.get('started_epoch')) in (int, float) and
+                math.isfinite(run['started_epoch']) and run['started_epoch'] > 0 and
+                run.get('start_marker') ==
+                'RUN_START '+run['run_id']+' pid='+str(run['pid'])+
+                ' start='+str(run['started_epoch']),
+                'instrumented run needs matching observed RUN_START pid/start marker')
+        require(run.get('initial_save_sha256') == capture.get('save_sha256'),
+                'instrumented initial save SHA disagrees with capture')
     require(all(type(e) is dict and e.get('run_id') == run['run_id'] for e in events),
             'mixed-process or missing per-event run IDs')
+    # Legacy parser also binds captured save identity to console post-run hash.
+    if run['provenance'] == 'LEGACY_POSTHOC_IMPORT':
+        require(run.get('capture_save_sha256') == capture.get('save_sha256'),
+                'legacy capture save SHA metadata mismatch')
     proof = parse_console(console, events, run)
 
     episodes, current = [], []
@@ -232,9 +275,17 @@ def verify_capture(capture, console, mode='v5-full'):
         'trailing_incomplete_events':len(current),
         'run_id':run['run_id'],
         'run_provenance':run['provenance'],
+        # The marker remains self-reported; this is *marker-attested*, not
+        # external OS process verification.
         'same_emulator_process_log':run['process_id_observed'] and proof['host_input_checked'],
+        'process_identity_level':('CAPTURE_MARKER_ATTESTED_PID_AND_START' if
+                                  run['process_id_observed'] else 'LEGACY_POSTHOC_ONLY'),
         'archive_single_console_consistent':bool(proof['host_input_checked']),
         'host_input_checked':proof['host_input_checked'],
+        'post_save_unchanged':proof['post_save_unchanged'],
+        'post_save_hash_basis':proof['post_save_hash_basis'],
+        'snap_names_allowlisted':proof['snap_names_allowlisted'],
+        'breakpoint_addresses_allowlisted':proof['breakpoint_addresses_allowlisted'],
         'original_rom_identity':'RECORDED_HASH_FIELD_PLUS_GDB_POST_HASH; RAW_ROM_HASH_NOT_VERIFIED_BY_THIS_TOOL',
         'outcome_semantics':'UNCLASSIFIED',
         'engine_request_ownership':'NOT_PROVEN',
