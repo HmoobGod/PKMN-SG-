@@ -58,3 +58,9 @@ RSP `g` length/order/CPSR, `T05` versus `S05` stop behavior, whether `Z0` is act
 4. Confirm no host battle inputs, next natural wild, manual fallback and other-actor isolation with new original CPU witnesses; prove a **new** Smart Auto-Battle chooser actually ran before promotion.
 
 Do not modify the protected ROM/save, main, enemy/NPC-partner AI or automatic item/capture policies. Keep uncertified doubles, trainer and forced-switch automation disabled.
+
+### R3: actor-isolated original copier observation
+
+- A new original request copier entry always breaks the previous provisional pair. A foreign-actor, wrong-direction/count or unpinned-source entry clears the pending actor0 entry and records `incomplete_previous_copy_pair`, never allowing a later post-A marker to reuse stale bytes.
+- Only the pinned `DST_PLAYER0` destination of an immediately paired actor0 entry can produce a six-byte equality observation. `DST_OTHER` remains a **read-only, other-battler buffer** for diagnostics; it is never compared with an actor0 source or treated as player-owned. Cross-battler and invalid pointers produce an explicit `destination_unreadable` reason and null equality.
+- The R3 regression suite includes synthetic actor0→actor1 interleaving, actor0→other destination, raw probe truncation/disconnect, wire byte/event caps, timeout restoration, PC bias +4, T-stop stepping and extra-length `g` replies. These fixtures do not certify actual mGBA protocol behavior. The initial real contact remains **probe-only** and the private transcript must not be committed.

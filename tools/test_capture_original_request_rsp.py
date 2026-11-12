@@ -27,7 +27,9 @@ class FakeGDB:
                  epilogue_dest=m.DST_PLAYER0, interrupt_responds=True,
                  stale_after_stop=False, keyboard_interrupt_once=False,
                  install_fail=False, pp_wrong_address=False, pp_r0=0,
-                 step_pc_delta=2, double_interrupt_stop=False, rle_g=False):
+                 step_pc_delta=2, double_interrupt_stop=False, rle_g=False,
+                 entry_actors=None, disconnect_on=None, step_stop_reply=b'S05',
+                 extra_g_cpsr=False):
         self.buf = bytearray()
         self.commands = []
         self.stop_pcs = list(stop_pcs or [m.COPY_ENTRY, m.COPY_POST_A, m.PP_WRITER, m.MAIN_CLEAR])
@@ -48,6 +50,11 @@ class FakeGDB:
         self.step_pc_delta = step_pc_delta
         self.double_interrupt_stop = double_interrupt_stop
         self.rle_g = rle_g
+        self.entry_actors = dict(entry_actors or {})
+        self.disconnect_on = disconnect_on
+        self.step_stop_reply = step_stop_reply
+        self.extra_g_cpsr = extra_g_cpsr
+        self.timeouts = []
         self.n = 0
         self.stepped = False
         self.interrupts = 0
@@ -89,7 +96,7 @@ class FakeGDB:
             response = b'W00' if self.exit_stop else b'S05'
         elif cmd == 's':
             self.stepped = True
-            response = b'S05'
+            response = self.step_stop_reply
         elif cmd == 'g':
             original_pc = self.stop_pcs[min(max(self.n-1,0), len(self.stop_pcs)-1)]
             observed_bias = 4 if self.drift_bias and self.n == 2 else self.bias
@@ -98,6 +105,9 @@ class FakeGDB:
             elif original_pc == m.COPY_POST_A:
                 response = registers(original_pc+observed_bias, r0=self.epilogue_dest,
                                      r1=6, r2=6, r4=m.SRC_BASE)
+            elif original_pc == m.COPY_ENTRY:
+                response = registers(original_pc+observed_bias,
+                                     r0=self.entry_actors.get(self.n-1, 0))
             elif original_pc == m.PP_WRITER:
                 response = registers(original_pc+observed_bias,
                                      r0=self.pp_r0,
@@ -106,6 +116,8 @@ class FakeGDB:
                 response = registers(original_pc+observed_bias)
             if self.rle_g:
                 response = b'00*xxx'
+            elif self.extra_g_cpsr:
+                response += (0x20).to_bytes(4,'little').hex().encode()
         elif cmd.startswith('m'):
             address, size = cmd[1:].split(',')
             address, size = int(address,16), int(size,16)
@@ -118,6 +130,8 @@ class FakeGDB:
                 response = b'010203040506'[:size*2]
         else:
             raise AssertionError('unexpected debugger operation '+cmd)
+        if self.disconnect_on == cmd:
+            return  # Simulate a remote EOF before even sending an ACK.
         if self.corrupted == cmd and not self._corrupted_once:
             self._corrupted_once = True
             response_wire = b'$'+response+b'#00'
@@ -145,7 +159,9 @@ class FakeGDB:
 
     def __enter__(self): return self
     def __exit__(self, *_): return False
-    def settimeout(self, duration): self.timeout = duration
+    def settimeout(self, duration):
+        self.timeout = duration
+        self.timeouts.append(duration)
 
 
 class CaptureTests(unittest.TestCase):
@@ -410,6 +426,102 @@ class CaptureTests(unittest.TestCase):
         self.assertFalse(report['stop_budget_reached'])
         self.assertEqual(remote.commands,['?','g',f'm{m.SRC_BASE:08x},6'])
         self.assertEqual(report['probe_transcript']['register_payload_bytes'],64)
+
+    def test_d7_non_actor_entry_invalidates_pending_actor0(self):
+        # actor0 starts, then actor1 intervenes before a matching-looking
+        # post-A destination. Never combine across original invocations.
+        stub = FakeGDB(stop_pcs=[m.COPY_ENTRY, m.COPY_ENTRY, m.COPY_POST_A,
+                                  m.COPY_POST_A], entry_actors={1: 1},
+                       epilogue_dest=m.DST_OTHER)
+        report, *_ = self.run_fake(stub, max_stops=4)
+        self.assertIsNone(report['failure'])
+        entry0, entry1, post1, post2 = report['events']
+        self.assertTrue(entry0['actor0_marker_only'])
+        self.assertFalse(entry1['actor0_marker_only'])
+        self.assertTrue(entry1['incomplete_previous_copy_pair'])
+        self.assertIn('not a validated actor0', entry1['copy_entry_rejected_reason'])
+        self.assertIn('no immediately paired', post1['copy_observation_unusable'])
+        self.assertIn('no immediately paired', post2['copy_observation_unusable'])
+        self.assertNotIn('six_byte_pair_equal', post1)
+        self.assertNotIn('six_byte_pair_equal', post2)
+
+    def test_d7_actor0_entry_never_pairs_to_other_battler(self):
+        report, *_ = self.run_fake(FakeGDB(epilogue_dest=m.DST_OTHER), max_stops=2)
+        post = report['events'][1]
+        self.assertIsNone(post['six_byte_pair_equal'])
+        self.assertTrue(post['destination_is_other_buffer'])
+        self.assertFalse(post['destination_is_player0_buffer'])
+        self.assertIn('another battler', post['destination_unreadable'])
+        self.assertNotIn('dest6_hex_private', post)
+        self.assertFalse(post['actor0_marker_only'])
+
+    def test_probe_truncated_g_preserves_private_wire(self):
+        report, _, stub, path = self.run_fake(FakeGDB(trunc='g'), probe_only=True)
+        self.assertIn('GDB disconnected', report['failure'])
+        self.assertIsNotNone(report['probe_transcript'])
+        rx = b''.join(bytes.fromhex(e['hex']) for e in report['raw_wire_trace']['events']
+                      if e['direction'] == 'rx')
+        self.assertIn(b'$'+registers(m.COPY_ENTRY)[:3], rx)
+        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(stub.commands, ['?', 'g'])
+
+    def test_probe_disconnect_before_ack_preserves_wire(self):
+        report, _, stub, path = self.run_fake(FakeGDB(disconnect_on='g'), probe_only=True)
+        self.assertIn('GDB disconnected', report['failure'])
+        tx = b''.join(bytes.fromhex(e['hex']) for e in report['raw_wire_trace']['events']
+                      if e['direction'] == 'tx')
+        self.assertIn(packet(b'g'), tx)
+        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(stub.commands, ['?', 'g'])
+
+    def test_raw_wire_byte_and_event_caps(self):
+        stub = FakeGDB()
+        rsp = m.RSP(stub)
+        with patch.object(m, 'MAX_WIRE_BYTES', 8):
+            rsp._log_wire('tx', b'abcde')
+            rsp._log_wire('rx', b'1234567890')
+            wire = rsp.wire_trace()
+            self.assertEqual(wire['recorded_bytes'], 8)
+            self.assertEqual(wire['omitted_bytes'], 7)
+            self.assertTrue(wire['truncated'])
+            self.assertEqual(b''.join(bytes.fromhex(x['hex']) for x in wire['events']),
+                             b'abcde123')
+        rsp = m.RSP(stub)
+        with patch.object(m, 'MAX_WIRE_EVENTS', 2):
+            rsp._log_wire('tx', b'a')
+            rsp._log_wire('rx', b'b')
+            rsp._log_wire('tx', b'c')
+            wire = rsp.wire_trace()
+            self.assertEqual(len(wire['events']), 2)
+            self.assertEqual(wire['recorded_bytes'], 2)
+            self.assertEqual(wire['omitted_bytes'], 1)
+            self.assertTrue(wire['truncated'])
+
+    def test_resume_restores_configured_timeout(self):
+        stub = FakeGDB()
+        rsp = m.RSP(stub)
+        stop, expired = rsp.resume(__import__('time').monotonic()+1.0, 0.15)
+        self.assertFalse(expired)
+        self.assertEqual(stop, 'S05')
+        self.assertEqual(stub.timeout, 0.15)
+        self.assertEqual(stub.timeouts[-1], 0.15)
+
+    def test_post_a_with_plus_four_bias(self):
+        report, *_ = self.run_fake(FakeGDB(bias=4), max_stops=2)
+        self.assertEqual(report['pc_bias'],4)
+        self.assertTrue(report['events'][1]['six_byte_pair_equal'])
+
+    def test_pp_step_t_stop_reply(self):
+        report, *_ = self.run_fake(FakeGDB(step_stop_reply=b'T05thread:1;'), max_stops=3)
+        self.assertEqual(report['events'][2]['pp_single_step_stop'], 'T05thread:1;')
+        self.assertTrue(report['events'][2]['pp_decrement_observed'])
+
+    def test_extra_cpsr_length_reply_does_not_claim_decoding(self):
+        report, _, stub, _ = self.run_fake(FakeGDB(extra_g_cpsr=True), probe_only=True)
+        self.assertIsNone(report['failure'])
+        self.assertEqual(report['probe_transcript']['register_payload_bytes'], 68)
+        self.assertEqual(stub.commands,['?','g',f'm{m.SRC_BASE:08x},6'])
+        self.assertFalse(report['emulator_loaded_rom_verified'])
 
     def test_input_mutated_during_capture_is_reported(self):
         # Use a disposable duplicate, never the user's protected save.

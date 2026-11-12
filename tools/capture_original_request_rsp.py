@@ -404,16 +404,25 @@ def run_capture(rom, save, output, port, max_stops=40, timeout=10,
                         # or single-step fails. It is partial, not certified.
                         report['events'].append(event)
                         report['marker_stop_count'] += 1
-                        if marker == COPY_ENTRY and regs[0] == 0 and regs[1] == 1 and regs[3] == 6:
+                        if marker == COPY_ENTRY:
+                            # Every new invocation is a hard boundary. In particular,
+                            # a foreign actor's entry must invalidate a pending actor0
+                            # entry, even if the next post-A marker resembles our bytes.
+                            if active_copy is not None:
+                                event['incomplete_previous_copy_pair'] = True
+                            active_copy = None
                             ptr = regs[2]
                             event['copy_entry_src_register_r2'] = f'0x{ptr:08x}'
-                            if ptr == SRC_BASE:
+                            if regs[0] != 0 or regs[1] != 1 or regs[3] != 6:
+                                event['copy_entry_rejected_reason'] = 'not a validated actor0 direction0 count6 entry'
+                                event['incomplete_previous_copy_pair'] = True
+                            elif ptr != SRC_BASE:
+                                event['source_unreadable'] = 'entry r2 is not the pinned original source buffer'
+                                event['incomplete_previous_copy_pair'] = True
+                            else:
                                 active_copy = (ptr, read_memory(rsp, ptr, 6))
                                 event['source6_hex_private'] = active_copy[1].hex()
                                 event['actor0_marker_only'] = True
-                            else:
-                                event['source_unreadable'] = 'entry r2 is not the pinned original source buffer'
-                                active_copy = None
                         elif marker == COPY_POST_A:
                             event['post_a_loop_candidate_reached'] = True
                             # Original static A-loop uses r0 as destination base,
@@ -433,8 +442,12 @@ def run_capture(rom, save, output, port, max_stops=40, timeout=10,
                             event['six_byte_pair_equal'] = None
                             if candidate == src:
                                 event['destination_unreadable'] = 'self-comparison forbidden'
-                            elif candidate not in (DST_PLAYER0, DST_OTHER):
-                                event['destination_unreadable'] = 'r0 is not an independently pinned destination'
+                            elif candidate == DST_OTHER:
+                                # Other-battler data is never paired with an actor0
+                                # entry, even if its six bytes happen to be identical.
+                                event['destination_unreadable'] = 'actor0 entry cannot authorize another battler destination'
+                            elif candidate != DST_PLAYER0:
+                                event['destination_unreadable'] = 'r0 is not the independently pinned player0 destination'
                             elif regs[4] != src or regs[1] != 6 or regs[2] != 6:
                                 event['destination_unreadable'] = 'A-loop register identity/count mismatch'
                             else:
