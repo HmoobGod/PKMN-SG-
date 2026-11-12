@@ -23,7 +23,7 @@ CALLBACK_WINDOWS = {
 FIELDS = {"frame", "step", "pc", "kind", "address", "before", "after", "slot",
           "r0", "r1", "r2", "r3", "r4", "flags", "battlers", "pending",
           "inbattle", "callback1", "callback2"}
-# Events 1..11 match the C observer, with marker events 6..8.
+# Events 1..16 match C observer; markers 6..8 and 12..16.
 ADDRESSES = {2: MAIN+0x439, 3: MAIN, 4: MAIN+4,
              9: 0x02001AB4, 10: 0x02001D2C, 11: MAIN+0x438}
 
@@ -46,14 +46,18 @@ def audit(data):
             and data.get("new_hook_installed") is False,
             "active input/guest writes or installed hook not allowed")
     addr = data.get("candidate_outcome_byte_address")
-    require(type(addr) is int and (addr == 0 or 0x02000000 <= addr <= 0x0203FFFF),
-            "outcome address must be absent or bounded unverified EWRAM candidate")
+    reserved = set(range(PP, PP+4)) | set(range(0x02001AB4, 0x02001AB8)) \
+               | set(range(0x02001D2C, 0x02001D30))
+    require(type(addr) is int and (addr == 0 or
+            (0x02000000 <= addr <= 0x0203FFFF and addr not in reserved)),
+            "outcome address must be absent or a non-overlapping EWRAM candidate")
     require(data.get("status") == 1 and type(data.get("steps")) is int
             and 0 < data["steps"] <= 0xFFFFFFFF,
             "only completed bounded original guest stepping is accepted")
     rows = data.get("events")
     require(type(rows) is list and 1 <= len(rows) <= 2048, "unbounded/no native edge events")
     candidate = native_pp = other_pp = emissions = replies = callbacks = manual = 0
+    complete = validator = slots = moves = targets = 0
     prev_frame = prev_step = prev_pc = -1
     seen_edges = set()
     for e in rows:
@@ -61,7 +65,7 @@ def audit(data):
                 all(type(e[k]) is int and 0 <= e[k] <= 0xFFFFFFFF for k in FIELDS),
                 "unexpected original CPU event fields or types")
         f, step, pc, kind = e["frame"],e["step"],e["pc"],e["kind"]
-        require(1 <= kind <= 11 and pc % 2 == 0 and
+        require(1 <= kind <= 16 and pc % 2 == 0 and
                 (0x08000000 <= pc < 0x0A000000 or
                  0x02000000 <= pc <= 0x0203FFFF or
                  0x03000000 <= pc <= 0x03007FFE),
@@ -72,7 +76,7 @@ def audit(data):
         edge_key = (step, pc, kind, e["address"], e["slot"])
         require(edge_key not in seen_edges, "duplicated original guest instruction edge")
         seen_edges.add(edge_key)
-        if kind in (6, 7, 8):
+        if kind in (6, 7, 8, 12, 13, 14, 15, 16):
             require(e["address"] == e["before"] == e["after"] == 0 and
                     e["slot"] == 255, "fabricated marker edge")
             if kind == 6:
@@ -83,9 +87,25 @@ def audit(data):
                 require(pc == 0x0806B370 and e["r0"] == 0 and e["r1"] == 1
                         and e["r3"] == 6, "reply is not original actor0")
                 replies += 1
-            else:
+            elif kind == 8:
                 require(pc == 0x0806449C, "wrong manual-menu original PC")
                 manual += 1
+            elif kind == 12:
+                require(pc == 0x0806261C and e["r0"] == 0,
+                        "controller completion not original actor0")
+                complete += 1
+            elif kind == 13:
+                require(pc == 0x08094330, "wrong original validator PC")
+                validator += 1
+            elif kind == 14:
+                require(pc == 0x0809435C, "wrong original move-slot commit PC")
+                slots += 1
+            elif kind == 15:
+                require(pc == 0x08094374, "wrong original move-ID commit PC")
+                moves += 1
+            elif kind == 16:
+                require(pc == 0x08094380, "wrong original target commit PC")
+                targets += 1
         else:
             require(e["before"] != e["after"], "non-changing memory edge")
             require(e["slot"] == 255 if kind != 5 else 0 <= e["slot"] < 4,
@@ -128,6 +148,11 @@ def audit(data):
         "original_callback_pointer_transitions": callbacks,
         "original_player_emit_markers": emissions,
         "original_player_reply_markers": replies,
+        "original_player_completion_markers": complete,
+        "original_validator_markers": validator,
+        "original_slot_commit_markers": slots,
+        "original_move_commit_markers": moves,
+        "original_target_commit_markers": targets,
         "original_pp_writer_single_byte_debits_seen": native_pp,
         "other_player_pp_byte_changes_not_certified": other_pp,
         "manual_move_menu_markers": manual,

@@ -3,6 +3,8 @@
  * evidence; its value/write PC are candidates, NOT a victory certificate.
  * No guest RAM/ROM/save writes, input injection, or controller modification.
  * All writes observed are made by the ORIGINAL guest CPU while stepping.
+ * Extended marker family records the original controller reply/complete/
+ * validation/slot/move/target sequence; marker alone is never execution.
  */
 #include <stdint.h>
 #include <string.h>
@@ -15,7 +17,9 @@
 enum {
     SG_OUTCOME_CANDIDATE=1, SG_INBATTLE, SG_CALLBACK1, SG_CALLBACK2,
     SG_PP_CHANGE, SG_PLAYER_EMIT, SG_PLAYER_REPLY, SG_MANUAL_MENU,
-    SG_FLAGS_CHANGE, SG_PENDING_CHANGE, SG_MAIN_PHASE
+    SG_FLAGS_CHANGE, SG_PENDING_CHANGE, SG_MAIN_PHASE,
+    SG_PLAYER_COMPLETE, SG_NATIVE_VALIDATOR, SG_NATIVE_SLOT,
+    SG_NATIVE_MOVE, SG_NATIVE_TARGET
 };
 typedef struct {
     uint32_t frame, step, pc, kind, address, before, after, slot;
@@ -70,7 +74,10 @@ void sg_trace_exact_outcome_pp_edges(void *core, uint32_t *regs,
     }
     if (candidate_outcome_byte_addr &&
         (candidate_outcome_byte_addr<0x02000000u ||
-         candidate_outcome_byte_addr>0x0203FFFFu)) {
+         candidate_outcome_byte_addr>0x0203FFFFu ||
+         (candidate_outcome_byte_addr>=SG_PP && candidate_outcome_byte_addr<SG_PP+4u) ||
+         (candidate_outcome_byte_addr>=SG_FLAGS && candidate_outcome_byte_addr<SG_FLAGS+4u) ||
+         (candidate_outcome_byte_addr>=SG_PENDING && candidate_outcome_byte_addr<SG_PENDING+4u))) {
         out->status=4;return;
     }
     step=*(void (**)(void *))((char *)core+0x13e8);
@@ -100,6 +107,11 @@ void sg_trace_exact_outcome_pp_edges(void *core, uint32_t *regs,
         else if (pc==0x0806B372u && r[0]==0 && r[1]==1 && r[3]==6)
             kind=SG_PLAYER_REPLY;
         else if (pc==0x0806449Eu)kind=SG_MANUAL_MENU;
+        else if (pc==0x0806261Eu && r[0]==0)kind=SG_PLAYER_COMPLETE;
+        else if (pc==0x08094332u)kind=SG_NATIVE_VALIDATOR;
+        else if (pc==0x0809435Eu)kind=SG_NATIVE_SLOT;
+        else if (pc==0x08094376u)kind=SG_NATIVE_MOVE;
+        else if (pc==0x08094382u)kind=SG_NATIVE_TARGET;
         if (kind)
             sg_edge_append(core,read8,read32,events,cap,out,f,
                            (uint32_t)step_index,pc,kind,0,0,0,255,r);

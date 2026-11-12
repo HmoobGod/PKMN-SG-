@@ -1,0 +1,29 @@
+# Original actor0 lifecycle and terminal decision — next-source diagnostic batch
+
+**Scope:** Source-only research on development branch `source-first/rom-identity`. The existing protected Current ROM, original save, exact separately modified test ROM, and public `main` must remain unchanged. The exact separately modified test ROM `4b2585e1...d3ee44` was not available in this execution container, so no new original guest instruction evidence is claimed by this batch. All tests below use synthetic data only.
+
+## Why this advances the two PP-unmatched submissions
+
+The original second natural wild fixture previously yielded **eight** observed player0 native emitted/replied/committed move submissions but only **six** player PP snapshot deductions. This is not proof that two moves executed without consuming PP. Later unrelated original fixture traces authenticated the exact native PP writer `0x0809E6BA`, and showed other code writes near the same PP bytes. These events require **instruction-by-instruction attribution within the SAME second fixture**, rather than comparing memory before and after an arbitrary frame interval.
+
+This batch extends `tools/trace_exact_outcome_pp_edges.c` with original **player complete** (`0x0806261C` recorded pre-instruction), original **validator** (`0x08094330`), original **slot** (`0x0809435C`), **move ID** (`0x08094374`), and **target** (`0x08094380`) commit marker captures. The original guest instruction PCs are known from previous authentic actor0 traces. The tracer only steps the guest and reads registers, existing Main state, PP, flags and pending ownership. It never injects move-menu buttons or writes to guest RAM/save/ROM. Marker presence does not prove successful execution.
+
+New `tools/verify_exact_actor_epoch.py` checks a completed original observer transcript using the shared strict provenance verifier, then groups consecutive player0 move emissions by candidate action lifetime. It checks player0 emit packed slot/foe, original actor0 reply, controller complete, validator, slot/move/target commit order, and *at most one* `0x0809E6BA` PP debit on the correct slot, after that chain, with a witnessed 1-point byte decrement and exact writer pointer. Unrelated byte changes are counted separately. PP writes after `gMain.inBattle` clears are refused. Missing PP writer or incomplete marker chain stays explicitly **UNPROVEN**, not labeled a canceled move, consumed PP, victory, or bad AI. Full native per-request epoch ownership is not established by these source-only correlations.
+
+The outcome-byte **candidate** watch now refuses aliasing existing known PP, battle flags or pending fields; an optional nonzero address must come from separate authentic instruction and pointer evidence. Use candidate=0 by default. This avoids mistaking a known byte watcher for battle outcome. No address is invented here.
+
+## Source reference for locating the next *candidate*, not an original ROM PC
+
+The locally provided `soulgold-master.zip` source snapshot contains several `gBattleOutcome` writers and consumers. In `src/battle_script_commands.c`, the outcome is OR-assigned near source lines 5041/5043 (loss/win), near 15297/15301 (teleport), and near 16612 (win). In `src/battle_main.c`, it is cleared near line 3241, tested in the turn/finish path near 4162/4180, dispatched by the end-turn table near 5793, and OR-assigned near 6720. `src/battle_controller_player.c` also receives an outcome from an original controller buffer near line 2533. These are **source snapshot line numbers**, not mapped addresses for the user's exact compiled game, and cannot authorize any `0x08...` PC or RAM-byte claim. Different outcomes may have different original writer PCs, and the result path may be decided before the byte is committed.
+
+## Mandatory next authentic replay
+
+1. Obtain the separately verified private modified ROM bytes **SHA-256 `4b2585e10265805da12016819c880a4acd50eda2aa24ce977d1dbcc705d3ee44`**, immutable protected Current ROM, protected original save, pinned mGBA host and the original second-wild precontroller/pending private state; do not substitute source-LAB ROM.
+2. Replay the second fixture with **no player menu input** and **no guest mutation** while recording *full instruction coverage* from original player controller pending through the quiet/exit interval. Record PC-before/write-after, pre-registers, active Main state and flags; do not call a period of quietness battle completion.
+3. Validate the original actor0 chain and original PP writer with both `verify_exact_outcome_pp_edges.py` and `verify_exact_actor_epoch.py`; retain raw private traces locally. For the two missing writer candidates, investigate original restriction/action cancellation/faint/outcome branch instructions rather than inventing a conclusion from the missing debit.
+4. Trace native original Main callback handoff again and then independently validate original outcome byte address and original instruction writer(s). Only when the address is authenticated, enable the outcome-candidate watch and relate its writer to the original result dispatcher and overworld return. A single callback or stale flags4 is not a completed unattended win.
+5. Run distinct original dynamic Disable, Encore, Choice, Imprison, target, one-use lease and cancellation/manual-fallback cases on disposable exact modified ROM and independently review before any production promotion. Trainer/doubles/forced switch/Struggle remain ineligible.
+
+## Certification boundary
+
+New source observer and offline correlation alone: **0/20 formal native gameplay acceptance, 0% production hybrid installation**. They do not change existing custom game AI or ROM, and they do not certify Android compatibility, save protection at runtime or unattended full battle terminal. No automatic battle items, capture or Master Ball; no enemy or partner AI modifications.

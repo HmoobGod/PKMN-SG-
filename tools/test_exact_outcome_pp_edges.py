@@ -64,6 +64,9 @@ class ExactOutcomePpEdgeTests(unittest.TestCase):
     def test_callback_wrong_value(self):self.denied(lambda d:d["events"][5].update(callback2=0))
     def test_callback_wrong_base(self):self.denied(lambda d:d["events"][5].update(address=0))
     def test_bad_outcome_candidate(self):self.denied(lambda d:d.update(candidate_outcome_byte_address=v.MAIN))
+    def test_candidate_not_pp_alias(self):self.denied(lambda d:d.update(candidate_outcome_byte_address=v.PP))
+    def test_candidate_not_flags_alias(self):self.denied(lambda d:d.update(candidate_outcome_byte_address=0x02001AB5))
+    def test_candidate_not_pending_alias(self):self.denied(lambda d:d.update(candidate_outcome_byte_address=0x02001D2D))
     def test_candidate_unproven(self):
         d=fixture();d.update(candidate_outcome_byte_address=0x02002345)
         d["events"].insert(2,row(1,5,0x08012340,0x02002345,0,1))
@@ -84,6 +87,24 @@ class ExactOutcomePpEdgeTests(unittest.TestCase):
         d=fixture();d["events"][2].update(after=21)
         result=v.audit(d)
         self.assertEqual(result["original_pp_writer_single_byte_debits_seen"],0)
+    def test_actor0_complete_marker(self):
+        d=fixture();d["events"].insert(2,row(12,5,0x0806261C,r0=0))
+        self.assertEqual(v.audit(d)["original_player_completion_markers"],1)
+    def test_wrong_actor_completion_rejected(self):
+        def change(d):d["events"].insert(2,row(12,5,0x0806261C,r0=1))
+        self.denied(change)
+    def test_wrong_validator_marker_pc(self):
+        def change(d):d["events"].insert(2,row(13,5,0x08094332))
+        self.denied(change)
+    def test_native_slot_move_target_markers(self):
+        d=fixture();d["events"][2:2]=[row(13,5,0x08094330),
+                                      row(14,6,0x0809435C),
+                                      row(15,7,0x08094374),
+                                      row(16,8,0x08094380)]
+        r=v.audit(d)
+        self.assertEqual((r["original_validator_markers"],r["original_slot_commit_markers"],
+                          r["original_move_commit_markers"],r["original_target_commit_markers"]),
+                         (1,1,1,1))
     def test_manual_menu_marker_not_full_terminal(self):
         d=fixture();d["events"].append(row(8,32,0x0806449C))
         result=v.audit(d)
