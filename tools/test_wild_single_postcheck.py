@@ -21,7 +21,7 @@ def contract(text):
     limit='unusable = verifyReply ? CheckMoveLimitations(battler, 0, MOVE_LIMITATIONS_ALL) : 0;'
     target='!CanTargetBattler(battler, foe, move)'
     late='if (verifyReply && !SourceFirstWildLeaseSnapshotMatches(battler))\n            return FALSE;'
-    if s.count(name)!=3 or s.count('CheckMoveLimitations(')!=1:return False
+    if s.count(name)!=4 or s.count('CheckMoveLimitations(')!=1:return False
     if 'static bool32 SourceFirstWildLeaseSnapshotMatches(enum BattlerId battler)' not in s:return False
     if s.count('sSourceFirstWildLease.armed = FALSE;') != 2:return False
     if limit not in s or late not in s or target not in s:return False
@@ -108,7 +108,7 @@ class StaticTests(unittest.TestCase):
     def test_upstream_one_file_only(self):self.assertEqual(self.patch.count('+++ b/src/'),1)
     def test_no_private_payload(self):self.assertNotIn('.gba',inserted(self.patch));self.assertNotIn('.sav',inserted(self.patch))
     def test_no_bag_switch_capture(self):self.assertTrue(contract(self.patch))
-    def test_exact_helper_calls(self):self.assertEqual(inserted(self.patch).count('SourceFirstWildLeaseSnapshotMatches(battler)'),3)
+    def test_exact_helper_calls(self):self.assertEqual(inserted(self.patch).count('SourceFirstWildLeaseSnapshotMatches(battler)'),4)
     def test_without_post_limitations_denied(self):
         t=self.patch.replace('+        !SourceFirstWildLeaseSnapshotMatches(battler) ||\n+        gBattleResources == NULL ||','+        gBattleResources == NULL ||',1)
         self.assertNotEqual(t,self.patch)

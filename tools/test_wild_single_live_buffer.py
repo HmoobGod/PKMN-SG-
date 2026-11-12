@@ -33,7 +33,7 @@ def contract(text):
         gBattleResources->bufferA[battler][0] == CONTROLLER_CHOOSEMOVE)'''
     if start not in s or done not in s or handoff not in s: return False
     if s.count('CheckMoveLimitations(')!=1 or s.count('sSourceFirstWildLease.armed = FALSE;')!=2:return False
-    if s.count('SourceFirstWildLeaseSnapshotMatches(battler)')!=3:return False
+    if s.count('SourceFirstWildLeaseSnapshotMatches(battler)')!=4:return False
     # The response must compare a dereferenceable, unchanged engine buffer AFTER
     # original targeting routines, BEFORE reading the move/PP or emitting a reply.
     try:
