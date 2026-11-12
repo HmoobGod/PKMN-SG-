@@ -40,6 +40,7 @@ jobs:
           python3 -m py_compile tools/probe_completed_copy.py tools/verify_native_copy_pairs.py
           python3 tools/check_source.py
           python3 tools/test_hybrid_input.py
+          python3 tools/test_wild_single_lab_contract.py
           python3 -m py_compile tools/verify_hybrid_input.py
           python3 tools/test_native_anchor_parity.py
           python3 -m py_compile tools/verify_native_anchor_parity.py
