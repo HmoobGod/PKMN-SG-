@@ -35,11 +35,23 @@ def contract_ok(text: str) -> bool:
         "!CanTargetBattler(battler, foe, move)",
         "moveInfo->moves[slot] != move",
         "moveInfo->currentPp[slot] != gBattleMons[battler].pp[slot]",
+        "bool32 armed = sSourceFirstWildLease.armed",
+        "if (!armed || battler != sSourceFirstWildLease.owner ||",
+        "GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT) != sSourceFirstWildLease.foe",
+        "sSourceFirstWildLease.moves[slot] != gBattleMons[battler].moves[slot]",
+        "sSourceFirstWildLease.pp[slot] != gBattleMons[battler].pp[slot]",
+        "SourceFirstArmWildLease(battler);",
+        "SourceFirstConsumeWildLease(battler) &&",
         "B_ACTION_USE_MOVE, 0",
         "B_ACTION_EXEC_SCRIPT, autoReply",
         "BtlController_Complete(battler);",
     )
     return (all(part in text for part in checks)
+            and text.count("sSourceFirstWildLease.armed = FALSE;") == 2
+            and text.index("sSourceFirstWildLease.armed = FALSE;") <
+                text.index("if (!armed || battler != sSourceFirstWildLease.owner ||")
+            and text.index("SourceFirstConsumeWildLease(battler) &&") <
+                text.index("SourceFirstWildSingleMove(battler, TRUE, &autoReply)")
             and text.count("CheckMoveLimitations(battler, 0, MOVE_LIMITATIONS_ALL)") == 1
             and "unusable = verifyReply ? CheckMoveLimitations(" in text
             and "*reply = slot | (foe << 8)" in text
@@ -81,6 +93,30 @@ class WildSingleLabContractTests(unittest.TestCase):
 
     def test_unconditional_limitation_check_fails(self):
         self.assertFalse(contract_ok(self.text.replace("unusable = verifyReply ? CheckMoveLimitations(", "unusable = CheckMoveLimitations(")))
+
+    def test_missing_single_use_consumption_denied(self):
+        self.assertFalse(contract_ok(self.text.replace(
+            "sSourceFirstWildLease.armed = FALSE;", "sSourceFirstWildLease.armed = TRUE;", 1)))
+
+    def test_wrong_source_lease_actor_denied(self):
+        self.assertFalse(contract_ok(self.text.replace(
+            "battler != sSourceFirstWildLease.owner",
+            "battler != 255")))
+
+    def test_changed_pp_between_action_and_move_denied(self):
+        self.assertFalse(contract_ok(self.text.replace(
+            "sSourceFirstWildLease.pp[slot] != gBattleMons[battler].pp[slot]",
+            "sSourceFirstWildLease.pp[slot] == gBattleMons[battler].pp[slot]")))
+
+    def test_changed_moves_between_action_and_move_denied(self):
+        self.assertFalse(contract_ok(self.text.replace(
+            "sSourceFirstWildLease.moves[slot] != gBattleMons[battler].moves[slot]",
+            "sSourceFirstWildLease.moves[slot] == gBattleMons[battler].moves[slot]")))
+
+    def test_unrelated_reply_without_fight_lease_denied(self):
+        self.assertFalse(contract_ok(self.text.replace(
+            "SourceFirstConsumeWildLease(battler) &&",
+            "TRUE &&")))
 
     def test_enemy_auto_path_injection_fails(self):
         self.assertFalse(contract_ok(self.text + "\nB_ACTION_USE_ITEM"))
