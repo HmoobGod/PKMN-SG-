@@ -47,6 +47,9 @@ jobs:
           python3 tools/test_exact_pp_writer.py
           python3 tools/test_exact_next_wild.py
           python3 tools/test_exact_main_callback.py
+          python3 tools/test_exact_outcome_pp_edges.py
+          python3 -m py_compile tools/verify_exact_outcome_pp_edges.py
+          cc -std=c11 -Wall -Wextra -Werror -pedantic -fsyntax-only tools/trace_exact_outcome_pp_edges.c
           python3 -m py_compile tools/verify_exact_main_callback.py
           cc -std=c11 -Wall -Wextra -Werror -pedantic -fsyntax-only tools/trace_exact_main_callback.c
           python3 -m py_compile tools/verify_exact_next_wild.py
