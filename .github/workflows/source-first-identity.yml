@@ -1,0 +1,103 @@
+name: SoulGold source-first identity build
+
+on:
+  push:
+    branches:
+      - source-first/rom-identity
+    paths:
+      - .github/workflows/source-first-identity.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unmodified-source-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    env:
+      SOURCE_SHA: 3f4d90aa8f8bc50054c817d7bd59fcdfcfb4933d
+      ORIGINAL_SHA256: 7b9ac66d38f38dcddc1cc907822615fcf56689600fdccaffa9df9a836fb9ee32
+      MODIFIED_SHA256: 4b2585e10265805da12016819c880a4acd50eda2aa24ce977d1dbcc705d3ee44
+      GAME_VERSION: EMERALD
+      GAME_REVISION: "0"
+      GAME_LANGUAGE: ENGLISH
+      COMPARE: "0"
+      UNUSED_ERROR: "1"
+      DEPRECATED_ERROR: "1"
+    steps:
+      - name: Check out public SoulGold research repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Fetch pinned upstream source, not a ROM or save
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout https://github.com/Eemeliri/soulgold.git upstream-source
+          git -C upstream-source fetch --depth=1 origin "$SOURCE_SHA"
+          git -C upstream-source checkout --detach "$SOURCE_SHA"
+          test "$(git -C upstream-source rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Verify five source anchors match the supplied ZIP
+        working-directory: upstream-source
+        run: |
+          set -euo pipefail
+          cat > /tmp/soulgold-source-hashes.txt <<'HASHES'
+          b68da4761ce226b9ab662ae03d81c58b59d6071ddcb1d3c864693707a9844449  Makefile
+          d35be00fa06f83cc5432520fbce5e42143ac32543f7c4964f8fa36ee7454cf03  config.mk
+          deb649e441dd28909ade7053119b4af29450c9686e43000f319149d44c43e594  src/battle_controller_player.c
+          4293320e41b017066c6fdcd0edff6474fba39617d8eaba780daaf4492ef3e8f0  src/battle_controllers.c
+          ee48d7a08ed713309afce8515c371a83f79e70df3f2708e0c89ea01f5bbe5ae4  .github/workflows/build.yml
+          HASHES
+          sha256sum --check /tmp/soulgold-source-hashes.txt
+
+      - name: Install GNU ARM build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            binutils-arm-none-eabi gcc-arm-none-eabi \
+            libnewlib-arm-none-eabi libpng-dev python3
+          arm-none-eabi-gcc --version | head -1
+
+      - name: Build unchanged source using its Makefile
+        working-directory: upstream-source
+        shell: bash
+        run: |
+          set -o pipefail
+          make -j2 -O all 2>&1 | tee ../source-first-build.log
+
+      - name: Compare compiled ROM and controller symbol to both known ROMs
+        working-directory: upstream-source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s Soulgold.gba
+          test -s Soulgold.elf
+          test -s Soulgold.map
+          actual="$(sha256sum Soulgold.gba | cut -d' ' -f1)"
+          {
+            echo "Pinned upstream source SHA: $SOURCE_SHA"
+            echo "Built ROM SHA256: $actual"
+            echo "Protected Current baseline SHA256: $ORIGINAL_SHA256"
+            echo "Recovered modified ROM SHA256: $MODIFIED_SHA256"
+            echo "ROM size bytes: $(stat -c %s Soulgold.gba)"
+            if [ "$actual" = "$ORIGINAL_SHA256" ]; then
+              echo "IDENTITY: exact match to protected Current ROM"
+            elif [ "$actual" = "$MODIFIED_SHA256" ]; then
+              echo "IDENTITY: exact match to recovered modified ROM"
+            else
+              echo "IDENTITY: no exact ROM match; save/gameplay compatibility still unverified"
+            fi
+            echo "Controller symbol (reference known address: 0x080619D4):"
+            arm-none-eabi-nm -n Soulgold.elf | grep -E ' PlayerBufferRunCommand$' || echo "Symbol not found"
+          } | tee ../source-first-identity-report.txt
+
+      - name: Upload text logs and hashes only - NEVER game ROMs or saves
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: soulgold-source-first-build-report
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            source-first-build.log
+            source-first-identity-report.txt
