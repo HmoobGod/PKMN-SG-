@@ -97,6 +97,27 @@ class NativeChainStrictTests(unittest.TestCase):
         a['run']['run_id']='legacy:'+'0'*64
         with self.assertRaisesRegex(ValueError,'legacy run ID'):v.verify_capture(a,log)
 
+    def test_instrumented_start_marker_is_required(self):
+        raw=synthetic();log=console_for(raw);norm=v.normalize_legacy_archive(raw,log)
+        norm['run']['provenance']='INSTRUMENTED_RUN'
+        norm['run']['process_id_observed']=True
+        with self.assertRaisesRegex(ValueError,'RUN_START'):
+            v.verify_capture(norm,log)
+
+    def test_native_instrumented_marker_can_be_checked(self):
+        raw=synthetic();log=console_for(raw)
+        run_id='native-run-unique-001'
+        log=log.replace('GDB S02\n','RUN_START '+run_id+'\n',1)
+        norm=v.normalize_legacy_archive(raw,console_for(raw))
+        norm['run']={'run_id':run_id,'start_marker':'RUN_START '+run_id,
+                     'console_sha256':v.hashlib.sha256(log.encode()).hexdigest(),
+                     'provenance':'INSTRUMENTED_RUN','process_id_observed':True}
+        for e in norm['original_cpu_events']:
+            e['run_id']=run_id
+        result=v.verify_capture(norm,log)
+        self.assertTrue(result['same_emulator_process_log'])
+        self.assertEqual(result['complete_cpu_episodes'],2)
+
     def test_console_none_rejected(self):
         raw=synthetic();log=console_for(raw);a=v.normalize_legacy_archive(raw,log)
         with self.assertRaisesRegex(ValueError,'mandatory GDB console'):v.verify_capture(a,None)
