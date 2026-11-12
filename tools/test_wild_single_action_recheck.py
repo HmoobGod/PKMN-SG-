@@ -44,7 +44,7 @@ def contract(patch):
         arm = s.index("SourceFirstArmWildLease(battler);", proposal)
         frozen = s.index("sSourceFirstWildLease.proposedSlot = proposedSlot;", arm)
         after_arm = s.index(BEFORE_FIGHT, arm)
-        next_selector = s.index("void PlayerHandleChooseMove(", after_arm)
+        next_selector = s.index("if (SourceFirstConsumeWildLease(battler) &&", after_arm)
         return (target < gate < move_reply < proposal < arm < frozen < after_arm < next_selector
                 and s.count("CheckMoveLimitations(") == 1
                 and s.count("sSourceFirstWildLease.armed = FALSE;") == 2
