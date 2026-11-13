@@ -142,7 +142,7 @@ class PlayerProposalTargetContinuityTests(unittest.TestCase):
 
     def test_guard_must_precede_target_helper_and_fight_emit(self):
         source = self.diff
-        header = "+        u16 preTargetTurn = gBattleTurnCounter;\n"
+        header = "+    u16 preTargetTurn = gBattleTurnCounter;\n"
         after_target = "+        if (!verifyReply && (!SourceFirstWildSingleOwner(battler) ||\n"
         self.assertIn(header, source)
         self.assertIn(after_target, source)
@@ -155,16 +155,17 @@ class PlayerProposalTargetContinuityTests(unittest.TestCase):
             with self.subTest(commented=line):
                 self.assertFalse(guarded_proposal(
                     self.diff.replace(line, "/* " + line + " */", 1)))
-        for poison in (
-                "/* " + CHECK[0] + " */",
-                "/* " + FREEZE[0] + " */",
-                "#if 0\n+        " + FREEZE[0] + "\n+        #endif",
-                CHECK[0].replace(" ||", " && 0 ||"),
-                CHECK[0].replace(" ||", " || 1 ||")):
+        mutations = (
+            (CHECK[0], "/* " + CHECK[0] + " */"),
+            (FREEZE[0], "/* " + FREEZE[0] + " */"),
+            (FREEZE[0], "#if 0\n+        " + FREEZE[0] + "\n+        #endif"),
+            (CHECK[0], CHECK[0].replace(" ||", " && 0 ||")),
+            (CHECK[0], CHECK[0].replace(" ||", " || 1 ||")),
+        )
+        for needle, poison in mutations:
             with self.subTest(poison=poison):
-                self.assertFalse(guarded_proposal(
-                    self.diff.replace(CHECK[0] if CHECK[0] in poison else FREEZE[0],
-                                      poison, 1)))
+                self.assertNotEqual(needle, poison)
+                self.assertFalse(guarded_proposal(self.diff.replace(needle, poison, 1)))
 
     def test_single_freeze_outside_slot_loop_and_never_retaken(self):
         loop = "+    for (slot = 0; slot < MAX_MON_MOVES; slot++)\n"
