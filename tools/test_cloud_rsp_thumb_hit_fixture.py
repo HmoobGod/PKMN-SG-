@@ -110,6 +110,17 @@ class PublicBreakpointHitTests(unittest.TestCase):
                 lab.run_one_hit(object())
         self.assertEqual([x for x in events if x[0]=="bp"],[("bp",THUMB_SET)])
 
+    def test_non_stop_continue_reply_fails_without_inband_cleanup(self):
+        events, read, mem, bp, continued = self.scripted(hit=b"OK")
+        with patch.object(lab,"request",side_effect=read), \
+             patch.object(lab,"thumb_memory",side_effect=mem), \
+             patch.object(lab,"thumb_breakpoint",side_effect=bp), \
+             patch.object(lab,"one_continue",side_effect=continued):
+            with self.assertRaisesRegex(lab.HitError, "NON-STOP RSP frame len=2 prefix_hex=4f4b"):
+                lab.run_one_hit(object())
+        self.assertEqual([x for x in events if x[0]=="bp"],[("bp",THUMB_SET)])
+        self.assertFalse(("bp",THUMB_REMOVE) in events)
+
     def test_lost_install_reply_still_attempts_one_remove(self):
         events,read,mem,bp,cont=self.scripted()
         def missing(_,command):
