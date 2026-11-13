@@ -10,6 +10,7 @@ on:
   pull_request:
     branches:
       - source-first/rom-identity
+      - lab/player0-proposal-target-continuity-20261113
     paths:
       - .github/workflows/source-first-wild-single-lab.yml
       - source-first/wild-single-lab.patch
