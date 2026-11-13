@@ -29,10 +29,12 @@ writer-PC and own PP contexts with exactly one changed field at a time:
   never outcome, cancellation, manual fallback or production certification.
 
 The mutation test uses the repository's `audit` function text **in memory**
-and deliberately strips each writer-guard conjunct. The corresponding
-invalid synthetic event then becomes accepted by the *mutant*, demonstrating
-that a regression lacking the original guard would be caught by normal
-negative tests. No monkeypatch or mutation is written to GitHub files, the
+and deliberately strips each of the previously untested `flags` and
+`battlers` writer-guard conjuncts. The corresponding invalid synthetic
+event then becomes accepted by the *mutant*, demonstrating
+that a regression lacking either guard would be caught by the normal
+negative tests. Guest `inbattle` is also directly tested for rejection;
+other source-level state guards can independently reject that mutation. No monkeypatch or mutation is written to GitHub files, the
 private ROM/save, a guest process or CI artifacts.
 
 ## Safety / acceptance
