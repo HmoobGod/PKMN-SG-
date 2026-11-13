@@ -27,10 +27,12 @@ jobs:
           cp tools/cloud_mgba_rsp_fixture.py tools/cloud_rsp_netns_fixture.py tools/cloud_rsp_netns_gate.py tools/test_cloud_rsp_netns_gate.py /tmp/sg-netns-build/tools/
           cp docker/cloud-mgba-netns.Dockerfile /tmp/sg-netns-build/Dockerfile
           docker build -t soulgold-public-netns:lab /tmp/sg-netns-build
+          echo "BUILT_CONTAINER_IMAGE_SHA256:"
+          docker image inspect --format '{{.Id}}' soulgold-public-netns:lab
       - name: Verify Docker network=none before running any emulator
         run: |
           set -eu
-          cid=$(docker create --network none --cap-drop ALL --security-opt no-new-privileges --read-only --tmpfs /tmp:rw,nosuid,nodev,size=128m --shm-size 128m soulgold-public-netns:lab)
+          cid=$(docker create --network none --cap-drop ALL --security-opt no-new-privileges --read-only --user 65534:65534 --pids-limit 128 --memory 512m --tmpfs /tmp:rw,nosuid,nodev,size=128m --shm-size 128m soulgold-public-netns:lab)
           trap 'docker rm -f "$cid" >/dev/null 2>&1 || true' EXIT
           mode=$(docker inspect --format '{{.HostConfig.NetworkMode}}' "$cid")
           test "$mode" = "none"
