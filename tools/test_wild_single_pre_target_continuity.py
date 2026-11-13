@@ -47,17 +47,17 @@ def guarded_proposal(diff: str) -> bool:
         raw = text[start:finish]
         # The patch has no conditional compilation inside this source function.
         # Reject it rather than mistaking '#if 0' dead code for a live guard.
-        if re.search(r"(?m)^\\s*#\\s*(?:if|ifdef|ifndef|elif|else|endif)\\b", raw):
+        if re.search(r"(?m)^\s*#\s*(?:if|ifdef|ifndef|elif|else|endif)\b", raw):
             return False
-        body = re.sub(r"/\\*.*?\\*/", "", raw, flags=re.S)
-        body = re.sub(r"//[^\\n]*", "", body)
+        body = re.sub(r"/\*.*?\*/", "", raw, flags=re.S)
+        body = re.sub(r"//[^\n]*", "", body)
 
         loop = body.index("for (slot = 0; slot < MAX_MON_MOVES; slot++)")
         target = body.index("GetBattlerMoveTargetType(battler, move)")
         second_helper = body.index("CanTargetBattler(battler, foe, move)")
         guard = body.index("if (!verifyReply && (!SourceFirstWildSingleOwner(battler) ||")
-        guard_end = body.index("))\\n            return FALSE;", guard)
-        eligible_skip = body.index("if (!canTarget)\\n            continue;", guard_end)
+        guard_end = body.index("))\n            return FALSE;", guard)
+        eligible_skip = body.index("if (!canTarget)\n            continue;", guard_end)
         emit = body.index("*reply = slot;", eligible_skip)
         if not (loop < target < second_helper < guard < guard_end <
                 eligible_skip < emit):
@@ -78,7 +78,7 @@ def guarded_proposal(diff: str) -> bool:
         if not all(line in guard_text for line in CHECK):
             return False
         # Presence alone is not enough if the conditional is neutralized.
-        if re.search(r"&&\\s*(?:0|FALSE)\\b|\\|\\|\\s*(?:1|TRUE)\\b", guard_text):
+        if re.search(r"&&\s*(?:0|FALSE)\b|\|\|\s*(?:1|TRUE)\b", guard_text):
             return False
         if not all(body.count(x) == 1 for x in (*FREEZE, *CHECK)):
             return False
@@ -158,7 +158,7 @@ class PlayerProposalTargetContinuityTests(unittest.TestCase):
         for poison in (
                 "/* " + CHECK[0] + " */",
                 "/* " + FREEZE[0] + " */",
-                "#if 0\\n+        " + FREEZE[0] + "\\n+        #endif",
+                "#if 0\n+        " + FREEZE[0] + "\n+        #endif",
                 CHECK[0].replace(" ||", " && 0 ||"),
                 CHECK[0].replace(" ||", " || 1 ||")):
             with self.subTest(poison=poison):
@@ -167,23 +167,26 @@ class PlayerProposalTargetContinuityTests(unittest.TestCase):
                                       poison, 1)))
 
     def test_single_freeze_outside_slot_loop_and_never_retaken(self):
-        loop = "+    for (slot = 0; slot < MAX_MON_MOVES; slot++)\\n"
-        freeze = "+    u16 preTargetTurn = gBattleTurnCounter;\\n"
+        loop = "+    for (slot = 0; slot < MAX_MON_MOVES; slot++)\n"
+        freeze = "+    u16 preTargetTurn = gBattleTurnCounter;\n"
         self.assertIn(loop, self.diff)
         self.assertIn(freeze, self.diff)
         # Move the capture back inside the loop (the original B1 defect).
+        marker = "+    u8 preTargetFoeParty = gBattlerPartyIndexes[foe];\n+\n"
+        self.assertIn(marker + loop, self.diff)
         relocated = self.diff.replace(freeze, "", 1).replace(
-            loop, loop + "+        u16 preTargetTurn = gBattleTurnCounter;\\n", 1)
+            marker + loop, marker + loop +
+            "+        u16 preTargetTurn = gBattleTurnCounter;\n", 1)
         self.assertFalse(guarded_proposal(relocated))
         # A second baseline assignment after a target helper masks drift.
-        helper = "+        canTarget = GetBattlerMoveTargetType(battler, move) == TARGET_SELECTED;\\n"
+        helper = "+        canTarget = GetBattlerMoveTargetType(battler, move) == TARGET_SELECTED;\n"
         self.assertIn(helper, self.diff)
         neutralized = self.diff.replace(
-            helper, helper + "+        preTargetTurn = gBattleTurnCounter;\\n", 1)
+            helper, helper + "+        preTargetTurn = gBattleTurnCounter;\n", 1)
         self.assertFalse(guarded_proposal(neutralized))
 
     def test_post_helper_guard_must_precede_ineligible_continue(self):
-        skip = "+        if (!canTarget)\\n+            continue;\\n"
+        skip = "+        if (!canTarget)\n+            continue;\n"
         self.assertIn(skip, self.diff)
         self.assertTrue(guarded_proposal(self.diff))
         early = self.diff.replace(
