@@ -35,7 +35,9 @@ def guarded_proposal(diff: str) -> bool:
     try:
         text = added_source(diff)
         start = text.index("static bool32 SourceFirstWildSingleMove(")
-        finish = text.index("static void PlayerHandleChooseAction(", start)
+        # The source function signature is unchanged context, not a "+".
+        # Bound added lines at the next added first-stage local declaration.
+        finish = text.index("u32 proposedSlot = MAX_MON_MOVES;", start)
         body = text[start:finish]
         capture = body.index(FREEZE[0])
         target = body.index("GetBattlerMoveTargetType(battler, move)")
