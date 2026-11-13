@@ -182,7 +182,11 @@ def main(*, negotiated_public: bool = False) -> None:
                 sock.settimeout(3.0)
                 listeners = inspect_network(require_listener=True)
                 check_no_egress()
-                pc, stop, nonstandard = run_one_hit(sock, negotiated_public=negotiated_public)
+                if negotiated_public:
+                    pc, stop, nonstandard = run_one_hit(sock, negotiated_public=True)
+                else:
+                    # Preserve the exact original call shape for approved R2 tests.
+                    pc, stop, nonstandard = run_one_hit(sock)
             if nonstandard:
                 print("EVIDENCE_ONLY: generated Thumb target PC corroborates NONSTANDARD mGBA S05k response")
                 print("PR26_STOP_GRAMMAR: REJECTS S05k (original strict parser unchanged)")
