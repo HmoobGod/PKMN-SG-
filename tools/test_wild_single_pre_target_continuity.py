@@ -32,25 +32,55 @@ def added_source(diff: str) -> str:
 
 
 def guarded_proposal(diff: str) -> bool:
+    """Fail closed unless live C guards protect one entire proposal.
+
+    Inspect the added C text rather than a Python-only behavior model. Reject
+    any conditional compilation in this small guard region, remove comments,
+    and require an unweakened conditional BEFORE the ineligible-slot continue.
+    """
     try:
+        import re
+
         text = added_source(diff)
         start = text.index("static bool32 SourceFirstWildSingleMove(")
-        # The source function signature is unchanged context, not a "+".
-        # Bound added lines at the next added first-stage local declaration.
         finish = text.index("u32 proposedSlot = MAX_MON_MOVES;", start)
-        body = text[start:finish]
-        capture = body.index(FREEZE[0])
+        raw = text[start:finish]
+        # The patch has no conditional compilation inside this source function.
+        # Reject it rather than mistaking '#if 0' dead code for a live guard.
+        if re.search(r"(?m)^\\s*#\\s*(?:if|ifdef|ifndef|elif|else|endif)\\b", raw):
+            return False
+        body = re.sub(r"/\\*.*?\\*/", "", raw, flags=re.S)
+        body = re.sub(r"//[^\\n]*", "", body)
+
+        loop = body.index("for (slot = 0; slot < MAX_MON_MOVES; slot++)")
         target = body.index("GetBattlerMoveTargetType(battler, move)")
-        after = body.index("if (!verifyReply && (!SourceFirstWildSingleOwner(battler) ||")
-        emit = body.index("*reply = slot; // Record proposal")
+        second_helper = body.index("CanTargetBattler(battler, foe, move)")
+        guard = body.index("if (!verifyReply && (!SourceFirstWildSingleOwner(battler) ||")
+        guard_end = body.index("))\\n            return FALSE;", guard)
+        eligible_skip = body.index("if (!canTarget)\\n            continue;", guard_end)
+        emit = body.index("*reply = slot;", eligible_skip)
+        if not (loop < target < second_helper < guard < guard_end <
+                eligible_skip < emit):
+            return False
+
+        # Every identity is read exactly ONCE before the move loop, then
+        # compared exactly ONCE inside the mandatory post-helper guard.
+        for name, decl, check in zip(
+                ("preTargetTurn", "preTargetPlayerParty", "preTargetFoeParty"),
+                FREEZE, CHECK):
+            if body.count(name) != 2 or body.count(decl) != 1:
+                return False
+            if body.count(check) != 1:
+                return False
+            if not (body.index(decl) < loop < guard < body.index(check) < guard_end):
+                return False
+        guard_text = body[guard:guard_end]
+        if not all(line in guard_text for line in CHECK):
+            return False
+        # Presence alone is not enough if the conditional is neutralized.
+        if re.search(r"&&\\s*(?:0|FALSE)\\b|\\|\\|\\s*(?:1|TRUE)\\b", guard_text):
+            return False
         if not all(body.count(x) == 1 for x in (*FREEZE, *CHECK)):
-            return False
-        if not (capture < target < after < emit):
-            return False
-        if not (all(body.index(x) < target for x in FREEZE) and
-                all(after < body.index(x) < emit for x in CHECK)):
-            return False
-        if "if (!verifyReply && (!SourceFirstWildSingleOwner(battler) ||" not in body:
             return False
         if "if (verifyReply && !SourceFirstWildLeaseSnapshotMatches(battler))" not in body:
             return False
@@ -118,6 +148,49 @@ class PlayerProposalTargetContinuityTests(unittest.TestCase):
         self.assertIn(after_target, source)
         self.assertFalse(guarded_proposal(source.replace(header, "", 1)))
         self.assertFalse(guarded_proposal(source.replace(after_target, "", 1)))
+
+    def test_guard_rejects_comments_preprocessor_and_tautologies(self):
+        # All five failure modes from independent exact-head review.
+        for line in (*FREEZE, *CHECK):
+            with self.subTest(commented=line):
+                self.assertFalse(guarded_proposal(
+                    self.diff.replace(line, "/* " + line + " */", 1)))
+        for poison in (
+                "/* " + CHECK[0] + " */",
+                "/* " + FREEZE[0] + " */",
+                "#if 0\\n+        " + FREEZE[0] + "\\n+        #endif",
+                CHECK[0].replace(" ||", " && 0 ||"),
+                CHECK[0].replace(" ||", " || 1 ||")):
+            with self.subTest(poison=poison):
+                self.assertFalse(guarded_proposal(
+                    self.diff.replace(CHECK[0] if CHECK[0] in poison else FREEZE[0],
+                                      poison, 1)))
+
+    def test_single_freeze_outside_slot_loop_and_never_retaken(self):
+        loop = "+    for (slot = 0; slot < MAX_MON_MOVES; slot++)\\n"
+        freeze = "+    u16 preTargetTurn = gBattleTurnCounter;\\n"
+        self.assertIn(loop, self.diff)
+        self.assertIn(freeze, self.diff)
+        # Move the capture back inside the loop (the original B1 defect).
+        relocated = self.diff.replace(freeze, "", 1).replace(
+            loop, loop + "+        u16 preTargetTurn = gBattleTurnCounter;\\n", 1)
+        self.assertFalse(guarded_proposal(relocated))
+        # A second baseline assignment after a target helper masks drift.
+        helper = "+        canTarget = GetBattlerMoveTargetType(battler, move) == TARGET_SELECTED;\\n"
+        self.assertIn(helper, self.diff)
+        neutralized = self.diff.replace(
+            helper, helper + "+        preTargetTurn = gBattleTurnCounter;\\n", 1)
+        self.assertFalse(guarded_proposal(neutralized))
+
+    def test_post_helper_guard_must_precede_ineligible_continue(self):
+        skip = "+        if (!canTarget)\\n+            continue;\\n"
+        self.assertIn(skip, self.diff)
+        self.assertTrue(guarded_proposal(self.diff))
+        early = self.diff.replace(
+            skip, "", 1).replace(
+            "+        /* Source-LAB action proposal:",
+            skip + "+        /* Source-LAB action proposal:", 1)
+        self.assertFalse(guarded_proposal(early))
 
     def test_no_turn_drift_from_target_helper(self):
         state = Request()
