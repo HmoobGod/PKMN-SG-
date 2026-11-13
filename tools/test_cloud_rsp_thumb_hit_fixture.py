@@ -151,6 +151,28 @@ class PublicBreakpointHitTests(unittest.TestCase):
         self.assertEqual([x for x in events if x[0]=="bp"],[("bp",THUMB_SET)])
         self.assertFalse(("bp",THUMB_REMOVE) in events)
 
+    def test_run_one_hit_rejects_fake_nonstandard_stops_without_cleanup(self):
+        # Tests the run_one_hit boundary, not only validate_hit:
+        # mutating the observed S05k branch must not accept suffix variants.
+        for bad_stop in (b"S05x", b"S05kk"):
+            with self.subTest(bad_stop=bad_stop):
+                events, read, mem, bp, cont = self.scripted(hit=bad_stop)
+                with patch.object(lab, "request", side_effect=read), \
+                     patch.object(lab, "thumb_memory", side_effect=mem), \
+                     patch.object(lab, "thumb_breakpoint", side_effect=bp), \
+                     patch.object(lab, "one_continue", side_effect=cont):
+                    with self.assertRaisesRegex(lab.HitError, "NON-STOP RSP frame"):
+                        lab.run_one_hit(object())
+                self.assertEqual([x for x in events if x[0] == "bp"], [
+                    ("bp", THUMB_SET),
+                ])
+                self.assertEqual([x for x in events if x[0] == "c"], [
+                    ("c", b"c"),
+                ])
+                # No post-resume g and no z0 when stop report is untrustworthy.
+                self.assertEqual([x for x in events if x == ("read", b"g")],
+                                 [("read", b"g")])
+
     def test_lost_install_reply_still_attempts_one_remove(self):
         events,read,mem,bp,cont=self.scripted()
         def missing(_,command):
@@ -247,6 +269,9 @@ class PublicBreakpointHitTests(unittest.TestCase):
                 {"PATH", "DISPLAY", "XAUTHORITY", "HOME", "SDL_AUDIODRIVER"},
             )
             self.assertEqual(kwargs["env"]["SDL_AUDIODRIVER"], "dummy")
+            self.assertEqual(os.path.basename(kwargs["env"]["HOME"]), "home")
+            self.assertEqual(os.path.dirname(kwargs["env"]["HOME"]), str(kwargs["cwd"]))
+            self.assertNotEqual(kwargs["env"]["HOME"], os.environ["HOME"])
             self.assertNotIn("SG_PRIVATE_SENTINEL", kwargs["env"])
             self.assertNotIn("SOULGOLD_ALLOW_PRIVATE_INPUTS", kwargs["env"])
             self.assertEqual(kwargs["stdin"], lab.subprocess.DEVNULL)
@@ -268,6 +293,7 @@ class PublicBreakpointHitTests(unittest.TestCase):
         private_sentinel = {
             "PATH": "/usr/bin", "DISPLAY": ":99", "XAUTHORITY": "/tmp/test-xauth",
             "SG_PRIVATE_SENTINEL": "NEVER_PASS_TO_CHILD",
+            "HOME": "/private/inherited-home-must-not-escape",
         }
         with patch.object(lab.sys, "argv", ["synthetic"]), \
              patch.dict(os.environ, private_sentinel, clear=True), \
