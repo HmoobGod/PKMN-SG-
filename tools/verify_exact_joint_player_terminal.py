@@ -160,7 +160,14 @@ def audit(d):
                         ((e["before"]^e["after"])&2),
                         "not the original gMain.inBattle bit edge")
                 old_main=e["after"]&2
-                if not old_main:clear_edges.append((e["step"],e["pc"]))
+                if not old_main:
+                    # Close the current actor0 candidate at the authentic
+                    # Main clear. A later in-battle transition is a NEW
+                    # request context, not permission to recycle its PP.
+                    if active is not None:
+                        emits.append(active)
+                        active=None
+                    clear_edges.append((e["step"],e["pc"]))
             elif kind==11:
                 require(e["before"]==cb1,"missing or repeated callback1 mutation")
                 cb1=e["after"]
