@@ -208,5 +208,117 @@ class PublicBreakpointHitTests(unittest.TestCase):
         proc.wait.assert_called_once()
 
 
+    def test_literal_generated_target_pc_set_is_pinned(self):
+        # Deliberately independent of lab constants: catches widened PC guards.
+        self.assertEqual(lab.TARGET_PC, 0x08000100)
+        self.assertEqual(
+            lab.ALLOWED_STOP_PCS,
+            frozenset({0x08000100, 0x08000102, 0x08000104}),
+        )
+        for pc in (0x080000fe, 0x08000106, 0x08000200):
+            with self.subTest(pc=pc):
+                with self.assertRaises(lab.HitError):
+                    lab.validate_hit(b"S05", regs(pc))
+
+    def test_main_exact_isolation_order_child_environment_and_3s_timeout(self):
+        # A successful fake mGBA is only used to audit main() integration.
+        # The real GDB and sandbox code paths are untouched.
+        events = []
+        proc = MagicMock()
+        proc.poll.return_value = None
+        proc.wait.return_value = 0
+        sock = MagicMock()
+        sock.__enter__.return_value = sock
+
+        def network_check(*, require_listener=False):
+            events.append(("network", require_listener))
+            return ("v4:127.0.0.1",)
+
+        def egress_check():
+            events.append(("egress",))
+
+        def start(argv, **kwargs):
+            events.append(("launch",))
+            self.assertEqual(argv[:2], ["mgba", "-g"])
+            self.assertEqual(len(argv), 3)
+            self.assertTrue(argv[2].endswith("original_generated_thumb_hit.gba"))
+            self.assertEqual(
+                set(kwargs["env"]),
+                {"PATH", "DISPLAY", "XAUTHORITY", "HOME", "SDL_AUDIODRIVER"},
+            )
+            self.assertEqual(kwargs["env"]["SDL_AUDIODRIVER"], "dummy")
+            self.assertNotIn("SG_PRIVATE_SENTINEL", kwargs["env"])
+            self.assertNotIn("SOULGOLD_ALLOW_PRIVATE_INPUTS", kwargs["env"])
+            self.assertEqual(kwargs["stdin"], lab.subprocess.DEVNULL)
+            self.assertEqual(kwargs["stdout"], lab.subprocess.DEVNULL)
+            self.assertEqual(kwargs["stderr"], lab.subprocess.DEVNULL)
+            return proc
+
+        def connect(address, timeout):
+            events.append(("connect",))
+            self.assertEqual(address, (lab.HOST, lab.PORT))
+            self.assertEqual(timeout, 1)
+            return sock
+
+        def hit(s):
+            events.append(("run",))
+            self.assertIs(s, sock)
+            return (0x08000100, "S05k", True)
+
+        private_sentinel = {
+            "PATH": "/usr/bin", "DISPLAY": ":99", "XAUTHORITY": "/tmp/test-xauth",
+            "SG_PRIVATE_SENTINEL": "NEVER_PASS_TO_CHILD",
+        }
+        with patch.object(lab.sys, "argv", ["synthetic"]), \
+             patch.dict(os.environ, private_sentinel, clear=True), \
+             patch.object(lab, "inspect_network", side_effect=network_check), \
+             patch.object(lab, "check_no_egress", side_effect=egress_check), \
+             patch.object(lab.subprocess, "Popen", side_effect=start), \
+             patch.object(lab.socket, "create_connection", side_effect=connect), \
+             patch.object(lab, "run_one_hit", side_effect=hit):
+            lab.main()
+        self.assertEqual(events, [
+            ("network", False), ("egress",), ("launch",), ("connect",),
+            ("network", True), ("egress",), ("run",),
+        ])
+        sock.settimeout.assert_called_once_with(3.0)
+        proc.terminate.assert_called_once()
+        proc.wait.assert_called_once_with(timeout=3)
+
+    def test_main_prelaunch_egress_failure_prevents_emulator_launch(self):
+        with patch.object(lab.sys, "argv", ["synthetic"]), \
+             patch.object(lab, "inspect_network", return_value=()), \
+             patch.object(lab, "check_no_egress",
+                          side_effect=RuntimeError("prelaunch egress denied")) as egress, \
+             patch.object(lab.subprocess, "Popen") as popen:
+            with self.assertRaisesRegex(RuntimeError, "prelaunch egress denied"):
+                lab.main()
+            egress.assert_called_once_with()
+            popen.assert_not_called()
+
+    def test_main_postconnect_egress_failure_terminates_without_run(self):
+        proc = MagicMock()
+        proc.poll.return_value = None
+        proc.wait.return_value = 0
+        sock = MagicMock()
+        sock.__enter__.return_value = sock
+        with patch.object(lab.sys, "argv", ["synthetic"]), \
+             patch.object(lab, "inspect_network",
+                          side_effect=[("prelaunch",), ("postconnect",)]) as network, \
+             patch.object(lab, "check_no_egress",
+                          side_effect=[None, RuntimeError("postconnect egress denied")]) as egress, \
+             patch.object(lab.subprocess, "Popen", return_value=proc), \
+             patch.object(lab.socket, "create_connection", return_value=sock), \
+             patch.object(lab, "run_one_hit") as hit:
+            with self.assertRaisesRegex(RuntimeError, "postconnect egress denied"):
+                lab.main()
+        self.assertEqual(network.call_count, 2)
+        self.assertEqual(egress.call_count, 2)
+        sock.settimeout.assert_called_once_with(3.0)
+        hit.assert_not_called()
+        proc.terminate.assert_called_once()
+        proc.wait.assert_called_once_with(timeout=3)
+
+
 if __name__=="__main__":
     unittest.main()
