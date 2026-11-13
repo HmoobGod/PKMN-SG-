@@ -45,6 +45,7 @@ jobs:
       - name: Build isolated test container from only public fixture source
         run: |
           set -eu
+          python3 -m unittest discover -s tools -p test_cloud_mgba_cmd_order_gate.py -v
           mkdir -p /tmp/sg-netns-build/tools
           cp tools/cloud_mgba_rsp_fixture.py tools/cloud_rsp_netns_gate.py tools/test_cloud_rsp_netns_gate.py /tmp/sg-netns-build/tools/
           cp tools/cloud_mgba_z0_fixture.py tools/test_cloud_mgba_z0_fixture.py /tmp/sg-netns-build/tools/
