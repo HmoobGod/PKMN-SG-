@@ -1,0 +1,43 @@
+name: SoulGold synthetic mGBA no-network namespace lab
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/cloud-mgba-netns-fixture.yml
+      - tools/cloud_rsp_netns_gate.py
+      - tools/test_cloud_rsp_netns_gate.py
+      - tools/cloud_rsp_netns_fixture.py
+      - docker/cloud-mgba-netns.Dockerfile
+      - docs/CLOUD_RSP_NETNS_LAB.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hosted-no-network-generated-fixture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Build isolated test container from only public fixture source
+        run: |
+          set -eu
+          mkdir -p /tmp/sg-netns-build/tools
+          cp tools/cloud_mgba_rsp_fixture.py tools/cloud_rsp_netns_fixture.py tools/cloud_rsp_netns_gate.py tools/test_cloud_rsp_netns_gate.py /tmp/sg-netns-build/tools/
+          cp docker/cloud-mgba-netns.Dockerfile /tmp/sg-netns-build/Dockerfile
+          docker build -t soulgold-public-netns:lab /tmp/sg-netns-build
+          echo "BUILT_CONTAINER_IMAGE_SHA256:"
+          docker image inspect --format '{{.Id}}' soulgold-public-netns:lab
+      - name: Verify Docker network=none before running any emulator
+        run: |
+          set -eu
+          cid=$(docker create --network none --cap-drop ALL --security-opt no-new-privileges --read-only --user 65534:65534 --pids-limit 128 --memory 512m --tmpfs /tmp:rw,nosuid,nodev,size=128m --shm-size 128m soulgold-public-netns:lab)
+          trap 'docker rm -f "$cid" >/dev/null 2>&1 || true' EXIT
+          mode=$(docker inspect --format '{{.HostConfig.NetworkMode}}' "$cid")
+          test "$mode" = "none"
+          echo "HOST_VERIFIED_DOCKER_NETWORK_MODE=none"
+          docker inspect --format '{{json .NetworkSettings.Networks}}' "$cid"
+          docker start -a "$cid"
+          test "$(docker inspect --format '{{.State.ExitCode}}' "$cid")" = "0"
+      # No private game input, no GitHub secrets, no artifacts or cache.
