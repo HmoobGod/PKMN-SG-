@@ -100,16 +100,56 @@ class GateTests(unittest.TestCase):
                                  (socket.AF_INET6,("::1",1))))
 
     def test_closed_ports_are_negative_evidence_not_proof_of_isolation(self):
+        # Fully hermetic on systems without IPv6 support. Both simulated
+        # loopback connection attempts return ECONNREFUSED and are not
+        # misreported as a real host/network isolation proof.
         import socket
-        from cloud_rsp_netns_gate import check_no_egress
-        # Pick a real local closed IPv4 port, paired with IPv6 loopback port 1.
-        with socket.socket(socket.AF_INET,socket.SOCK_STREAM) as tmp:
-            tmp.bind(("127.0.0.1",0))
-            closed_port=tmp.getsockname()[1]
-        self.assertIsNone(check_no_egress(
-            ((socket.AF_INET,("127.0.0.1",closed_port)),
-             (socket.AF_INET6,("::1",1)))))
-        # Caller must ALSO verify no-network host mode and only-lo interfaces.
+        from unittest.mock import patch
+        import cloud_rsp_netns_gate as g
+        families=[]
+        class ClosedSocket:
+            def __init__(self,family): self.family=family
+            def __enter__(self): return self
+            def __exit__(self,*args): return False
+            def settimeout(self,value): pass
+            def connect(self,address):
+                families.append(self.family)
+                raise ConnectionRefusedError("loopback port closed")
+        with patch.object(g.socket,"socket",side_effect=lambda family,kind:ClosedSocket(family)):
+            self.assertIsNone(g.check_no_egress(
+                ((socket.AF_INET,("127.0.0.1",65530)),
+                 (socket.AF_INET6,("::1",65530)))))
+        self.assertEqual(families,[socket.AF_INET,socket.AF_INET6])
+
+    def test_unavailable_ipv6_family_fails_closed(self):
+        import socket
+        from unittest.mock import patch
+        import cloud_rsp_netns_gate as g
+        original_socket=socket.socket
+        def fail_ipv6(family,kind):
+            if family==socket.AF_INET6:
+                raise OSError("Address family not supported")
+            return original_socket(family,kind)
+        with patch.object(g.socket,"socket",side_effect=fail_ipv6):
+            # Explicit loopback v4 refused, then simulated unsupported IPv6.
+            with self.assertRaisesRegex(IsolationError,"cannot initialize network-family"):
+                g.check_no_egress(((socket.AF_INET,("127.0.0.1",1)),
+                                   (socket.AF_INET6,("::1",1))))
+
+    def test_non_loopback_connection_refused_fails_closed(self):
+        import socket
+        from unittest.mock import patch
+        import cloud_rsp_netns_gate as g
+        class RefusedSocket:
+            def __enter__(self): return self
+            def __exit__(self,*args): return False
+            def settimeout(self,value): pass
+            def connect(self,address):
+                raise ConnectionRefusedError("mock external RST")
+        with patch.object(g.socket,"socket",return_value=RefusedSocket()):
+            with self.assertRaisesRegex(IsolationError,"possible external route"):
+                g.check_no_egress(((socket.AF_INET,("1.1.1.1",443)),
+                                   (socket.AF_INET6,("2606:4700:4700::1111",443))))
 
     def test_skipping_ipv6_or_allowing_connected_ipv6_is_caught(self):
         import socket
@@ -124,7 +164,7 @@ class GateTests(unittest.TestCase):
             def connect(self,address):
                 families.append(self.family)
                 if self.family==socket.AF_INET:
-                    raise ConnectionRefusedError("mock IPv4 denied")
+                    raise OSError("Network is unreachable")
                 # Mock IPv6 endpoint is REACHABLE.
         with patch.object(g.socket,"socket",side_effect=lambda family,kind:FakeSocket(family)):
             with self.assertRaisesRegex(IsolationError,"unexpectedly available"):
