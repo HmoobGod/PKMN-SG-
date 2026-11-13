@@ -41,7 +41,7 @@ def gate(patch):
         "gBattlerBattleController[battler] != BATTLE_CONTROLLER_PLAYER",
         "!IsBattleControllerActiveOnLocal(battler)",
         "gBattleResources->bufferA[battler][0] !=",
-        "!CanTargetBattler(battler, foe, move)",
+        "canTarget = CanTargetBattler(battler, foe, move)",
     ]
     return (
         all(s in text for s in required)
@@ -111,7 +111,7 @@ class StaticContract(unittest.TestCase):
     def test_terminal_tamper(self): self.assertFalse(gate(self.source.replace("gBattleOutcome != 0", "FALSE")))
     def test_doubles_tamper(self): self.assertFalse(gate(self.source.replace("gBattlersCount != 2 || battler != 0", "FALSE")))
     def test_move_limit_tamper(self): self.assertFalse(gate(self.source.replace("unusable = verifyReply ? CheckMoveLimitations(battler, 0, MOVE_LIMITATIONS_ALL) : 0;", "unusable = 0;")))
-    def test_target_tamper(self): self.assertFalse(gate(self.source.replace("!CanTargetBattler(battler, foe, move)", "FALSE")))
+    def test_target_tamper(self): self.assertFalse(gate(self.source.replace("canTarget = CanTargetBattler(battler, foe, move)", "FALSE")))
     def test_no_forbidden_gameplay(self):
         for fragment in ("B_ACTION_USE_ITEM", "B_ACTION_SWITCH", "B_ACTION_RUN", "Master Ball", "gBattlerControllerFuncs[foe] ="):
             with self.subTest(fragment=fragment): self.assertNotIn(fragment, self.added)
