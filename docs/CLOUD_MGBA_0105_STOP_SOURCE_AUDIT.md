@@ -26,12 +26,17 @@ Source Git blob SHA: 0e3b1538cbb35f4471b36ce324c1a4d2fd32956a
 ## Narrow experiment and decision boundary
 
 The NEW public-only probe sends exactly `qSupported:swbreak+;hwbreak+` as one
-read-only capability negotiation command, and requires the exact source-advertised
+read-only capability negotiation command, and requires the exact version-specific
 feature response *before* `? / g / m`, generated-byte validations,
 `Z0,08000100,2`, one `c`, a canonical byte-exact `T05hwbreak:;`
 stop and r15 PC within the same generated-only allowlist, then one `z0`
 cleanup. If negotiation, stop bytes, PC or anything else differs, fail closed
 and terminate/await disposable mGBA rather than interpreting malformed frames.
+
+The literal qSupported reply is hardcoded by upstream mGBA, independent of
+whether requested flags were actually enabled. It is NOT proof of
+successful negotiation. Only the subsequent exact T05hwbreak:; stop with
+corroborated PC provides this public generated-ROM evidence.
 
 The previously approved original public `S05k` diagnostic is unchanged and
 still runs separately, with its own mGBA process. The original strict PR26

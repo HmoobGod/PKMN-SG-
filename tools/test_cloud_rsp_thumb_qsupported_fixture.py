@@ -22,6 +22,48 @@ class PublicNegotiatedStopTests(unittest.TestCase):
         sock.sendall.assert_called_once_with(hit.encode_rsp(b"qSupported:swbreak+;hwbreak+"))
         recv.assert_called_once_with(sock)
 
+    def test_capability_response_is_literal_and_not_self_referential(self):
+        # Pin the upstream mGBA 0.10.5 string independently of production.
+        self.assertEqual(hit.PUBLIC_QSUPPORTED, b"qSupported:swbreak+;hwbreak+")
+        self.assertEqual(
+            hit.PUBLIC_QSUPPORTED_REPLY,
+            b"swbreak+;hwbreak+;qXfer:features:read+;"
+            b"qXfer:memory-map:read+;QStartNoAckMode+",
+        )
+
+    def test_main_forwards_opt_in_and_prints_negotiated_evidence_only_then(self):
+        # Main integration, not just run_one_hit: fail if the mode is silently
+        # ignored or if default output misleadingly claims negotiated T05.
+        for enabled in (False, True):
+            with self.subTest(enabled=enabled):
+                proc = MagicMock()
+                proc.poll.return_value = None
+                proc.wait.return_value = 0
+                peer = MagicMock()
+                peer.__enter__.return_value = peer
+                result = ((0x08000100, "T05hwbreak:;", False) if enabled
+                          else (0x08000100, "S05k", True))
+                with patch.object(hit.sys, "argv", ["public-fixture"]), \
+                     patch.object(hit, "inspect_network", return_value=("v4:127.0.0.1",)), \
+                     patch.object(hit, "check_no_egress"), \
+                     patch.object(hit.subprocess, "Popen", return_value=proc), \
+                     patch.object(hit.socket, "create_connection", return_value=peer), \
+                     patch.object(hit, "run_one_hit", return_value=result) as runner, \
+                     patch("builtins.print") as printed:
+                    hit.main(negotiated_public=enabled)
+                if enabled:
+                    runner.assert_called_once_with(peer, negotiated_public=True)
+                else:
+                    runner.assert_called_once_with(peer)
+                text = "\n".join(str(call.args[0]) for call in printed.call_args_list)
+                self.assertEqual(
+                    "PR26_STRICT_STOP_GRAMMAR: T05hwbreak:;" in text, enabled
+                )
+                self.assertEqual("MGBA_0105_QSUPPORTED_PROFILE:" in text, enabled)
+                self.assertEqual("EVIDENCE_ONLY:" in text, not enabled)
+                proc.terminate.assert_called_once()
+                proc.wait.assert_called_once_with(timeout=3)
+
     def test_reject_missing_or_unexpected_capability_before_breakpoint(self):
         for reply in (b"", b"swbreak+;hwbreak-", b"swbreak+",
                       b"swbreak+;hwbreak+;UNEXPECTED", b"OK"):
