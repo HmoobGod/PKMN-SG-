@@ -1,0 +1,34 @@
+name: SoulGold public original-joint C observer negative context
+
+on:
+  pull_request:
+    branches:
+      - research/original-main-clear-player0-proof-gate-20261113
+    paths:
+      - .github/workflows/original-joint-c-observer-context.yml
+      - tools/test_exact_joint_player_terminal_context_c.c
+      - tools/test_exact_joint_player_terminal.c
+      - tools/trace_exact_joint_player_terminal.c
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  original-joint-fake-core:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out public source only
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Compile and run exact original observer against fake core only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e "Pokemon Soulgold.gba"
+          test ! -e "Pokemon Soulgold.sav"
+          cc -std=c11 -Wall -Wextra -Werror -pedantic -O2 -o /tmp/sg-original-joint-context tools/test_exact_joint_player_terminal_context_c.c
+          /tmp/sg-original-joint-context
+          python3 tools/test_exact_joint_player_terminal.py
+          echo "FAKE_C_OBSERVER_CONTEXT: PASS; not original ROM or native gameplay evidence"
