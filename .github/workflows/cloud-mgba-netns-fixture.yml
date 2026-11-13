@@ -1,4 +1,4 @@
-name: SoulGold 0.10.5 exact-version and filtered-env cloud lab
+name: SoulGold strict-version and source-backed public Thumb combined lab
 
 on:
   pull_request:
@@ -22,6 +22,13 @@ on:
       - tools/cloud_mgba_pkg_gate.py
       - tools/test_cloud_mgba_pkg_gate.py
       - docs/CLOUD_MGBA_0105_STRICT_GATE.md
+      - tools/cloud_rsp_thumb_hit_fixture.py
+      - tools/test_cloud_rsp_thumb_hit_fixture.py
+      - tools/cloud_rsp_thumb_qsupported_fixture.py
+      - tools/test_cloud_rsp_thumb_qsupported_fixture.py
+      - docs/CLOUD_THUMB_BREAKPOINT_HIT_LAB.md
+      - docs/CLOUD_MGBA_0105_STOP_SOURCE_AUDIT.md
+      - docs/CLOUD_MGBA_STRICT_COMBINED_LAB.md
   workflow_dispatch:
 
 permissions:
@@ -42,9 +49,11 @@ jobs:
           cp tools/pr26_exact_probe_parser_reference.py tools/cloud_rsp_combined_fixture.py tools/test_cloud_rsp_combined_fixture.py /tmp/sg-netns-build/tools/
           cp tools/cloud_rsp_thumb2_fixture.py tools/test_cloud_rsp_thumb2_fixture.py /tmp/sg-netns-build/tools/
           cp tools/cloud_mgba_pkg_gate.py tools/test_cloud_mgba_pkg_gate.py /tmp/sg-netns-build/tools/
+          cp tools/cloud_rsp_thumb_hit_fixture.py tools/test_cloud_rsp_thumb_hit_fixture.py /tmp/sg-netns-build/tools/
+          cp tools/cloud_rsp_thumb_qsupported_fixture.py tools/test_cloud_rsp_thumb_qsupported_fixture.py /tmp/sg-netns-build/tools/
           cp docker/cloud-mgba-netns.Dockerfile /tmp/sg-netns-build/Dockerfile
           docker build -t soulgold-public-netns:lab /tmp/sg-netns-build
-          echo 'Ubuntu 26.04 mGBA 0.10.5 package required; no private inputs'
+          echo 'Ubuntu 26.04 exact mgba-sdl 0.10.5+dfsg-3build1 required; no private inputs'
           echo "BUILT_CONTAINER_IMAGE_SHA256:"
           docker image inspect --format '{{.Id}}' soulgold-public-netns:lab
       - name: Verify Docker network=none before running any emulator
