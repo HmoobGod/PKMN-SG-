@@ -1,0 +1,31 @@
+name: SoulGold public mGBA Z0 fixture
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/cloud-mgba-z0-fixture.yml
+      - tools/cloud_mgba_z0_fixture.py
+      - tools/test_cloud_mgba_z0_fixture.py
+      - docs/CLOUD_MGBA_Z0_FIXTURE.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hosted-z0-no-continue:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install mGBA and virtual display
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --no-install-recommends -y mgba-sdl xvfb xauth
+          dpkg-query -W mgba-sdl
+          mgba --version
+          sha256sum "$(command -v mgba)"
+      - name: Check bounded breakpoint allowlist tests
+        run: python3 -m unittest discover -s tools -p 'test_cloud_mgba_z0_fixture.py' -v
+      - name: Real public generated-ROM breakpoint negotiation
+        run: xvfb-run -a -s '-screen 0 640x480x24' python3 tools/cloud_mgba_z0_fixture.py
