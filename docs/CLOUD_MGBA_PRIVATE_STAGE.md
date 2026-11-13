@@ -1,6 +1,6 @@
 # SoulGold: cloud mGBA GDB/RSP staging boundary (source-only research)
 
-Status: initial GitHub Actions run [43461371439](https://github.com/HmoobGod/PKMN-SG-/actions/runs/43461371439) **passed** on PR30 head `1575cfa4` using Ubuntu's mGBA 0.10.2. Independent Claude review returned **REQUEST CHANGES** for B1/B2 on that head. This revised source requires a fresh exact-head run and independent re-review; the old green run cannot certify the revised head.
+Status: initial GitHub Actions run [43461371439](https://github.com/HmoobGod/PKMN-SG-/actions/runs/43461371439) **passed** on PR30 head `1575cfa4` using Ubuntu's mGBA 0.10.2. Independent Claude review returned **REQUEST CHANGES** for B1/B2 on that head. The repaired source passed real hosted CI [43463706087](https://github.com/HmoobGod/PKMN-SG-/actions/runs/43463706087) with **17/17** tests and actual `?`/`g`/`m` replies. Exact revised head still requires independent Claude re-review; the old green run/Claude verdict cannot certify the repaired head.
 This isolated draft does not merge any previous SoulGold branch or touch any real game.
 Its first job is answering one question: can a real **GitHub-hosted Ubuntu runner**
 start packaged mGBA with a GDB remote stub and answer read-only RSP packets?
@@ -48,6 +48,13 @@ Security gate before ANY private run:
    SHAs; approval for one head does not transfer to any other head.
 2. Owner verifies consent and separately authorizes the chosen private
    staging mechanism; secret and data scope strictly limited to that runner.
+   **Security blocker:** hosted fixture CI 43463706087 reported
+   `GDB_LISTENER_IPV4: 0.0.0.0`, meaning the mGBA stub listens on ALL IPv4
+   interfaces although this probe connected to 127.0.0.1. For any future
+   *private* game data, use enforceable process/network isolation (for example
+   a reviewed firewall/namespace with no externally reachable GDB port),
+   verify it before loading data, and fail closed if unavailable. A private
+   GitHub repository alone does NOT isolate the emulator's network listener.
 3. Runner disables shell tracing, excludes private raw output from public
    CI, uses exact SHA256 and lengths of disposable ROM/save, rejects
    symlinks/aliasing, and rehashes originals after testing. Avoid raw memory
