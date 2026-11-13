@@ -1,0 +1,64 @@
+name: SoulGold PR26 exact RSP real mGBA generated-ROM receiver lab
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/pr26-public-real-mgba.yml
+      - docker/pr26-public-generated-receiver.Dockerfile
+      - tools/capture_original_request_rsp.py
+      - tools/pr26_public_strict_resume_adapter.py
+      - tools/pr26_generated_real_mgba_runner.py
+      - tools/test_pr26_generated_real_mgba_runner.py
+      - tools/cloud_mgba_pkg_gate.py
+      - tools/cloud_rsp_netns_gate.py
+      - docs/PR26_REAL_GENERATED_MGBA_SOCKET.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-generated-only-pr26-receiver:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Test exact generated source without any emulator
+        run: |
+          set -eu
+          python3 tools/test_pr26_generated_real_mgba_runner.py
+      - name: Filter public source only and build separate isolated test image
+        run: |
+          set -eu
+          mkdir -p /tmp/sg-pr26-generated-build/tools
+          cp tools/capture_original_request_rsp.py tools/pr26_public_strict_resume_adapter.py /tmp/sg-pr26-generated-build/tools/
+          cp tools/cloud_rsp_netns_gate.py tools/cloud_mgba_pkg_gate.py /tmp/sg-pr26-generated-build/tools/
+          cp tools/pr26_generated_real_mgba_runner.py tools/test_pr26_generated_real_mgba_runner.py /tmp/sg-pr26-generated-build/tools/
+          cp docker/pr26-public-generated-receiver.Dockerfile /tmp/sg-pr26-generated-build/Dockerfile
+          test "$(find /tmp/sg-pr26-generated-build -type f | wc -l)" -eq 7
+          test "$(find /tmp/sg-pr26-generated-build -type f \( -name '*.gba' -o -name '*.sav' -o -name '*.ss0' -o -name '*.state' \) | wc -l)" -eq 0
+          docker build -t sg-pr26-generated-rsp:lab /tmp/sg-pr26-generated-build
+          echo "PR26_BUILD_CONTEXT: SOURCE_ONLY, 0 game files"
+      - name: Verify rootless offline namespace before real generated ROM
+        run: |
+          set -eu
+          cid=$(docker create --network none --cap-drop ALL --security-opt no-new-privileges --read-only --user 65534:65534 --pids-limit 128 --memory 512m --tmpfs /tmp:rw,nosuid,nodev,size=128m --shm-size 128m sg-pr26-generated-rsp:lab)
+          trap 'docker rm -f "$cid" >/dev/null 2>&1 || true' EXIT
+          test "$(docker inspect --format '{{.HostConfig.NetworkMode}}' "$cid")" = "none"
+          echo "PR26_GENERATED_REAL_SOCKET_NETWORK: none"
+          docker start -a "$cid"
+          test "$(docker inspect --format '{{.State.ExitCode}}' "$cid")" = "0"
+      - name: Reject networked generated-only container before emulator
+        run: |
+          set -eu
+          set +e
+          output=$(docker run --rm --network bridge --cap-drop ALL --security-opt no-new-privileges --read-only --user 65534:65534 --pids-limit 128 --memory 512m --tmpfs /tmp:rw,nosuid,nodev,size=128m --entrypoint python3 -e PYTHONPATH=/lab/tools sg-pr26-generated-rsp:lab -c 'from cloud_rsp_netns_gate import inspect_network; inspect_network()' 2>&1)
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo "FAIL: bridge-networked test unexpectedly passed"
+            exit 1
+          fi
+          echo "$output" | grep -q 'unsafe network namespace interfaces'
+          echo "PASS: PR26 generated-only network bridge rejected before emulator"
+      # No user ROM/save, private transcript, secrets, artifact upload, or cache.
