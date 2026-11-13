@@ -11,6 +11,14 @@ and z0,080000c0,4 to remove one *ARM-width* breakpoint at the known fixture
 loop address, demanding a checksum-correct OK for each. No c, s, Ctrl-C,
 host battle input, reset, guest memory writes, watchpoints or ROM patches.
 
+The diagnostic marks Z0 as **attempted before sending it**, so even a malformed,
+missing, or timed-out install reply triggers **one bounded z0 cleanup attempt**
+before exit. Failed removal is reported explicitly and is never classified as
+success. Full roundtrip tests assert the order of real read-only preflight,
+Z0, z0, plus no Z0 on invalid read-only replies; a scripted socket stub verifies
+cleanup after a lost/corrupt install ACK. No successful cleanup is assumed from
+an exception alone.
+
 A successful install/remove handshake does NOT prove a breakpoint can be
 hit or establish the T05/S05 stop grammar after execution. PR26's original
 Thumb breakpoint uses size 2, not this fixture's ARM size 4; no approval
