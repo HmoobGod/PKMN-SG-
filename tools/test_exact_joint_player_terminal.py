@@ -38,6 +38,54 @@ def fixture(pp=True):
                 events=rows)
 
 class OriginalJoinTests(unittest.TestCase):
+    def test_after_clear_stale_actor0_emitter_cannot_start_new_candidate(self):
+        # A stale battleFlags=4/inbattle=2 overlay must not override the
+        # authentic original Main.inBattle bit becoming clear.
+        d=fixture(pp=False)
+        d["steps"]=12
+        d["events"].append(event(11,1,r0=0,r2=10,r3=256,
+                                 flags=4,battlers=2,inbattle=2))
+        with self.assertRaisesRegex(ValueError, "after original Main.inBattle cleared"):
+            v.audit(d)
+
+    def test_after_clear_original_pp_writer_not_attributed_to_old_move(self):
+        # A valid writer PC and correct byte delta by themselves are NOT
+        # original actor0 postterminal PP execution authorization.
+        d=fixture(pp=False)
+        d["steps"]=12
+        d["final_pp"][0]=19
+        d["events"].append(event(11,9,pc=v.WRITER,slot=0,
+                                 r1=v.PP,before=20,after=19,
+                                 flags=4,battlers=2,inbattle=2))
+        with self.assertRaisesRegex(ValueError, "outside active Main wild-single"):
+            v.audit(d)
+
+    def test_stale_writer_context_rejected_even_before_main_clear(self):
+        d=fixture(pp=True)
+        d["events"][7]["inbattle"]=0
+        with self.assertRaisesRegex(ValueError, "outside active Main wild-single"):
+            v.audit(d)
+
+    def test_reentry_requires_new_actor_epoch_not_old_pp_attribution(self):
+        # The same replay can reenter battle; a new Main bit alone is
+        # insufficient to revive an earlier completed actor0 proposal.
+        d=fixture(pp=False)
+        d["steps"]=13
+        d["final_main"]=2
+        d["final_pp"][0]=19
+        d["events"].append(event(11,10,before=0,after=2,
+                                 inbattle=2,flags=4,battlers=2))
+        d["events"].append(event(12,9,pc=v.WRITER,slot=0,
+                                 r1=v.PP,before=20,after=19,
+                                 flags=4,battlers=2,inbattle=2))
+        x=v.audit(d)
+        self.assertEqual(x["original_actor0_emitter_candidates"],1)
+        self.assertEqual(x["full_marker_sequence_candidates"],1)
+        self.assertEqual(x["original_native_pp_writer_events"],1)
+        self.assertEqual(x["attributed_original_pp_writer_candidates"],0)
+        self.assertEqual(x["original_emissions_without_attributed_pp_writer"],1)
+        self.assertFalse(x["unmatched_pp_cause_certified"])
+
     def test_complete_mock_correlates_but_not_promotes(self):
         x=v.audit(fixture())
         self.assertEqual(x["full_marker_sequence_candidates"],1)

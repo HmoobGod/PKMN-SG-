@@ -103,6 +103,10 @@ def audit(d):
             if kind==8:
                 manual+=1
             elif kind==1:
+                # Never promote a stale original actor0 emitter AFTER the
+                # recorded Main.inBattle clear; flags/pending can remain stale.
+                require(old_main==2,
+                        "actor0 emission after original Main.inBattle cleared")
                 require(e["r0"]==0 and e["r2"]==10 and e["r3"]>>8==1
                         and e["r3"]&255<4 and (e["inbattle"]&2)
                         and e["flags"]==4 and e["battlers"]==2,"not original player move/target action")
@@ -137,6 +141,12 @@ def audit(d):
                 authentic=(e["pc"]==WRITER and e["r1"]==address and
                            e["before"]==e["after"]+1)
                 if authentic:
+                    # A PP mutation at the real writer PC must not be
+                    # attributed to an active player move after Main exit,
+                    # even when stale battle flags still claim wild-single.
+                    require(old_main==2 and (e["inbattle"]&2) and
+                            e["flags"]==4 and e["battlers"]==2,
+                            "original PP writer outside active Main wild-single")
                     writer_count+=1
                     if (active is not None and active["marker_order"]==6 and
                             active["slot"]==slot and (e["inbattle"]&2) and
@@ -150,7 +160,14 @@ def audit(d):
                         ((e["before"]^e["after"])&2),
                         "not the original gMain.inBattle bit edge")
                 old_main=e["after"]&2
-                if not old_main:clear_edges.append((e["step"],e["pc"]))
+                if not old_main:
+                    # Close the current actor0 candidate at the authentic
+                    # Main clear. A later in-battle transition is a NEW
+                    # request context, not permission to recycle its PP.
+                    if active is not None:
+                        emits.append(active)
+                        active=None
+                    clear_edges.append((e["step"],e["pc"]))
             elif kind==11:
                 require(e["before"]==cb1,"missing or repeated callback1 mutation")
                 cb1=e["after"]
