@@ -58,7 +58,9 @@ def validate_hit(
     cpu = parse_registers(regs)
     pc = cpu[15]
     if pc not in ALLOWED_STOP_PCS:
-        raise HitError("GDB stop PC is not at generated Thumb breakpoint")
+        # Only a self-generated PUBLIC fixture is ever run; bounded PC metadata
+        # is safe for diagnosis, but NEVER use this with private ROMs.
+        raise HitError("GDB stop PC outside generated Thumb target: " + hex(pc))
     return pc
 
 
