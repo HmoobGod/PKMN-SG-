@@ -19,6 +19,53 @@ class PublicRealSocketFixtureTests(unittest.TestCase):
         self.assertEqual(rom[0x100:0x102], bytes.fromhex("fee7"))
         self.assertNotIn(b"Pokemon Soulgold", rom)
 
+    def test_strict_pre_c_public_startup_sentinel(self):
+        runner.validate_generated_preflight("S02", 0, b"00009fe5", b"fee7")
+        for status, pc, arm, thumb in (
+            ("S05", 0, b"00009fe5", b"fee7"),
+            ("T05hwbreak:;", 0, b"00009fe5", b"fee7"),
+            ("S02", 0x080000C0, b"00009fe5", b"fee7"),
+            ("S02", True, b"00009fe5", b"fee7"),
+            ("S02", 0, b"ffffffff", b"fee7"),
+            ("S02", 0, b"00009fe5", b"0000"),
+            ("S02", 0, b"00009fe5", "fee7"),
+        ):
+            with self.subTest(status=status, pc=pc, arm=arm, thumb=thumb):
+                with self.assertRaisesRegex(RuntimeError, "generated public pre-c"):
+                    runner.validate_generated_preflight(status, pc, arm, thumb)
+
+    def test_read_preflight_failure_has_no_z0_or_continue(self):
+        import inspect
+        run_source = inspect.getsource(runner.run)
+        self.assertLess(
+            run_source.index("read_verified_generated_preflight(sock, rsp)"),
+            run_source.index('fixed_public_request(sock, rsp, b"Z0,08000100,2")'),
+        )
+        for bad_stop, pc in ((b"S05", 0), (b"S02", 0x080000C0)):
+            with self.subTest(status=bad_stop, pc=pc):
+                rsp, sock = MagicMock(), MagicMock()
+                values = [0] * 15 + [pc]
+                regdata = b"".join(x.to_bytes(4, "little") for x in values).hex().encode()
+                rsp.send.side_effect = [bad_stop, regdata]
+                with patch.object(runner, "fixed_public_request",
+                                  side_effect=[b"00009fe5", b"fee7"]) as requests:
+                    with self.assertRaisesRegex(RuntimeError, "generated public pre-c"):
+                        runner.read_verified_generated_preflight(sock, rsp)
+                self.assertEqual(
+                    [c.args[2] for c in requests.call_args_list],
+                    [b"m080000c0,4", b"m08000100,2"],
+                )
+                self.assertNotIn(b"Z0,08000100,2",
+                                 b"".join(c.args[2] for c in requests.call_args_list))
+                self.assertNotIn("c", [c.args[0] for c in rsp.send.call_args_list])
+
+    def test_generated_cleanup_requires_exact_observed_s02(self):
+        runner.validate_generated_post_cleanup("S02")
+        for bad in ("S05", "T05hwbreak:;", "S02k", "", 2, None):
+            with self.subTest(status=bad):
+                with self.assertRaisesRegex(RuntimeError, "post-z0 stop"):
+                    runner.validate_generated_post_cleanup(bad)
+
     def test_only_four_exact_public_raw_commands(self):
         self.assertEqual(runner.ALLOWED_PUBLIC_RAW,
                          frozenset({b"m080000c0,4", b"m08000100,2",
