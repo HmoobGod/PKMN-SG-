@@ -72,5 +72,85 @@ class GateTests(unittest.TestCase):
         self.assertEqual(inspect_network(interfaces=links,tcp4=root/"tcp",
                                         tcp6=root/"tcp6",require_listener=True),("v6:::1",))
 
+
+    def test_malformed_listener_row_must_reject(self):
+        for malformed in ("   0: 00000000:0929\n",
+                          "   0: 00000000 00000000:0000 0A\n",
+                          "   0: BAD\n"):
+            with self.subTest(row=malformed):
+                with self.assertRaisesRegex(IsolationError,"malformed"):
+                    parse_tcp_listeners(HEADER + malformed, ipv6=False)
+
+    def test_inspect_network_itself_rejects_extra_interface(self):
+        root, links = self.stage()
+        (links/"eth0").mkdir()
+        with self.assertRaisesRegex(IsolationError, "unsafe network"):
+            inspect_network(interfaces=links,tcp4=root/"tcp",tcp6=root/"tcp6",
+                            require_listener=True)
+
+    def test_successful_local_connection_must_raise(self):
+        import socket
+        from cloud_rsp_netns_gate import check_no_egress
+        with socket.socket(socket.AF_INET,socket.SOCK_STREAM) as listening:
+            listening.bind(("127.0.0.1",0))
+            listening.listen(1)
+            reachable = listening.getsockname()
+            with self.assertRaisesRegex(IsolationError,"unexpectedly available"):
+                check_no_egress(((socket.AF_INET,reachable),
+                                 (socket.AF_INET6,("::1",1))))
+
+    def test_closed_ports_are_negative_evidence_not_proof_of_isolation(self):
+        import socket
+        from cloud_rsp_netns_gate import check_no_egress
+        # Pick a real local closed IPv4 port, paired with IPv6 loopback port 1.
+        with socket.socket(socket.AF_INET,socket.SOCK_STREAM) as tmp:
+            tmp.bind(("127.0.0.1",0))
+            closed_port=tmp.getsockname()[1]
+        self.assertIsNone(check_no_egress(
+            ((socket.AF_INET,("127.0.0.1",closed_port)),
+             (socket.AF_INET6,("::1",1)))))
+        # Caller must ALSO verify no-network host mode and only-lo interfaces.
+
+    def test_skipping_ipv6_or_allowing_connected_ipv6_is_caught(self):
+        import socket
+        from unittest.mock import patch
+        import cloud_rsp_netns_gate as g
+        families=[]
+        class FakeSocket:
+            def __init__(self,family): self.family=family
+            def __enter__(self): return self
+            def __exit__(self,*args): return False
+            def settimeout(self,value): pass
+            def connect(self,address):
+                families.append(self.family)
+                if self.family==socket.AF_INET:
+                    raise ConnectionRefusedError("mock IPv4 denied")
+                # Mock IPv6 endpoint is REACHABLE.
+        with patch.object(g.socket,"socket",side_effect=lambda family,kind:FakeSocket(family)):
+            with self.assertRaisesRegex(IsolationError,"unexpectedly available"):
+                g.check_no_egress()
+        self.assertEqual(families,[socket.AF_INET,socket.AF_INET6])
+
+    def test_timeout_is_inconclusive_not_a_successful_denial(self):
+        import socket
+        from unittest.mock import patch
+        import cloud_rsp_netns_gate as g
+        class TimeoutSocket:
+            def __enter__(self): return self
+            def __exit__(self,*args): return False
+            def settimeout(self,value): pass
+            def connect(self,address):
+                raise socket.timeout("mock timeout")
+        with patch.object(g.socket,"socket",return_value=TimeoutSocket()):
+            with self.assertRaisesRegex(IsolationError,"inconclusive"):
+                g.check_no_egress()
+
+    def test_single_family_probe_must_fail(self):
+        import socket
+        from cloud_rsp_netns_gate import check_no_egress
+        with self.assertRaisesRegex(IsolationError,"both IPv4 and IPv6"):
+            check_no_egress(((socket.AF_INET,("127.0.0.1",1)),))
+
+
 if __name__ == "__main__":
     unittest.main()
