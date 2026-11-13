@@ -29,7 +29,7 @@ class PublicRealSocketFixtureTests(unittest.TestCase):
         rsp.running = False
         rsp.receive.return_value = b"OK"
         self.assertEqual(runner.fixed_public_request(sock, rsp, b"Z0,08000100,2"), b"OK")
-        sock.sendall.assert_called_once_with(b"$Z0,08000100,2#86")
+        sock.sendall.assert_called_once_with(b"$Z0,08000100,2#9d")
         rsp.receive.assert_called_once_with()
         for command in (b"Z0,0806b370,2", b"z0,080000c0,2", b"c",
                         b"s", b"G000", b"M02000000,2:00", b"m02000000,2",
