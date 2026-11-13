@@ -78,14 +78,44 @@ class PublicBreakpointHitTests(unittest.TestCase):
              patch.object(lab,"thumb_memory",side_effect=mem), \
              patch.object(lab,"thumb_breakpoint",side_effect=bp), \
              patch.object(lab,"one_continue",side_effect=cont):
-            pc,stop=lab.run_one_hit(object())
+            pc,stop,nonstandard=lab.run_one_hit(object())
         self.assertEqual(pc,lab.TARGET_PC)
         self.assertEqual(stop,"S05")
+        self.assertFalse(nonstandard)
         self.assertEqual(events,[
             ("read",b"?"),("read",b"g"),("read",b"m080000c0,4"),
             ("mem",THUMB_READ),("bp",THUMB_SET),("c",b"c"),
             ("read",b"g"),("bp",THUMB_REMOVE),
         ])
+
+    def test_exact_public_S05k_requires_separate_diagnostic_and_matching_PC(self):
+        self.assertEqual(lab.validate_hit(b"S05k", regs(0x08000100),
+                                         diagnostic_nonstandard=True),0x08000100)
+        with self.assertRaises(ValueError):
+            lab.validate_hit(b"S05k",regs())
+        with self.assertRaises(lab.HitError):
+            lab.validate_hit(b"S05k",regs(0x08000900),
+                             diagnostic_nonstandard=True)
+        for malformed in (b"S05x", b"S05k!", b"S05K", b"S05", b"OK"):
+            if malformed == b"S05":
+                continue
+            with self.subTest(malformed=malformed):
+                with self.assertRaises((ValueError, lab.HitError)):
+                    lab.validate_hit(malformed,regs(),
+                                     diagnostic_nonstandard=True)
+
+    def test_nonstandard_exact_observed_frame_requires_real_g_and_cleanup(self):
+        events,read,mem,bp,cont=self.scripted(hit=b"S05k")
+        with patch.object(lab,"request",side_effect=read), \
+             patch.object(lab,"thumb_memory",side_effect=mem), \
+             patch.object(lab,"thumb_breakpoint",side_effect=bp), \
+             patch.object(lab,"one_continue",side_effect=cont):
+            pc,stop,nonstandard=lab.run_one_hit(object())
+        self.assertEqual((pc,stop,nonstandard),(lab.TARGET_PC,"S05k",True))
+        self.assertEqual([x for x in events if x[0]=="bp"],[
+            ("bp",THUMB_SET),("bp",THUMB_REMOVE),
+        ])
+        self.assertIn(("read",b"g"),events)
 
     def test_invalid_generated_mapping_never_sends_continue(self):
         events,read,mem,bp,cont=self.scripted(arm=b"ffffffff")
