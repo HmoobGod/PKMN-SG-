@@ -88,6 +88,17 @@ def validate_generated_preflight(stop: str, initial_pc: int,
         raise RuntimeError("generated public pre-c Thumb instruction bytes differ")
 
 
+def read_verified_generated_preflight(sock: socket.socket, rsp: RSP
+                                      ) -> tuple[str, int]:
+    """Perform only fixed reads and validate BEFORE any generated Z0."""
+    before = parse_stop(rsp.send("?"))
+    initial = parse_registers(rsp.send("g"))[15]
+    arm = fixed_public_request(sock, rsp, b"m080000c0,4")
+    thumb = fixed_public_request(sock, rsp, b"m08000100,2")
+    validate_generated_preflight(before, initial, arm, thumb)
+    return before, initial
+
+
 def validate_generated_post_cleanup(stop: str) -> None:
     if type(stop) is not str or stop != "S02":
         raise RuntimeError("generated post-z0 stop differs from observed S02")
@@ -133,12 +144,8 @@ def run() -> None:
                 rsp = RSP(sock)
                 strict = PublicStrictStopAdapter(rsp)
                 strict.negotiate()
-                before = parse_stop(rsp.send("?"))
-                initial = parse_registers(rsp.send("g"))[15]
-                arm = fixed_public_request(sock, rsp, b"m080000c0,4")
-                thumb = fixed_public_request(sock, rsp, b"m08000100,2")
-                # All exact pre-c reads/status/PC are validated BEFORE Z0.
-                validate_generated_preflight(before, initial, arm, thumb)
+                # Read-only exact start context BEFORE installing generated Z0.
+                before, initial = read_verified_generated_preflight(sock, rsp)
                 if fixed_public_request(sock, rsp, b"Z0,08000100,2") != b"OK":
                     raise RuntimeError("generated width-2 Z0 not acknowledged")
                 # PR44 exactly one c, PR26 real ACK receiver, literal T05 and
