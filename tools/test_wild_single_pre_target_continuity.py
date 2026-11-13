@@ -102,7 +102,7 @@ class PlayerProposalTargetContinuityTests(unittest.TestCase):
     def test_each_guard_removed_or_weakened(self):
         for line in (*FREEZE, *CHECK):
             with self.subTest(line=line):
-                self.assertFalse(guarded_proposal(self.diff.replace("+" + line, "//gone", 1)))
+                self.assertFalse(guarded_proposal(self.diff.replace(line, "GONE", 1)))
         for needle in ("if (!verifyReply && (!SourceFirstWildSingleOwner(battler) ||",
                        "if (verifyReply && !SourceFirstWildLeaseSnapshotMatches(battler))"):
             with self.subTest(needle=needle):
