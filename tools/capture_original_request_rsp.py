@@ -18,6 +18,14 @@ from pathlib import Path
 
 EXACT_ROM = '4b2585e10265805da12016819c880a4acd50eda2aa24ce977d1dbcc705d3ee44'
 EXACT_SAVE = '8c6cb520de6dc475e5fde31cb78ddd49ceb6add89f5c208598977886fa5579a4'
+CURRENT_COPY_ROM = '7b9ac66d38f38dcddc1cc907822615fcf56689600fdccaffa9df9a836fb9ee32'
+# Actual pinned Current-ROM original Thumb windows, measured on the protected
+# image and disposable identical TEST_COPY. These are *static byte* anchors,
+# not runtime request ownership, move legality, or permission to modify a ROM.
+CURRENT_COPY_THUMB_WINDOWS = (
+    (0x0806B370, 0x0806B3D8, 'c3d3181837d0aaf69fc471c4f5598870257c622c81bca9771a5d96d45850ab57'),
+    (0x0809E6AA, 0x0809E6EA, '84ffa68c024412568ce64fdac3719cd460c40a55caf07a5549bd150a7fe50923'),
+)
 PCS = (0x0806BD80, 0x0806B370, 0x0806B3C6, 0x0806B3A6, 0x0806261C,
        0x08094330, 0x0809435C, 0x08094374, 0x08094380,
        0x0809E6BA, 0x0808E336)
@@ -54,6 +62,29 @@ def digest(path, size, expected):
     value = h.hexdigest()
     require(value == expected, 'wrong exact private ROM/save identity')
     return value
+
+
+def verify_current_copy_static_anchors(path):
+    """Offline fingerprint only: a known Current copy has both Thumb windows.
+
+    Never run it on an unverified file, never contact a debugger, and never
+    interpret byte equality as dynamic CPU execution or true GDB identity.
+    """
+    digest(path, 33554432, CURRENT_COPY_ROM)
+    windows = []
+    with Path(path).open('rb') as source:
+        for start, end, expected in CURRENT_COPY_THUMB_WINDOWS:
+            require(0x08000000 <= start < end <= 0x0A000000 and
+                    (start & 1) == 0 and (end & 1) == 0,
+                    'invalid pinned Current Thumb window')
+            source.seek(start-0x08000000)
+            blob = source.read(end-start)
+            require(len(blob) == end-start and hashlib.sha256(blob).hexdigest() == expected,
+                    'Current duplicate original Thumb anchor parity mismatch')
+            windows.append({'start_pc': f'0x{start:08X}',
+                            'length': end-start, 'window_sha256': expected,
+                            'static_byte_parity_only': True})
+    return windows
 
 
 def ewram(address, count):
@@ -316,20 +347,33 @@ def match_pc(raw_pc, bias):
 
 
 def run_capture(rom, save, output, port, max_stops=40, timeout=10,
-                deadline_seconds=120, probe_only=False):
+                deadline_seconds=120, probe_only=False, current_copy_probe_only=False):
     require(type(max_stops) is int and 1 <= max_stops <= 200, 'invalid stop budget')
     require(type(timeout) in (int, float) and 0 < timeout <= 30, 'invalid timeout')
     require(type(deadline_seconds) in (int, float) and 0 < deadline_seconds <= 1800,
             'invalid capture deadline')
     require(type(port) is int and 1024 <= port < 65536, 'invalid loopback port')
+    require(type(current_copy_probe_only) is bool,
+            'Current copy mode requires an explicit boolean opt-in')
+    require(not current_copy_probe_only or probe_only,
+            'Current ROM duplicate is probe-only: no breakpoints, resume, or stepping')
+    expected_rom_sha = CURRENT_COPY_ROM if current_copy_probe_only else EXACT_ROM
     out = Path(output)
     require(out.resolve() not in (Path(rom).resolve(), Path(save).resolve()),
             'output cannot replace private inputs')
     require(not out.exists() and not out.is_symlink(), 'output exists; refuse overwrite')
-    initial = (digest(rom, 33554432, EXACT_ROM), digest(save, 131072, EXACT_SAVE))
+    initial = (digest(rom, 33554432, expected_rom_sha),
+               digest(save, 131072, EXACT_SAVE))
+    current_anchor_parity = (verify_current_copy_static_anchors(rom)
+                             if current_copy_probe_only else None)
     report = dict(
         schema='sg-exact-original-rsp-actor0-observer-v2',
         input_file_rom_sha256=initial[0], input_file_save_sha256=initial[1],
+        input_rom_identity_class=('current-duplicate-probe-only' if current_copy_probe_only
+                                  else 'historical-experimental'),
+        current_rom_static_thumb_anchor_parity=current_anchor_parity,
+        current_rom_loaded_in_emulator_proven=False,
+        historical_experimental_rom_identity_proven=False,
         run_id='native-' + secrets.token_hex(16), recorder_pid=os.getpid(),
         recorder_start_epoch=time.time(), observer_only=True,
         tool_sent_battle_commands=0, tool_sent_guest_writes=0,
@@ -521,7 +565,8 @@ def run_capture(rom, save, output, port, max_stops=40, timeout=10,
         report['failure'] = type(error).__name__+': '+str(error)
     try:
         report['input_files_unchanged'] = (
-            digest(rom, 33554432, EXACT_ROM), digest(save, 131072, EXACT_SAVE)) == initial
+            digest(rom, 33554432, expected_rom_sha),
+            digest(save, 131072, EXACT_SAVE)) == initial
     except (OSError, ValueError) as error:
         report['failure'] = (report['failure']+'; ' if report['failure'] else '') + \
                             'input rehash: '+str(error)
@@ -543,9 +588,13 @@ def main():
     p.add_argument('--timeout', type=float, default=10)
     p.add_argument('--deadline-seconds', type=float, default=120)
     p.add_argument('--probe-only', action='store_true')
+    p.add_argument('--current-copy-probe-only', action='store_true',
+                   help='explicitly select only the byte-identical protected Current '
+                        'ROM duplicate; requires --probe-only and never captures')
     a = p.parse_args()
     result = run_capture(a.rom, a.save, a.output, a.port,
-                         a.max_stops, a.timeout, a.deadline_seconds, a.probe_only)
+                         a.max_stops, a.timeout, a.deadline_seconds, a.probe_only,
+                         a.current_copy_probe_only)
     print(json.dumps(dict(recorded_stops=len(result['events']),
                           capture_status='FAILED_OR_PARTIAL' if result['failure'] else 'RESEARCH_ONLY',
                           failure=result['failure'], native_gameplay_acceptance=0), sort_keys=True))

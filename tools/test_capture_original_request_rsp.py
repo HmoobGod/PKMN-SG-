@@ -587,4 +587,107 @@ class CaptureTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 m.run_capture(self.rom,self.save,self.root/'unused.json',port,stops,timeout,deadline)
 
+    # CURRENT DUPLICATE PROBE TESTS: synthetic fake ROMs exercise safeguards,
+    # never ship or execute the user's private 32-MiB game image in CI.
+    def current_windows_fixture(self):
+        return tuple((start, end, hashlib.sha256(
+            b'A'*(end-start)).hexdigest()) for start,end,_ in m.CURRENT_COPY_THUMB_WINDOWS)
+
+    def test_current_copy_anchors_static_only_and_wrong_opcode_denied(self):
+        windows=self.current_windows_fixture()
+        with patch.object(m,'CURRENT_COPY_ROM',self.rom_sha), \
+             patch.object(m,'CURRENT_COPY_THUMB_WINDOWS',windows):
+            result=m.verify_current_copy_static_anchors(self.rom)
+            self.assertEqual(len(result),2)
+            self.assertTrue(all(row['static_byte_parity_only'] for row in result))
+            altered=self.root/'current_copy_mutated.gba'
+            altered.write_bytes(self.rom.read_bytes())
+            with altered.open('r+b') as stream:
+                stream.seek(windows[0][0]-0x08000000)
+                stream.write(b'X')
+            with self.assertRaisesRegex(ValueError,'identity'):
+                m.verify_current_copy_static_anchors(altered)
+            # Even when the whole-file digest check is mocked out, the anchored
+            # instruction hash independently catches altered CPU bytes.
+            with patch.object(m,'digest',return_value=self.rom_sha):
+                with self.assertRaisesRegex(ValueError,'anchor parity'):
+                    m.verify_current_copy_static_anchors(altered)
+
+    def test_current_duplicate_probe_only_sends_three_read_only_requests(self):
+        stub=FakeGDB()
+        output=self.root/'current_probe_only.json'
+        with patch.object(m,'CURRENT_COPY_ROM',self.rom_sha), \
+             patch.object(m,'EXACT_SAVE',self.save_sha), \
+             patch.object(m,'CURRENT_COPY_THUMB_WINDOWS',self.current_windows_fixture()), \
+             patch.object(m.socket,'create_connection',return_value=stub):
+            report=m.run_capture(self.rom,self.save,output,2345,
+                                 probe_only=True,current_copy_probe_only=True)
+        self.assertIsNone(report['failure'])
+        self.assertTrue(report['input_files_unchanged'])
+        self.assertEqual(report['input_rom_identity_class'],'current-duplicate-probe-only')
+        self.assertEqual(report['current_rom_static_thumb_anchor_parity'][0]['length'],104)
+        self.assertFalse(report['emulator_loaded_rom_verified'])
+        self.assertFalse(report['current_rom_loaded_in_emulator_proven'])
+        self.assertFalse(report['historical_experimental_rom_identity_proven'])
+        self.assertFalse(report['engine_issued_one_use_request_proven'])
+        self.assertEqual(report['native_acceptance'],0)
+        self.assertEqual(report['events'],[])
+        self.assertEqual(stub.commands,['?','g',f'm{m.SRC_BASE:08x},6'])
+        self.assertEqual(output.stat().st_mode&0o777,0o600)
+        self.assertEqual(json.loads(output.read_text())['input_rom_identity_class'],
+                         'current-duplicate-probe-only')
+
+    def test_current_duplicate_capture_denied_before_socket(self):
+        out=self.root/'current_capture_must_not_exist.json'
+        with patch.object(m.socket,'create_connection') as connect:
+            with self.assertRaisesRegex(ValueError,'probe-only'):
+                m.run_capture(self.rom,self.save,out,2345,
+                              probe_only=False,current_copy_probe_only=True)
+            connect.assert_not_called()
+        self.assertFalse(out.exists())
+
+    def test_current_duplicate_mode_never_implicitly_uses_historical_hash(self):
+        out=self.root/'wrong_current_variant_must_not_exist.json'
+        with patch.object(m,'CURRENT_COPY_ROM','0'*64), \
+             patch.object(m,'EXACT_SAVE',self.save_sha), \
+             patch.object(m.socket,'create_connection') as connect:
+            with self.assertRaisesRegex(ValueError,'identity'):
+                m.run_capture(self.rom,self.save,out,2345,
+                              probe_only=True,current_copy_probe_only=True)
+            connect.assert_not_called()
+        self.assertFalse(out.exists())
+
+    def test_default_historical_mode_refuses_current_copy_before_socket(self):
+        out=self.root/'not_historical_must_not_exist.json'
+        with patch.object(m,'EXACT_SAVE',self.save_sha), \
+             patch.object(m.socket,'create_connection') as connect:
+            with self.assertRaisesRegex(ValueError,'identity'):
+                m.run_capture(self.rom,self.save,out,2345,probe_only=True)
+            connect.assert_not_called()
+        self.assertFalse(out.exists())
+
+    def test_current_duplicate_mismatch_save_and_window_denied(self):
+        out=self.root/'bad_current_save_or_window.json'
+        with patch.object(m,'CURRENT_COPY_ROM',self.rom_sha), \
+             patch.object(m.socket,'create_connection') as connect:
+            with self.assertRaisesRegex(ValueError,'identity'):
+                m.run_capture(self.rom,self.save,out,2345,
+                              probe_only=True,current_copy_probe_only=True)
+            connect.assert_not_called()
+        with patch.object(m,'CURRENT_COPY_ROM',self.rom_sha), \
+             patch.object(m,'EXACT_SAVE',self.save_sha), \
+             patch.object(m.socket,'create_connection') as connect:
+            with self.assertRaisesRegex(ValueError,'anchor parity'):
+                m.run_capture(self.rom,self.save,out,2345,
+                              probe_only=True,current_copy_probe_only=True)
+            connect.assert_not_called()
+        self.assertFalse(out.exists())
+
+    def test_current_copy_flag_requires_real_boolean(self):
+        out=self.root/'invalid_flag.json'
+        with self.assertRaisesRegex(ValueError,'boolean'):
+            m.run_capture(self.rom,self.save,out,2345,
+                          probe_only=True,current_copy_probe_only='yes')
+        self.assertFalse(out.exists())
+
 if __name__=='__main__': unittest.main()

@@ -70,3 +70,54 @@ Do not modify the protected ROM/save, main, enemy/NPC-partner AI or automatic it
 - Claude R3 independent review marked the actor0/foreign-battler D7 pairing fix source-acceptable but **REQUEST CHANGES** until the near-deadline timeout restoration test actually fails when the `resume()` restore is removed. The R4 regression uses an overall deadline shorter than the configured read timeout, confirms a shortened read timeout occurred, and asserts the final configured value was restored. This must be independently mutation-checked.
 - A rejected COPY_ENTRY without an earlier active player0 pair does **not** imply `incomplete_previous_copy_pair`; rejection remains explicit. The marker reports only describe original debugger observations, not request ownership.
 - Added fake-stub `T05` resume-stop and extended-`g` in-capture tests; register layout/CPSR are still UNVERIFIED against mGBA. No fresh mGBA contact, player-auto hook, engine request, ROM or save write occurred in R4. Formal native 0/20, production 0%, unmatched PP 0/2.
+
+## Isolated Current-copy protocol preflight (stacked diagnostic draft; no live acceptance)
+
+The original diagnostic above pins the separate historical experimental image
+`4b2585e1…`; a duplicate of the protected Current ROM has **a different hash**
+and must never be renamed or silently treated as the experiment. A new,
+explicit `--current-copy-probe-only` option allows the **Current ROM copy**
+`7b9ac66d38f38dcddc1cc907822615fcf56689600fdccaffa9df9a836fb9ee32`
+with the protected save copy
+`8c6cb520de6dc475e5fde31cb78ddd49ceb6add89f5c208598977886fa5579a4`.
+It **requires** `--probe-only`, rejects all attempt to run full capture, and
+retains the original historical-experimental default unchanged.
+
+Before **any** debugger connection, the tool requires the exact Current 32 MiB
+hash and verifies two separate original Thumb byte windows in that file:
+
+| Original CPU address | Length | Pinned static SHA256 |
+|---|---:|---|
+| `0x0806B370` copier region | 104 bytes | `c3d3181837d0aaf69fc471c4f5598870257c622c81bca9771a5d96d45850ab57` |
+| `0x0809E6AA` PP-writer region | 64 bytes | `84ffa68c024412568ce64fdac3719cd460c40a55caf07a5549bd150a7fe50923` |
+
+These *static* anchors were independently measured on the locally available
+Current duplicate and matched its protected original byte-for-byte. They are
+**not** ROM-loaded identity, debugger instruction parity, move legality,
+player request ownership, proof of a PP deduction, or a new native replay.
+The save is read-only and hashed before and after. `m` still reads only the
+named six-byte EWRAM buffer. No ROM bytes, private save contents or raw GDB
+captures belong in public git or source ZIPs.
+
+Only when a disposable current copy is already loaded and paused in a **real**
+mGBA GDB server on loopback, run locally from a working copy of this script:
+
+```powershell
+python tools/capture_original_request_rsp.py --rom "C:\\SoulGoldLab\\Pokemon_SoulGold_TEST_COPY.gba" --save "C:\\SoulGoldLab\\Pokemon_SoulGold_TEST_COPY.sav" --output "C:\\SoulGoldLab\\private_current_probe.json" --port 2345 --probe-only --current-copy-probe-only
+```
+
+This optional command sends at most `?`, `g`, `m0201cf94,6` and RSP ACK/NAK;
+**no `Z0`, `z0`, `c`, `s`, injected move, menu input or savestate**. The output
+is new, private, mode 0600 where supported, and may contain battle-buffer bytes.
+Do not publish it. A real RSP failure may still preserve valuable raw bytes
+in a partial report; keep that report private. Use a fresh output path for
+each attempt. If mGBA's `g` encoding differs, fail closed and report bytes,
+never rewrite an emulator response until independently understood.
+
+No emulator process/server is available in the current ChatGPT container.
+The source tests use disposable synthetic ROMs (with patched constants inside
+tests only); **no live current-copy GDB probe has run**. Real gameplay
+acceptance remains **0/20**, native production **0%**, PP discrepancies **0/2
+classified**. Only after an actual private protocol probe and independent
+review may further real CPU capture be designed. Do not modify the protected
+Current game, save, enemy/NPC-partner AI, items/capture or uncertified doubles.
