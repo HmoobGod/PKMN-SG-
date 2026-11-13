@@ -35,6 +35,12 @@ jobs:
       - name: Check out public source patch only
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Reject dead, weakened or per-slot player0 continuity guards
+        run: |
+          set -euo pipefail
+          python3 tools/test_wild_single_pre_target_continuity.py
+          python3 tools/test_wild_single_action_recheck.py
+
       - name: Clone exact upstream source in disposable workspace
         run: |
           set -euo pipefail
