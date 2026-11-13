@@ -58,5 +58,62 @@ class CombinedPublicFixtureTests(unittest.TestCase):
             guard.assert_not_called()
             popen.assert_not_called()
 
+    def test_combined_child_emulator_environment_is_minimal(self):
+        import os
+        from unittest.mock import MagicMock
+        launched = []
+        def make_process(*args, **kwargs):
+            launched.append(kwargs)
+            p = MagicMock()
+            p.poll.return_value = None
+            p.wait.return_value = 0
+            return p
+        peer = MagicMock()
+        peer.__enter__.return_value = peer
+        allow = {"PATH", "DISPLAY", "XAUTHORITY", "HOME", "SDL_AUDIODRIVER"}
+        with patch.object(lab.sys, "argv", ["combined"]), \
+             patch.dict(os.environ, {"SG_PRIVATE_SENTINEL": "must-not-leak"}), \
+             patch.object(lab, "inspect_network", return_value=("v4:127.0.0.1",)), \
+             patch.object(lab, "check_no_egress"), \
+             patch.object(lab.subprocess, "Popen", side_effect=make_process), \
+             patch.object(lab.socket, "create_connection", return_value=peer), \
+             patch.object(lab, "roundtrip",
+                          return_value=(b"S02", b"00"*68, b"feffffea")), \
+             patch.object(lab, "verified_post_cleanup_stop", return_value="S02"), \
+             patch("builtins.print"):
+            lab.run()
+        self.assertEqual(len(launched), 1)
+        child_env = launched[0]["env"]
+        self.assertEqual(set(child_env).difference(allow), set())
+        self.assertNotIn("SG_PRIVATE_SENTINEL", child_env)
+        self.assertEqual(child_env["SDL_AUDIODRIVER"], "dummy")
+        self.assertNotEqual(child_env["HOME"], os.environ.get("HOME", None))
+
+    def test_combined_full_run_requires_post_cleanup_check(self):
+        import os
+        from unittest.mock import MagicMock
+        peer = MagicMock()
+        peer.__enter__.return_value = peer
+        p = MagicMock()
+        p.poll.return_value = None
+        p.wait.return_value = 0
+        events = []
+        def roundtrip(_sock):
+            events.append("roundtrip")
+            return b"S02", b"00"*68, b"feffffea"
+        def post(_sock):
+            events.append("post")
+            return "S02"
+        with patch.object(lab.sys, "argv", ["combined"]), \
+             patch.object(lab, "inspect_network", return_value=("v4:127.0.0.1",)), \
+             patch.object(lab, "check_no_egress"), \
+             patch.object(lab.subprocess, "Popen", return_value=p), \
+             patch.object(lab.socket, "create_connection", return_value=peer), \
+             patch.object(lab, "roundtrip", side_effect=roundtrip), \
+             patch.object(lab, "verified_post_cleanup_stop", side_effect=post), \
+             patch("builtins.print"):
+            lab.run()
+        self.assertEqual(events, ["roundtrip", "post"])
+
 if __name__=="__main__":
     unittest.main()
