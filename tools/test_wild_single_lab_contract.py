@@ -34,8 +34,8 @@ def contract_ok(text: str) -> bool:
         "!IsBattlerAlive(battler) || !IsBattlerAlive(foe)",
         "gBattleResources == NULL",
         "verifyReply ? CONTROLLER_CHOOSEMOVE : CONTROLLER_CHOOSEACTION",
-        "GetBattlerMoveTargetType(battler, move) != TARGET_SELECTED",
-        "!CanTargetBattler(battler, foe, move)",
+        "GetBattlerMoveTargetType(battler, move) == TARGET_SELECTED",
+        "canTarget = CanTargetBattler(battler, foe, move)",
         "moveInfo->moves[slot] != move",
         "moveInfo->currentPp[slot] != gBattleMons[battler].pp[slot]",
         "bool32 armed = sSourceFirstWildLease.armed",
@@ -102,7 +102,7 @@ class WildSingleLabContractTests(unittest.TestCase):
         self.assertFalse(contract_ok(self.text.replace("CONTROLLER_CHOOSEMOVE", "CONTROLLER_OPENBAG")))
 
     def test_target_legality_tampering_fails(self):
-        self.assertFalse(contract_ok(self.text.replace("!CanTargetBattler(battler, foe, move)", "TRUE")))
+        self.assertFalse(contract_ok(self.text.replace("canTarget = CanTargetBattler(battler, foe, move)", "canTarget = TRUE")))
 
     def test_request_pp_mismatch_tampering_fails(self):
         self.assertFalse(contract_ok(self.text.replace("moveInfo->currentPp[slot] != gBattleMons[battler].pp[slot]", "moveInfo->currentPp[slot] == 0")))
