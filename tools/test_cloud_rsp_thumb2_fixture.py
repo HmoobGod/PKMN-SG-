@@ -55,13 +55,13 @@ class PublicThumb2FixtureTests(unittest.TestCase):
 
     def test_exact_memory_read_and_2byte_reply(self):
         a, b = self.pair()
-        b.sendall(b"$fee7#65")
+        b.sendall(encode_rsp(b"fee7"))
         self.assertEqual(thumb.thumb_memory(a, thumb.THUMB_READ), b"fee7")
         self.assertEqual(b.recv(256), encode_rsp(thumb.THUMB_READ) + b"+")
 
     def test_wrong_thumb_instruction_fails_closed(self):
         a, b = self.pair()
-        b.sendall(b"$0000#80")
+        b.sendall(encode_rsp(b"0000"))
         with self.assertRaisesRegex(RuntimeError, "mapping mismatch"):
             thumb.thumb_memory(a, thumb.THUMB_READ)
 
