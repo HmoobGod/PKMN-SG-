@@ -218,5 +218,37 @@ class PublicThumb2FixtureTests(unittest.TestCase):
         fake_process.wait.assert_called_once()
 
 
+    def test_arm_opcode_constants_independently_pinned(self):
+        # Literal comparison catches a change to BOTH producer and constant.
+        self.assertEqual(thumb.ARM_LDR, bytes.fromhex("00009fe5"))
+        self.assertEqual(thumb.ARM_BX, bytes.fromhex("10ff2fe1"))
+        self.assertEqual(thumb.THUMB_LOOP, bytes.fromhex("fee7"))
+
+    def test_emulator_child_receives_only_allowlisted_environment(self):
+        allowed = {"PATH", "DISPLAY", "XAUTHORITY", "HOME", "SDL_AUDIODRIVER"}
+        mock_process = MagicMock()
+        mock_process.poll.return_value = None
+        mock_process.wait.return_value = 0
+        mock_socket = MagicMock()
+        mock_socket.__enter__.return_value = mock_socket
+        captured = []
+        def launch(*args, **kwargs):
+            captured.append(dict(kwargs["env"]))
+            return mock_process
+        with patch.object(thumb.sys, "argv", ["thumb_fixture"]), \
+             patch.dict(os.environ, {"SOULGOLD_TEST_SENTINEL": "MUST_NOT_PASS"}, clear=False), \
+             patch.object(thumb, "inspect_network", return_value=("v4:0.0.0.0",)), \
+             patch.object(thumb, "check_no_egress"), \
+             patch.object(thumb.subprocess, "Popen", side_effect=launch), \
+             patch.object(thumb.socket, "create_connection", return_value=mock_socket), \
+             patch.object(thumb, "thumb_roundtrip", return_value=("S02", 16, b"fee7", "S02")), \
+             patch("builtins.print"):
+            thumb.run()
+        self.assertEqual(len(captured), 1)
+        self.assertFalse(set(captured[0]) - allowed, "unexpected child environment keys")
+        self.assertNotIn("SOULGOLD_TEST_SENTINEL", captured[0])
+        self.assertEqual(captured[0]["SDL_AUDIODRIVER"], "dummy")
+
+
 if __name__ == "__main__":
     unittest.main()
