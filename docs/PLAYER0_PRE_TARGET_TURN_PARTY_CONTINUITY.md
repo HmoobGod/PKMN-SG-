@@ -19,12 +19,13 @@ prove the candidate was chosen for the same pre-target request.
 
 ## Narrow fail-closed fix
 
-Immediately after choosing the move at a loop slot, freeze three
-read-only values: original `gBattleTurnCounter`, player0's original
-`gBattlerPartyIndexes[battler]`, and original foe party index
-`gBattlerPartyIndexes[foe]`. After targeting helpers, but BEFORE
-staging Fight or emitting an engine command, reject the entire
-first-stage automatic proposal if any value changed. Fall through to
+Before entering the candidate move loop, freeze ONE read-only identity
+baseline for the entire original player0 ChooseAction proposal:
+`gBattleTurnCounter`, `gBattlerPartyIndexes[battler]` and
+`gBattlerPartyIndexes[foe]`. Never retake that baseline per slot.
+After either targeting helper, and BEFORE an ineligible candidate can
+advance to another slot or Fight is staged, reject the whole proposal
+if any of those original identities drifted. Fall through to
 the unchanged original manual controller path; never silently switch
 a move/target, use an item/capture, or alter enemy/NPC partner AI.
 
@@ -37,8 +38,11 @@ items or innates are accessed.
 
 ## Evidence and missing acceptance
 
-Mutation-sensitive source tests check presence/ordering of all three
-frozen values and all three post-target comparisons, with synthetic
+Mutation-sensitive source tests parse live (comment-stripped) C patch text;
+reject `#if 0`, commented-out checks/freezes, tautologies, retaken
+per-slot baselines and skip-before-check reorderings. Both source CI
+and the disposable GNU ARM build workflow run these tests before
+accepting a compile. Model tests additionally check synthetic
 turn/own-party/foe-party changes, terminal/inactive/wrong-owner rejection
 and hidden opponent-state isolation. The exact pinned upstream source
 compile GitHub Action is enabled on this PR; it creates ONLY a public
