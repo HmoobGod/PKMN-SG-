@@ -23,7 +23,9 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install --no-install-recommends -y mgba-sdl xvfb xauth
           command -v mgba
+          dpkg-query -W mgba-sdl
           mgba --version
+          sha256sum "$(command -v mgba)"
       - name: Check fixture-only protocol and negative cases
         run: python3 -m unittest discover -s tools -p 'test_cloud_mgba_rsp_fixture.py' -v
       - name: Probe real mGBA debugger with original generated ROM only
