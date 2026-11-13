@@ -1,0 +1,34 @@
+name: SoulGold cloud mGBA RSP public fixture
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/cloud-mgba-rsp-fixture.yml
+      - tools/cloud_mgba_rsp_fixture.py
+      - tools/test_cloud_mgba_rsp_fixture.py
+      - docs/CLOUD_MGBA_PRIVATE_STAGE.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hosted-real-rsp-fixture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install real mGBA SDL frontend and virtual display
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --no-install-recommends -y mgba-sdl xvfb xauth
+          command -v mgba
+          mgba --version
+      - name: Check fixture-only protocol and negative cases
+        run: python3 -m unittest discover -s tools -p 'test_cloud_mgba_rsp_fixture.py' -v
+      - name: Probe real mGBA debugger with original generated ROM only
+        env:
+          SDL_AUDIODRIVER: dummy
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: xvfb-run -a -s '-screen 0 640x480x24' python3 tools/cloud_mgba_rsp_fixture.py
+      # Deliberately no upload-artifact, cache, secrets or private file fetch.
