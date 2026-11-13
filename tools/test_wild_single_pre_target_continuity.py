@@ -180,7 +180,7 @@ class PlayerProposalTargetContinuityTests(unittest.TestCase):
             "+        u16 preTargetTurn = gBattleTurnCounter;\n", 1)
         self.assertFalse(guarded_proposal(relocated))
         # A second baseline assignment after a target helper masks drift.
-        helper = "+        canTarget = GetBattlerMoveTargetType(battler, move) == TARGET_SELECTED;\n"
+        helper = "+        canTarget = !(GetBattlerMoveTargetType(battler, move) != TARGET_SELECTED ||\n"
         self.assertIn(helper, self.diff)
         neutralized = self.diff.replace(
             helper, helper + "+        preTargetTurn = gBattleTurnCounter;\n", 1)
