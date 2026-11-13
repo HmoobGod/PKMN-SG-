@@ -29,7 +29,8 @@ class FakeGDB:
                  install_fail=False, pp_wrong_address=False, pp_r0=0,
                  step_pc_delta=2, double_interrupt_stop=False, rle_g=False,
                  entry_actors=None, disconnect_on=None, step_stop_reply=b'S05',
-                 extra_g_cpsr=False, resume_stop_reply=b'S05'):
+                 extra_g_cpsr=False, resume_stop_reply=b'S05',
+                 qsupported_reply=m.PUBLIC_QSUPPORTED_REPLY):
         self.buf = bytearray()
         self.commands = []
         self.stop_pcs = list(stop_pcs or [m.COPY_ENTRY, m.COPY_POST_A, m.PP_WRITER, m.MAIN_CLEAR])
@@ -55,6 +56,7 @@ class FakeGDB:
         self.step_stop_reply = step_stop_reply
         self.extra_g_cpsr = extra_g_cpsr
         self.resume_stop_reply = resume_stop_reply
+        self.qsupported_reply = qsupported_reply
         self.timeouts = []
         self.n = 0
         self.stepped = False
@@ -81,7 +83,9 @@ class FakeGDB:
         assert int(crc, 16) == sum(request) & 255
         cmd = request.decode()
         self.commands.append(cmd)
-        if cmd == '?':
+        if cmd == m.PUBLIC_QSUPPORTED_COMMAND:
+            response = self.qsupported_reply
+        elif cmd == '?':
             response = b'S02'
         elif cmd.startswith('Z0,') or cmd.startswith('z0,'):
             response = b'ERR' if ((cmd.startswith('z0,') and self.cleanup_fail) or
@@ -197,6 +201,83 @@ class CaptureTests(unittest.TestCase):
                           'Z0,08000000,2','z0,08000000,2','Z0,0806b370,4','c','s'):
             with self.assertRaises(ValueError, msg=forbidden): rsp.send(forbidden)
         self.assertEqual(remote.commands,['?',f'm{m.SRC_BASE:08x},6'])
+
+    def test_public_qsupported_is_literal_fresh_optin_and_one_use(self):
+        # Independently pin exact feature request/response, not a self-match.
+        self.assertEqual(m.PUBLIC_QSUPPORTED_COMMAND,
+                         "qSupported:swbreak+;hwbreak+")
+        self.assertEqual(
+            m.PUBLIC_QSUPPORTED_REPLY,
+            b"swbreak+;hwbreak+;qXfer:features:read+;"
+            b"qXfer:memory-map:read+;QStartNoAckMode+",
+        )
+        remote = FakeGDB()
+        rsp = m.RSP(remote)
+        with self.assertRaisesRegex(ValueError, "qSupported only allowed"):
+            rsp.send(m.PUBLIC_QSUPPORTED_COMMAND)
+        self.assertEqual(remote.commands, [])
+        self.assertEqual(
+            rsp.negotiate_public_breakpoint_capabilities(),
+            m.PUBLIC_QSUPPORTED_REPLY,
+        )
+        self.assertEqual(remote.commands, [m.PUBLIC_QSUPPORTED_COMMAND])
+        self.assertTrue(rsp._features_negotiated)
+        with self.assertRaisesRegex(ValueError, "fresh stopped"):
+            rsp.negotiate_public_breakpoint_capabilities()
+        with self.assertRaisesRegex(ValueError, "qSupported only allowed"):
+            rsp.send(m.PUBLIC_QSUPPORTED_COMMAND)
+        self.assertEqual(rsp.send("?"), b"S02")
+        self.assertEqual(remote.commands, [m.PUBLIC_QSUPPORTED_COMMAND, "?"])
+
+    def test_public_qsupported_never_accepted_after_readonly_preflight(self):
+        remote = FakeGDB()
+        rsp = m.RSP(remote)
+        self.assertEqual(rsp.send("?"), b"S02")
+        with self.assertRaisesRegex(ValueError, "first on a fresh"):
+            rsp.negotiate_public_breakpoint_capabilities()
+        self.assertEqual(remote.commands, ["?"])
+
+    def test_wrong_qsupported_reply_poison_session_fail_closed(self):
+        for response in (b"", b"swbreak+", b"swbreak+;hwbreak-",
+                         b"swbreak+;hwbreak+;unexpected", b"OK"):
+            with self.subTest(response=response):
+                remote = FakeGDB(qsupported_reply=response)
+                rsp = m.RSP(remote)
+                with self.assertRaisesRegex(ValueError, "capability response"):
+                    rsp.negotiate_public_breakpoint_capabilities()
+                self.assertTrue(rsp._feature_negotiation_failed)
+                with self.assertRaisesRegex(ValueError, "failed feature negotiation"):
+                    rsp.send("?")
+                with self.assertRaisesRegex(ValueError, "fresh stopped"):
+                    rsp.negotiate_public_breakpoint_capabilities()
+                self.assertEqual(remote.commands, [m.PUBLIC_QSUPPORTED_COMMAND])
+
+    def test_missing_qsupported_ack_poison_session(self):
+        remote = FakeGDB(disconnect_on=m.PUBLIC_QSUPPORTED_COMMAND)
+        rsp = m.RSP(remote)
+        with self.assertRaises(ConnectionError):
+            rsp.negotiate_public_breakpoint_capabilities()
+        self.assertTrue(rsp._feature_negotiation_failed)
+        with self.assertRaisesRegex(ValueError, "failed feature negotiation"):
+            rsp.send("?")
+        self.assertEqual(remote.commands, [m.PUBLIC_QSUPPORTED_COMMAND])
+
+    def test_strict_generated_stop_only_t05_hardware_break(self):
+        self.assertEqual(m.strict_public_negotiated_stop(b"T05hwbreak:;"),
+                         "T05hwbreak:;")
+        for bad in (b"S05k", b"S05", b"T05", b"T05swbreak:;",
+                    b"T05hwbreak:;junk", b"T05hwbreak:;\n", b"t05hwbreak:;"):
+            with self.subTest(stop=bad):
+                with self.assertRaisesRegex(ValueError, "not exact negotiated"):
+                    m.strict_public_negotiated_stop(bad)
+        # Existing strict parser remains byte-for-byte unchanged and
+        # continues to reject the nonstandard mGBA fallback.
+        with self.assertRaises(ValueError):
+            m.parse_stop(b"S05k")
+
+    def test_existing_capture_never_negotiates_by_default(self):
+        report, data, remote, output = self.run_fake(max_stops=1)
+        self.assertNotIn(m.PUBLIC_QSUPPORTED_COMMAND, remote.commands)
 
     def test_corrupt_checksum_sends_nak(self):
         remote=FakeGDB(corrupted='?')

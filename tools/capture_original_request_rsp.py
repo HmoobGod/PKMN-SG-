@@ -37,6 +37,21 @@ MAX_WIRE_BYTES = 524288  # Bounded, private, raw sent/received RSP transcript.
 MAX_WIRE_EVENTS = 8192
 HEX = re.compile(rb'[0-9a-fA-F]*\Z')
 
+# mGBA 0.10.5 source-backed, literal, optional capability profile.
+# This does NOT enable any private-ROM debugger calls or change run_capture().
+PUBLIC_QSUPPORTED_COMMAND = "qSupported:swbreak+;hwbreak+"
+PUBLIC_QSUPPORTED_REPLY = (
+    b"swbreak+;hwbreak+;qXfer:features:read+;"
+    b"qXfer:memory-map:read+;QStartNoAckMode+"
+)
+
+
+def strict_public_negotiated_stop(packet):
+    """Require the ONLY generated-ROM-observed detailed Thumb Z0 trap."""
+    require(packet == b"T05hwbreak:;", "not exact negotiated public breakpoint stop")
+    return parse_stop(packet)
+
+
 
 def require(condition, reason):
     if not condition:
@@ -77,6 +92,9 @@ class RSP:
         self._wire_omitted_bytes = 0
         self._wire_event_overflow = False
         self.drained_interrupt_stops = []
+        self._negotiating_features = False
+        self._features_negotiated = False
+        self._feature_negotiation_failed = False
 
     def _log_wire(self, direction, data):
         """Preserve actual raw bytes without relying on successful decoding.
@@ -127,6 +145,13 @@ class RSP:
                 len(command) < 160 and '\x00' not in command,
                 'invalid debugger command')
         require(not self.running, 'target is running; interrupt before debugger access')
+        require(not self._feature_negotiation_failed,
+                'failed feature negotiation forbids reuse of this debugger session')
+        if command == PUBLIC_QSUPPORTED_COMMAND:
+            require(self._negotiating_features and not self._wire_events and
+                    not self._features_negotiated,
+                    'qSupported only allowed in fresh opt-in negotiation')
+            return
         if command in ('?', 'g'):
             return
         if command == 'c':
@@ -199,6 +224,35 @@ class RSP:
             raise ValueError('GDB packet checksum mismatch')
         self._send_bytes(b'+')
         return bytes(payload)
+
+    def negotiate_public_breakpoint_capabilities(self):
+        """Opt-in literal public-source capability request, never auto-called.
+
+        This is only a source-level compatibility primitive. A subsequent,
+        separately reviewed adapter must explicitly opt in before any private
+        probing; existing run_capture() behavior remains completely unchanged.
+        """
+        require(not self.running and not self._wire_events and
+                not self._features_negotiated and
+                not self._feature_negotiation_failed,
+                'qSupported must be first on a fresh stopped debugger session')
+        self._negotiating_features = True
+        try:
+            self._transmit(PUBLIC_QSUPPORTED_COMMAND)
+            response = self.receive()
+            # The reply is source-advertised, but it is NOT proof that the
+            # flags were set; a later exact T05hwbreak:; + PC is required.
+            require(response == PUBLIC_QSUPPORTED_REPLY,
+                    'unexpected qSupported capability response')
+            self._features_negotiated = True
+            return response
+        except Exception:
+            # A partly-sent packet or mismatched answer poisons this session:
+            # never permit a later command or a retry on the same connection.
+            self._feature_negotiation_failed = True
+            raise
+        finally:
+            self._negotiating_features = False
 
     def send(self, command):
         require(command != 'c', 'use bounded resume instead of raw c')
