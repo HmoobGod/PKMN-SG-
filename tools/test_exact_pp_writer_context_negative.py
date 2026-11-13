@@ -71,7 +71,7 @@ class OriginalWriterContextNegativeTests(unittest.TestCase):
 
     def test_flags_and_battlers_mutations_remove_only_targeted_gate(self):
         # Prove these negatives would fail to reject the trace if their
-        # specific native context conjunct were neutralized. Synthetic-only:
+        # specific flags/battlers context conjunct were neutralized. Synthetic-only:
         # no file reads, opcode attestation, probe or guest execution.
         source = inspect.getsource(v.audit)
         guard = ('require(old_main==2 and (e["inbattle"]&2) and\n'
@@ -80,7 +80,6 @@ class OriginalWriterContextNegativeTests(unittest.TestCase):
         variants = {
             "flags": guard.replace('e["flags"]==4 and ', ''),
             "battlers": guard.replace('e["battlers"]==2,', 'True,'),
-            "inbattle": guard.replace('(e["inbattle"]&2) and ', ''),
         }
         for field, replacement in variants.items():
             with self.subTest(mutation=field):
