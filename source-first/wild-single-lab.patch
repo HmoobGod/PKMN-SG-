@@ -18,7 +18,7 @@
          if (gBattleResources->bufferA[battler][0] < ARRAY_COUNT(sPlayerBufferCommands))
              sPlayerBufferCommands[gBattleResources->bufferA[battler][0]](battler);
          else
-@@ -2191,9 +2198,313 @@
+@@ -2191,9 +2198,312 @@
      }
  }
  
@@ -259,9 +259,8 @@
 +        if ((unusable & (1u << slot)) || move == MOVE_NONE || move == MOVE_STRUGGLE ||
 +            gBattleMons[battler].pp[slot] == 0)
 +            continue;
-+        canTarget = GetBattlerMoveTargetType(battler, move) == TARGET_SELECTED;
-+        if (canTarget)
-+            canTarget = CanTargetBattler(battler, foe, move);
++        canTarget = !(GetBattlerMoveTargetType(battler, move) != TARGET_SELECTED ||
++                      !CanTargetBattler(battler, foe, move));
 +        /* Source-LAB action proposal: targeting helpers must not silently
 +         * change the original player0 ChooseAction request, selected move,
 +         * PP, foe or active owner before Fight is submitted. */
@@ -332,7 +331,7 @@
  
      gBattlerControllerFuncs[battler] = HandleChooseActionAfterDma3;
      BattleTv_ClearExplosionFaintCause();
-@@ -2291,6 +2602,19 @@
+@@ -2291,6 +2601,19 @@
  
  void PlayerHandleChooseMove(enum BattlerId battler)
  {
