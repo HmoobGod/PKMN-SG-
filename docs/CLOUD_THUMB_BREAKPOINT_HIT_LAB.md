@@ -1,4 +1,4 @@
-# Public generated GBA: first bounded authentic Thumb breakpoint-HIT lab
+# Public generated GBA: bounded Thumb breakpoint-hit investigation
 
 NEW isolated DRAFT stacked on the exact independently Claude source-approved
 PR #35 head 7db58590cd3f93511334a833a26f52bbe3fc917c. This patch is
@@ -24,6 +24,20 @@ without an arbitrary address, and expects a bounded reply reporting
 SIGTRAP/05 (S05 or T05). It requires a register r15/PC at generated
 0x08000100, 0x08000102 or 0x08000104. If it cannot attest that
 generated target stop + PC, the lab reports FAILURE, not evidence.
+
+ACTUAL HOSTED NONSTANDARD OBSERVATION: On the first complete 0.10.5
+synthetic `c` test, real mGBA returned a checksum-valid frame
+`S05k` (hex `5330356b`) rather than conforming `S05`. The PR26
+original strict `parse_stop` correctly rejects it and is NEVER
+modified. On this NEW generated-fixture-only branch, and ONLY for
+that exact `S05k` byte sequence, a separate diagnostic path may
+request `g` once to establish whether the observed PC is the known
+generated Thumb target. It must still remove z0 exactly once after a
+readable stop, and reject wrong PC, malformed variants, lost replies
+and timeouts; no broad normalization of S05 garbage. Even if
+the PC matches and CI is green, report the result as
+`EVIDENCE_ONLY` nonstandard mGBA public-fixture response, not
+PR26 stop-grammar compatibility or private-game readiness.
 
 After a trustworthy stop, it performs one bounded z0 cleanup. After
 an ambiguous stop or timeout, it sends NO further run-control or
