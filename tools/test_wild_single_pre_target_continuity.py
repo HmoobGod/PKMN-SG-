@@ -173,11 +173,17 @@ class PlayerProposalTargetContinuityTests(unittest.TestCase):
         self.assertIn(loop, self.diff)
         self.assertIn(freeze, self.diff)
         # Move the capture back inside the loop (the original B1 defect).
-        marker = "+    u8 preTargetFoeParty = gBattlerPartyIndexes[foe];\n+\n"
-        self.assertIn(marker + loop, self.diff)
-        relocated = self.diff.replace(freeze, "", 1).replace(
-            marker + loop, marker + loop +
-            "+        u16 preTargetTurn = gBattleTurnCounter;\n", 1)
+        marker = "+    u8 preTargetFoeParty = gBattlerPartyIndexes[foe];\n"
+        self.assertIn(marker, self.diff)
+        self.assertLess(self.diff.index(marker), self.diff.index(loop, self.diff.index(marker)))
+        # The move/PP pool freeze may legitimately occupy the gap between
+        # original identity freeze and candidate loop on stacked LAB work.
+        stripped = self.diff.replace(freeze, "", 1)
+        start = stripped.index("static bool32 SourceFirstWildSingleMove(")
+        loop_pos = stripped.index(loop, start)
+        relocated = (stripped[:loop_pos + len(loop)] +
+                     "+        u16 preTargetTurn = gBattleTurnCounter;\n" +
+                     stripped[loop_pos + len(loop):])
         self.assertFalse(guarded_proposal(relocated))
         # A second baseline assignment after a target helper masks drift.
         helper = "+        canTarget = !(GetBattlerMoveTargetType(battler, move) != TARGET_SELECTED ||\n"
