@@ -64,6 +64,8 @@ def fixed_public_request(sock: socket.socket, rsp: RSP, payload: bytes) -> bytes
     """
     if type(payload) is not bytes or payload not in ALLOWED_PUBLIC_RAW:
         raise ValueError("only exact generated-ROM breakpoint/read packets allowed")
+    if not rsp._features_negotiated or rsp._feature_negotiation_failed or rsp.running:
+        raise ValueError("public raw request requires stopped negotiated generated session")
     sock.sendall(b"$" + payload + b"#%02x" % (sum(payload) & 255))
     return rsp.receive()  # Actual PR26 ACK/framing, checksum, RLE safeguards
 
@@ -112,7 +114,7 @@ def run() -> None:
                 initial = parse_registers(rsp.send("g"))[15]
                 arm = fixed_public_request(sock, rsp, b"m080000c0,4")
                 thumb = fixed_public_request(sock, rsp, b"m08000100,2")
-                if arm != b"00009fe5" or thumb != b"fee7":
+                if arm.lower() != b"00009fe5" or thumb.lower() != b"fee7":
                     raise RuntimeError("generated public ARM/Thumb instructions not mapped")
                 if fixed_public_request(sock, rsp, b"Z0,08000100,2") != b"OK":
                     raise RuntimeError("generated width-2 Z0 not acknowledged")
