@@ -100,8 +100,21 @@ def check_no_egress(
                     sock.connect(remote)
                 except socket.timeout as error:
                     raise IsolationError("egress probe timed out; result inconclusive") from error
+                except ConnectionRefusedError as error:
+                    # An external RST proves a path may exist; deny it. Refused
+                    # LOOPBACK ports are acceptable for hermetic negative tests.
+                    try:
+                        loopback = ipaddress.ip_address(remote[0]).is_loopback
+                    except ValueError:
+                        raise IsolationError("egress endpoint must be a numeric IP") from error
+                    if not loopback:
+                        raise IsolationError(
+                            "non-loopback refused connection: possible external route"
+                        ) from error
+                    continue
                 except OSError:
-                    # Refusal or no route is negative connectivity evidence only.
+                    # No route or blocked link is negative connectivity evidence,
+                    # never proof of isolation without Docker network=none.
                     continue
                 raise IsolationError("external network access unexpectedly available")
         except IsolationError:
