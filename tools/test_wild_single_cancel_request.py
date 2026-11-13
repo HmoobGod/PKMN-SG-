@@ -41,7 +41,7 @@ def gate(patch):
         "gBattlerBattleController[battler] != BATTLE_CONTROLLER_PLAYER",
         "!IsBattleControllerActiveOnLocal(battler)",
         "gBattleResources->bufferA[battler][0] !=",
-        "canTarget = CanTargetBattler(battler, foe, move)",
+        "!CanTargetBattler(battler, foe, move)",
     ]
     return (
         all(s in text for s in required)
