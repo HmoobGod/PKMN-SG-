@@ -286,7 +286,9 @@ class CaptureTests(unittest.TestCase):
                 rsp = m.RSP(remote)
                 # Model a guest accepting some bytes before operator interruption.
                 def interrupted_transmit(command):
-                    rsp._send_bytes(b"$qSupported")
+                    # Record an incomplete wire attempt without asking
+                    # FakeGDB to parse a deliberately broken RSP packet.
+                    rsp._log_wire("tx", b"$qSupported")
                     raise failure
                 with patch.object(rsp, "_transmit", side_effect=interrupted_transmit):
                     with self.assertRaises(type(failure)):
