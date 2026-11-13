@@ -10,10 +10,12 @@ on:
   pull_request:
     branches:
       - source-first/rom-identity
+      - lab/player0-proposal-target-continuity-20261113
     paths:
       - .github/workflows/source-first-wild-single-lab.yml
       - source-first/wild-single-lab.patch
       - tools/test_wild_single_pre_target_continuity.py
+      - tools/test_wild_single_pre_target_pool.py
   workflow_dispatch:
 
 permissions:
@@ -39,6 +41,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tools/test_wild_single_pre_target_continuity.py
+          python3 tools/test_wild_single_pre_target_pool.py
           python3 tools/test_wild_single_action_recheck.py
 
       - name: Clone exact upstream source in disposable workspace

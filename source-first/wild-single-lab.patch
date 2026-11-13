@@ -18,7 +18,7 @@
          if (gBattleResources->bufferA[battler][0] < ARRAY_COUNT(sPlayerBufferCommands))
              sPlayerBufferCommands[gBattleResources->bufferA[battler][0]](battler);
          else
-@@ -2191,9 +2198,312 @@
+@@ -2191,9 +2198,337 @@
      }
  }
  
@@ -214,6 +214,9 @@
 +{
 +    u32 unusable;
 +    u32 slot;
++    u32 poolSlot;
++    u16 preTargetMoves[MAX_MON_MOVES];
++    u8 preTargetPP[MAX_MON_MOVES];
 +    enum BattlerId foe;
 +    struct ChooseMoveStruct *moveInfo = NULL;
 +
@@ -244,6 +247,17 @@
 +    u8 preTargetPlayerParty = gBattlerPartyIndexes[battler];
 +    u8 preTargetFoeParty = gBattlerPartyIndexes[foe];
 +
++    /* Freeze all player-owned moves and PP once BEFORE any candidate helper.
++     * Do not silently select a later slot from a mutated live move pool. */
++    if (!verifyReply)
++    {
++        for (poolSlot = 0; poolSlot < MAX_MON_MOVES; poolSlot++)
++        {
++            preTargetMoves[poolSlot] = gBattleMons[battler].moves[poolSlot];
++            preTargetPP[poolSlot] = gBattleMons[battler].pp[poolSlot];
++        }
++    }
++
 +    for (slot = 0; slot < MAX_MON_MOVES; slot++)
 +    {
 +        enum Move move = gBattleMons[battler].moves[slot];
@@ -261,6 +275,17 @@
 +            continue;
 +        canTarget = !(GetBattlerMoveTargetType(battler, move) != TARGET_SELECTED ||
 +                      !CanTargetBattler(battler, foe, move));
++        /* A targeting helper may mutate an EARLIER or LATER move/PP slot.
++         * Reject the whole auto proposal even when this slot is ineligible. */
++        if (!verifyReply)
++        {
++            for (poolSlot = 0; poolSlot < MAX_MON_MOVES; poolSlot++)
++            {
++                if (gBattleMons[battler].moves[poolSlot] != preTargetMoves[poolSlot] ||
++                    gBattleMons[battler].pp[poolSlot] != preTargetPP[poolSlot])
++                    return FALSE;
++            }
++        }
 +        /* Source-LAB action proposal: targeting helpers must not silently
 +         * change the original player0 ChooseAction request, selected move,
 +         * PP, foe or active owner before Fight is submitted. */
@@ -331,7 +356,7 @@
  
      gBattlerControllerFuncs[battler] = HandleChooseActionAfterDma3;
      BattleTv_ClearExplosionFaintCause();
-@@ -2291,6 +2601,19 @@
+@@ -2291,6 +2626,19 @@
  
  void PlayerHandleChooseMove(enum BattlerId battler)
  {
