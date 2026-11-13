@@ -20,6 +20,9 @@ on:
       - docs/CLOUD_RSP_THUMB2_LAB.md
       - docs/CLOUD_MGBA_0105_PUBLIC_PARITY.md
       - tools/cloud_rsp_thumb_hit_fixture.py
+      - tools/cloud_rsp_thumb_qsupported_fixture.py
+      - tools/test_cloud_rsp_thumb_qsupported_fixture.py
+      - docs/CLOUD_MGBA_0105_STOP_SOURCE_AUDIT.md
       - tools/test_cloud_rsp_thumb_hit_fixture.py
       - docs/CLOUD_THUMB_BREAKPOINT_HIT_LAB.md
   workflow_dispatch:
@@ -42,6 +45,7 @@ jobs:
           cp tools/pr26_exact_probe_parser_reference.py tools/cloud_rsp_combined_fixture.py tools/test_cloud_rsp_combined_fixture.py /tmp/sg-netns-build/tools/
           cp tools/cloud_rsp_thumb2_fixture.py tools/test_cloud_rsp_thumb2_fixture.py /tmp/sg-netns-build/tools/
           cp tools/cloud_rsp_thumb_hit_fixture.py tools/test_cloud_rsp_thumb_hit_fixture.py /tmp/sg-netns-build/tools/
+          cp tools/cloud_rsp_thumb_qsupported_fixture.py tools/test_cloud_rsp_thumb_qsupported_fixture.py /tmp/sg-netns-build/tools/
           cp docker/cloud-mgba-netns.Dockerfile /tmp/sg-netns-build/Dockerfile
           docker build -t soulgold-public-netns:lab /tmp/sg-netns-build
           echo 'Ubuntu 26.04 mGBA 0.10.5 package required; no private inputs'
