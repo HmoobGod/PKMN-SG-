@@ -130,10 +130,11 @@ class TestPreTargetPoolContinuity(unittest.TestCase):
         for before, after in (
             (COMPARE[0], COMPARE[0] + " || 1"),
             (COMPARE[1], COMPARE[1] + " && 0"),
-            ("if (!verifyReply)\n+        {\n+            for (poolSlot",
-             "if (0 && !verifyReply)\n+        {\n+            for (poolSlot"),
+            ("if (!verifyReply)\n+    {\n+        for (poolSlot",
+             "if (0 && !verifyReply)\n+    {\n+        for (poolSlot"),
         ):
             with self.subTest(after=after):
+                self.assertIn(before, self.patch)
                 self.assertFalse(guarded_pool(self.patch.replace(before, after, 1)))
 
     def test_pool_scan_cannot_be_reduced_to_single_move(self):
