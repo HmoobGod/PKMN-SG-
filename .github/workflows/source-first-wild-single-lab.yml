@@ -7,6 +7,13 @@ on:
     paths:
       - .github/workflows/source-first-wild-single-lab.yml
       - source-first/wild-single-lab.patch
+  pull_request:
+    branches:
+      - source-first/rom-identity
+    paths:
+      - .github/workflows/source-first-wild-single-lab.yml
+      - source-first/wild-single-lab.patch
+      - tools/test_wild_single_pre_target_continuity.py
   workflow_dispatch:
 
 permissions:
