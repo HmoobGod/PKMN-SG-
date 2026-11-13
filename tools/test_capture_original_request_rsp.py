@@ -262,6 +262,61 @@ class CaptureTests(unittest.TestCase):
             rsp.send("?")
         self.assertEqual(remote.commands, [m.PUBLIC_QSUPPORTED_COMMAND])
 
+    def test_qsupported_keyboardinterrupt_after_wire_ack_poison_and_no_reuse(self):
+        remote = FakeGDB()
+        rsp = m.RSP(remote)
+        with patch.object(rsp, "receive", side_effect=KeyboardInterrupt):
+            with self.assertRaises(KeyboardInterrupt):
+                rsp.negotiate_public_breakpoint_capabilities()
+        self.assertEqual(remote.commands, [m.PUBLIC_QSUPPORTED_COMMAND])
+        self.assertTrue(rsp._feature_negotiation_failed)
+        self.assertFalse(rsp._features_negotiated)
+        self.assertFalse(rsp._negotiating_features)
+        for action in (lambda: rsp.send("?"),
+                       lambda: rsp.send("g"),
+                       lambda: rsp.negotiate_public_breakpoint_capabilities()):
+            with self.assertRaises(ValueError):
+                action()
+        self.assertEqual(remote.commands, [m.PUBLIC_QSUPPORTED_COMMAND])
+
+    def test_qsupported_partial_transmit_baseexception_poison(self):
+        for failure in (KeyboardInterrupt(), SystemExit(8)):
+            with self.subTest(failure=type(failure).__name__):
+                remote = FakeGDB()
+                rsp = m.RSP(remote)
+                # Model a guest accepting some bytes before operator interruption.
+                def interrupted_transmit(command):
+                    # Record an incomplete wire attempt without asking
+                    # FakeGDB to parse a deliberately broken RSP packet.
+                    rsp._log_wire("tx", b"$qSupported")
+                    raise failure
+                with patch.object(rsp, "_transmit", side_effect=interrupted_transmit):
+                    with self.assertRaises(type(failure)):
+                        rsp.negotiate_public_breakpoint_capabilities()
+                self.assertTrue(rsp._feature_negotiation_failed)
+                self.assertFalse(rsp._features_negotiated)
+                self.assertFalse(rsp._negotiating_features)
+                with self.assertRaisesRegex(ValueError, "failed feature negotiation"):
+                    rsp.send("?")
+
+    def test_qsupported_fresh_rejected_before_wire_does_not_poison(self):
+        remote = FakeGDB()
+        rsp = m.RSP(remote)
+        rsp.send("?")
+        with self.assertRaisesRegex(ValueError, "first on a fresh"):
+            rsp.negotiate_public_breakpoint_capabilities()
+        self.assertFalse(rsp._feature_negotiation_failed)
+        self.assertEqual(remote.commands, ["?"])
+
+    def test_existing_checksum_trailer_rejects_one_digit(self):
+        remote = FakeGDB()
+        # One checksum nibble followed by a nonhex byte cannot be accepted.
+        remote.buf.extend(b"$S02#0+")
+        rsp = m.RSP(remote)
+        with self.assertRaisesRegex(ValueError, "invalid GDB checksum text"):
+            rsp.receive()
+        self.assertEqual(remote.commands, [])
+
     def test_strict_generated_stop_only_t05_hardware_break(self):
         self.assertEqual(m.strict_public_negotiated_stop(b"T05hwbreak:;"),
                          "T05hwbreak:;")
