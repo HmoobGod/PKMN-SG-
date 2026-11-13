@@ -56,5 +56,113 @@ class Z0FixtureTests(unittest.TestCase):
             breakpoint_request(a,SET)
         self.assertEqual(b.recv(200),encode_rsp(SET)+b"-")
 
+
+class RoundtripSafetyTests(unittest.TestCase):
+    """Exercise full request ordering with scripted real and mock RSP stubs."""
+
+    def fake_reads(self, events, *, regs=b"00" * 64, rom=b"feffffea"):
+        def read(_sock, command):
+            events.append(("read", command))
+            return {b"?": b"S02", b"g": regs, b"m080000c0,4": rom}[command]
+        return read
+
+    def test_invalid_register_or_rom_never_installs_breakpoint(self):
+        from unittest.mock import patch
+        import cloud_mgba_z0_fixture as fixture
+        for regs, rom in ((b"00" * 63, b"feffffea"),
+                          (b"00" * 64, b"00000000")):
+            events = []
+            def breakpoint(_sock, command):
+                events.append(("breakpoint", command))
+                return b"OK"
+            with self.subTest(regs_len=len(regs), rom=rom):
+                with patch.object(fixture, "request", side_effect=self.fake_reads(events, regs=regs, rom=rom)), \
+                     patch.object(fixture, "breakpoint_request", side_effect=breakpoint):
+                    with self.assertRaises(RuntimeError):
+                        fixture.roundtrip(object())
+            self.assertEqual(events, [("read", b"?"), ("read", b"g"),
+                                      ("read", b"m080000c0,4")])
+
+    def test_full_roundtrip_orders_reads_then_install_then_remove(self):
+        from unittest.mock import patch
+        import cloud_mgba_z0_fixture as fixture
+        events = []
+        def breakpoint(_sock, command):
+            events.append(("breakpoint", command))
+            return b"OK"
+        with patch.object(fixture, "request", side_effect=self.fake_reads(events)), \
+             patch.object(fixture, "breakpoint_request", side_effect=breakpoint):
+            self.assertEqual(fixture.roundtrip(object()),
+                             (b"S02", b"00" * 64, b"feffffea"))
+        self.assertEqual(events, [("read", b"?"), ("read", b"g"),
+                                  ("read", b"m080000c0,4"),
+                                  ("breakpoint", SET), ("breakpoint", REMOVE)])
+
+    def test_failed_removal_is_explicit_error(self):
+        from unittest.mock import patch
+        import cloud_mgba_z0_fixture as fixture
+        events = []
+        def breakpoint(_sock, command):
+            events.append(command)
+            if command == REMOVE:
+                raise RuntimeError("stub rejected removal")
+            return b"OK"
+        with patch.object(fixture, "request", side_effect=self.fake_reads([])), \
+             patch.object(fixture, "breakpoint_request", side_effect=breakpoint):
+            with self.assertRaisesRegex(RuntimeError, "cleanup failed"):
+                fixture.roundtrip(object())
+        self.assertEqual(events, [SET, REMOVE])
+
+    def scripted_ambiguous_install(self, install_reply):
+        """Real socket framing: bad/missing install ACK still sends z0 exactly once."""
+        from unittest.mock import patch
+        import cloud_mgba_z0_fixture as fixture
+        import threading
+        a, b = socket.socketpair()
+        a.settimeout(0.45)
+        b.settimeout(0.9)
+        self.addCleanup(a.close)
+        self.addCleanup(b.close)
+        seen, worker_errors = [], []
+        def stub():
+            try:
+                expected = encode_rsp(SET)
+                sent = b.recv(len(expected))
+                if sent != expected:
+                    raise AssertionError("unexpected install packet " + repr(sent))
+                seen.append(SET)
+                if install_reply is not None:
+                    b.sendall(install_reply)
+                    self.assertEqual(b.recv(1), b"-")  # bad checksum NAK
+                expected_remove = encode_rsp(REMOVE)
+                sent = b.recv(len(expected_remove))
+                if sent != expected_remove:
+                    raise AssertionError("missing exact removal " + repr(sent))
+                seen.append(REMOVE)
+                b.sendall(b"$OK#9a")
+                self.assertEqual(b.recv(1), b"+")
+            except Exception as exc:
+                worker_errors.append(exc)
+        thread = threading.Thread(target=stub, daemon=True)
+        thread.start()
+        with patch.object(fixture, "request", side_effect=self.fake_reads([])):
+            if install_reply is None:
+                with self.assertRaises(socket.timeout):
+                    fixture.roundtrip(a)
+            else:
+                with self.assertRaisesRegex(RuntimeError, "checksum mismatch"):
+                    fixture.roundtrip(a)
+        thread.join(timeout=2)
+        self.assertFalse(thread.is_alive(), "fixture stub must terminate")
+        self.assertEqual(worker_errors, [], f"scripted stub failures: {worker_errors}")
+        self.assertEqual(seen, [SET, REMOVE])
+
+    def test_corrupted_install_reply_still_removes(self):
+        self.scripted_ambiguous_install(b"$OK#00")
+
+    def test_no_install_reply_timeout_still_removes(self):
+        self.scripted_ambiguous_install(None)
+
+
 if __name__ == "__main__":
     unittest.main()
