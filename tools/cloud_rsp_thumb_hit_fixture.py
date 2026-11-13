@@ -43,8 +43,16 @@ def one_continue(sock: socket.socket, command: bytes) -> bytes:
     return recv_rsp(sock)
 
 
-def validate_hit(stop: bytes, regs: bytes) -> int:
-    parsed_stop = parse_stop(stop)
+def validate_hit(
+    stop: bytes, regs: bytes, *, diagnostic_nonstandard: bool = False
+) -> int:
+    # PR26's original strict parser is untouched. The ONLY nonstandard
+    # compatibility candidate is the exact observed public mGBA 0.10.5
+    # frame S05k, requiring independent register-PC corroboration.
+    if diagnostic_nonstandard and stop == b"S05k":
+        parsed_stop = "S05k"
+    else:
+        parsed_stop = parse_stop(stop)
     if parsed_stop[:3] not in STOP_SIGNALS:
         raise HitError("GDB did not report a SIGTRAP/05 stop")
     cpu = parse_registers(regs)
@@ -54,7 +62,7 @@ def validate_hit(stop: bytes, regs: bytes) -> int:
     return pc
 
 
-def run_one_hit(sock: socket.socket) -> tuple[int, str]:
+def run_one_hit(sock: socket.socket) -> tuple[int, str, bool]:
     """Preflight -> Z0 -> single c -> verified trap/PC -> z0 (if stopped).
 
     A lost stop reply cannot be cleaned up in-band without issuing further
@@ -81,20 +89,27 @@ def run_one_hit(sock: socket.socket) -> tuple[int, str]:
         stop_reply = one_continue(sock, ALLOWED_CONTINUE)
         # Original GENERATED test ROM only: report a bounded protocol shape,
         # never treat a non-stop acknowledgement as a successful CPU trap.
+        nonstandard = False
         try:
             stop = parse_stop(stop_reply)
         except ValueError as error:
-            raise HitError(
-                "generated-fixture continue returned NON-STOP RSP frame "
-                "len=" + str(len(stop_reply)) +
-                " prefix_hex=" + stop_reply[:16].hex()
-            ) from error
+            if stop_reply == b"S05k":
+                # Nonstandard mGBA 0.10.5 PUBLIC fixture observation ONLY.
+                # This is NOT made valid under original PR26's parser.
+                stop = "S05k"
+                nonstandard = True
+            else:
+                raise HitError(
+                    "generated-fixture continue returned NON-STOP RSP frame "
+                    "len=" + str(len(stop_reply)) +
+                    " prefix_hex=" + stop_reply[:16].hex()
+                ) from error
         if stop[:3] not in STOP_SIGNALS:
             raise HitError("received a CPU stop that is not SIGTRAP: " + stop[:3])
         definitely_stopped = True
         regs = request(sock, b"g")
-        pc = validate_hit(stop_reply, regs)
-        return pc, stop
+        pc = validate_hit(stop_reply, regs, diagnostic_nonstandard=nonstandard)
+        return pc, stop, nonstandard
     finally:
         if install_attempted and (not continued or definitely_stopped):
             # Once a stop reply has been received, exactly one bounded cleanup.
@@ -143,8 +158,12 @@ def main() -> None:
                 sock.settimeout(3.0)
                 listeners = inspect_network(require_listener=True)
                 check_no_egress()
-                pc, stop = run_one_hit(sock)
-            print("PASS: real hosted mGBA synthetic Thumb breakpoint HIT")
+                pc, stop, nonstandard = run_one_hit(sock)
+            if nonstandard:
+                print("EVIDENCE_ONLY: generated Thumb target PC corroborates NONSTANDARD mGBA S05k response")
+                print("PR26_STOP_GRAMMAR: REJECTS S05k (original strict parser unchanged)")
+            else:
+                print("PASS: real hosted spec-conforming mGBA synthetic Thumb breakpoint HIT")
             print("SYNTHETIC_STOP_SIGNAL: " + stop[:3])
             print("SYNTHETIC_STOP_PC: " + hex(pc))
             print("GENERATED_TARGET_PC: " + hex(TARGET_PC))
