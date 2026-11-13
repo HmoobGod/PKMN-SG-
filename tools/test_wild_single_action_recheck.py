@@ -17,6 +17,9 @@ def added_source(text):
                      if line.startswith("+") and not line.startswith("+++"))
 
 POST_TARGET = """        if (!verifyReply && (!SourceFirstWildSingleOwner(battler) ||
+            gBattleTurnCounter != preTargetTurn ||
+            gBattlerPartyIndexes[battler] != preTargetPlayerParty ||
+            gBattlerPartyIndexes[foe] != preTargetFoeParty ||
             gBattleResources == NULL ||
             gBattleResources->bufferA[battler][0] != CONTROLLER_CHOOSEACTION ||
             GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT) != foe ||
