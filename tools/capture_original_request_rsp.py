@@ -246,7 +246,9 @@ class RSP:
                     'unexpected qSupported capability response')
             self._features_negotiated = True
             return response
-        except Exception:
+        except BaseException:
+            # Even KeyboardInterrupt/SystemExit after a partial qSupported
+            # packet poison this session; never reuse uncertain RSP framing.
             # A partly-sent packet or mismatched answer poisons this session:
             # never permit a later command or a retry on the same connection.
             self._feature_negotiation_failed = True
