@@ -18,7 +18,7 @@
          if (gBattleResources->bufferA[battler][0] < ARRAY_COUNT(sPlayerBufferCommands))
              sPlayerBufferCommands[gBattleResources->bufferA[battler][0]](battler);
          else
-@@ -2191,9 +2198,307 @@
+@@ -2191,9 +2198,313 @@
      }
  }
  
@@ -238,14 +238,16 @@
 +        gBattleResources == NULL ||
 +        !(gBattleResources->bufferA[battler][0] == CONTROLLER_CHOOSEMOVE)))
 +        return FALSE;
++    /* One identity baseline per original proposal, BEFORE any candidate
++     * slot can run a potentially stateful targeting helper. */
++    u16 preTargetTurn = gBattleTurnCounter;
++    u8 preTargetPlayerParty = gBattlerPartyIndexes[battler];
++    u8 preTargetFoeParty = gBattlerPartyIndexes[foe];
++
 +    for (slot = 0; slot < MAX_MON_MOVES; slot++)
 +    {
 +        enum Move move = gBattleMons[battler].moves[slot];
-+        /* Freeze original turn/party identities before target helpers.
-+         * They must not promote a stale proposed slot into a NEW request. */
-+        u16 preTargetTurn = gBattleTurnCounter;
-+        u8 preTargetPlayerParty = gBattlerPartyIndexes[battler];
-+        u8 preTargetFoeParty = gBattlerPartyIndexes[foe];
++        bool32 canTarget;
 +
 +        /* Keep the one proposed slot for this two-stage request. If it
 +         * becomes disabled/Choiced/Encored/Imprisoned or otherwise illegal,
@@ -257,9 +259,9 @@
 +        if ((unusable & (1u << slot)) || move == MOVE_NONE || move == MOVE_STRUGGLE ||
 +            gBattleMons[battler].pp[slot] == 0)
 +            continue;
-+        if (GetBattlerMoveTargetType(battler, move) != TARGET_SELECTED ||
-+            !CanTargetBattler(battler, foe, move))
-+            continue;
++        canTarget = GetBattlerMoveTargetType(battler, move) == TARGET_SELECTED;
++        if (canTarget)
++            canTarget = CanTargetBattler(battler, foe, move);
 +        /* Source-LAB action proposal: targeting helpers must not silently
 +         * change the original player0 ChooseAction request, selected move,
 +         * PP, foe or active owner before Fight is submitted. */
@@ -273,6 +275,10 @@
 +            gBattleMons[battler].moves[slot] != move ||
 +            gBattleMons[battler].pp[slot] == 0))
 +            return FALSE;
++        /* Reject drift even when a helper marks this candidate ineligible.
++         * Otherwise the next slot would run on a stale ChooseAction request. */
++        if (!canTarget)
++            continue;
 +        /* Original targeting helpers may change the live player command or
 +         * replace the engine's ChooseMove request buffer. Before dereferencing
 +         * its earlier pointer, require that the same original buffer and
@@ -326,7 +332,7 @@
  
      gBattlerControllerFuncs[battler] = HandleChooseActionAfterDma3;
      BattleTv_ClearExplosionFaintCause();
-@@ -2291,6 +2596,19 @@
+@@ -2291,6 +2602,19 @@
  
  void PlayerHandleChooseMove(enum BattlerId battler)
  {
