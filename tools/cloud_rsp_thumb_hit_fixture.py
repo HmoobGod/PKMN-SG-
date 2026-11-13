@@ -79,9 +79,18 @@ def run_one_hit(sock: socket.socket) -> tuple[int, str]:
         thumb_breakpoint(sock, THUMB_SET)
         continued = True  # mark BEFORE c could resume the guest
         stop_reply = one_continue(sock, ALLOWED_CONTINUE)
-        stop = parse_stop(stop_reply)
+        # Original GENERATED test ROM only: report a bounded protocol shape,
+        # never treat a non-stop acknowledgement as a successful CPU trap.
+        try:
+            stop = parse_stop(stop_reply)
+        except ValueError as error:
+            raise HitError(
+                "generated-fixture continue returned NON-STOP RSP frame "
+                "len=" + str(len(stop_reply)) +
+                " prefix_hex=" + stop_reply[:16].hex()
+            ) from error
         if stop[:3] not in STOP_SIGNALS:
-            raise HitError("received a reply that is not SIGTRAP")
+            raise HitError("received a CPU stop that is not SIGTRAP: " + stop[:3])
         definitely_stopped = True
         regs = request(sock, b"g")
         pc = validate_hit(stop_reply, regs)
