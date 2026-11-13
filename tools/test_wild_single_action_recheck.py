@@ -40,7 +40,7 @@ def contract(patch):
     try:
         s = added_source(patch)
         chooser = s.index("static bool32 SourceFirstWildSingleMove(")
-        target = s.index("canTarget = CanTargetBattler(battler, foe, move)", chooser)
+        target = s.index("!CanTargetBattler(battler, foe, move)", chooser)
         gate = s.index(POST_TARGET, chooser)
         move_reply = s.index("*reply = slot | (foe << 8);", chooser)
         proposal = s.index("*reply = slot; // Record proposal", chooser)
