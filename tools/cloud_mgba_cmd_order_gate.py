@@ -21,9 +21,35 @@ EXPECTED_STAGES = (
 )
 
 
+# Full exact Dockerfile pin: Docker instructions are case-insensitive, may be
+# overridden by a later CMD / ENTRYPOINT / FROM, and can modify effective USER
+# or COPY. Only a complete-file equality check guarantees this property.
+EXPECTED_DOCKERFILE = (
+    "FROM ubuntu:26.04\n"
+    "ENV DEBIAN_FRONTEND=noninteractive\n"
+    "RUN apt-get update -qq && apt-get install --no-install-recommends -y python3 mgba-sdl xvfb xauth && rm -rf /var/lib/apt/lists/*\n"
+    "ENV PATH=\"/usr/games:${PATH}\"\n"
+    "WORKDIR /lab\n"
+    "COPY tools /lab/tools\n"
+    "ENV PYTHONDONTWRITEBYTECODE=1\n"
+    "ENV HOME=/tmp\n"
+    "USER 65534:65534\n"
+    "CMD [\"sh\",\"-c\",\"python3 /lab/tools/cloud_mgba_pkg_gate.py && mgba --version && sha256sum $(command -v mgba) && python3 -m unittest discover -s /lab/tools -p 'test_*.py' -v && xvfb-run -a -s '-screen 0 640x480x24' python3 /lab/tools/cloud_rsp_combined_fixture.py && xvfb-run -a -s '-screen 0 640x480x24' python3 /lab/tools/cloud_rsp_thumb2_fixture.py && timeout -k 3s 50s xvfb-run -a -s '-screen 0 640x480x24' python3 /lab/tools/cloud_rsp_thumb_hit_fixture.py && timeout -k 3s 50s xvfb-run -a -s '-screen 0 640x480x24' python3 /lab/tools/cloud_rsp_thumb_qsupported_fixture.py\"]\n"
+)
+
+
 def validate_dockerfile(text: str) -> tuple[str, ...]:
     if type(text) is not str:
         raise ValueError("Dockerfile text must be UTF-8")
+    if text != EXPECTED_DOCKERFILE:
+        actual_lines = text.splitlines(keepends=True)
+        expected_lines = EXPECTED_DOCKERFILE.splitlines(keepends=True)
+        for index in range(max(len(actual_lines), len(expected_lines))):
+            observed = actual_lines[index] if index < len(actual_lines) else None
+            expected = expected_lines[index] if index < len(expected_lines) else None
+            if observed != expected:
+                raise ValueError(f"Dockerfile mismatch at line {index + 1} (full-file pin)")
+        raise ValueError("Dockerfile exact-text mismatch")
     commands = [line[4:] for line in text.splitlines() if line.startswith("CMD ")]
     if len(commands) != 1:
         raise ValueError("expected exactly one JSON-form Docker CMD")
