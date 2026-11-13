@@ -28,13 +28,20 @@ def roundtrip(sock: socket.socket) -> tuple[bytes, bytes, bytes]:
     regs = request(sock, b"g")
     rom = request(sock, b"m080000c0,4")
     check_reply(stop, regs, rom)
-    installed = False
+    # The install may succeed inside mGBA even if the reply is corrupted/lost.
+    # Mark attempted BEFORE writing Z0; one bounded z0 cleanup is mandatory.
+    attempted = False
     try:
+        attempted = True
         breakpoint_request(sock, SET)
-        installed = True
     finally:
-        if installed:
-            breakpoint_request(sock, REMOVE)
+        if attempted:
+            try:
+                breakpoint_request(sock, REMOVE)
+            except (OSError, ValueError, RuntimeError) as error:
+                raise RuntimeError(
+                    "fixture breakpoint cleanup failed after attempted Z0 install"
+                ) from error
     return stop, regs, rom
 
 def run() -> None:
