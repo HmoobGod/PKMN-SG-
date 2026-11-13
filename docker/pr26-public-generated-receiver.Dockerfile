@@ -1,7 +1,7 @@
 FROM ubuntu:26.04
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update -qq && apt-get install --no-install-recommends -y python3 mgba-sdl xvfb xauth && rm -rf /var/lib/apt/lists/*
-ENV PATH="/usr/games:\${PATH}"
+ENV PATH="/usr/games:${PATH}"
 WORKDIR /lab
 COPY tools /lab/tools
 ENV PYTHONDONTWRITEBYTECODE=1
