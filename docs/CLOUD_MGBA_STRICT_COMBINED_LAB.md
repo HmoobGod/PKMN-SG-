@@ -1,0 +1,9 @@
+# SoulGold strict-version + public Thumb generated-ROM combined lab
+
+This NEW, independent DRAFT integration is stacked on approved PR #36 (20f911f157208b57a5a257aa0d625bec8de96cdc) and incorporates public generated-only fixture source from approved PRs #37–#40. Their reviewed heads remain unchanged. A separate combined exact-head CI and Claude review is mandatory before any promotion.
+
+Conflict resolution: keep PR #36's fail-closed exact Ubuntu mgba-sdl package version check for 0.10.5+dfsg-3build1 at the START of Docker CMD. Preserve the original combined ARM/Thumb read-only checks, PR #36 minimal subprocess environment and mandatory postcleanup read-only '?'. Add separate timeout-bounded public generated S05k one-c breakpoint diagnostic and qSupported T05hwbreak:; canonical-stop probe, including PR #38 HOME and malformed-stop tests and PR #40 qSupported reply literal/main forwarding tests. Workflow should explicitly copy only the named public fixture files and run in network=none with bridged negative rejection before emulator.
+
+The qSupported advertised reply is a hardcoded mGBA 0.10.5 source literal, NOT proof that the flags were set. The exact T05hwbreak:; stop with corroborated generated-ROM PC = 0x08000100 provides public fixture evidence. Upstream mGBA Z0/Z1 treats breakpoints as hardware and does not parse the packet kind/size field; width-2 packet ACK alone is not CPU semantics proof.
+
+No commercial game ROM, save, savestate, private trace, secret, or private PR #26 probe is copied or executed. Approved PR #26, #36–#41 branch heads, main and source-first remain untouched. No player0 action, automatic items or capture, enemy/NPC partner AI, uncertified doubles, native gameplay or production acceptance. Actual-game native 0/20 (0%), production 0%, historical PP 0/2. Keep DRAFT/unmerged, fresh independent source/test/security review required.
