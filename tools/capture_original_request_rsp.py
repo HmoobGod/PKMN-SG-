@@ -415,10 +415,8 @@ def run_capture(rom, save, output, port, max_stops=40, timeout=10,
                             event['copy_entry_src_register_r2'] = f'0x{ptr:08x}'
                             if regs[0] != 0 or regs[1] != 1 or regs[3] != 6:
                                 event['copy_entry_rejected_reason'] = 'not a validated actor0 direction0 count6 entry'
-                                event['incomplete_previous_copy_pair'] = True
                             elif ptr != SRC_BASE:
                                 event['source_unreadable'] = 'entry r2 is not the pinned original source buffer'
-                                event['incomplete_previous_copy_pair'] = True
                             else:
                                 active_copy = (ptr, read_memory(rsp, ptr, 6))
                                 event['source6_hex_private'] = active_copy[1].hex()

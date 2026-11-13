@@ -29,7 +29,7 @@ class FakeGDB:
                  install_fail=False, pp_wrong_address=False, pp_r0=0,
                  step_pc_delta=2, double_interrupt_stop=False, rle_g=False,
                  entry_actors=None, disconnect_on=None, step_stop_reply=b'S05',
-                 extra_g_cpsr=False):
+                 extra_g_cpsr=False, resume_stop_reply=b'S05'):
         self.buf = bytearray()
         self.commands = []
         self.stop_pcs = list(stop_pcs or [m.COPY_ENTRY, m.COPY_POST_A, m.PP_WRITER, m.MAIN_CLEAR])
@@ -54,6 +54,7 @@ class FakeGDB:
         self.disconnect_on = disconnect_on
         self.step_stop_reply = step_stop_reply
         self.extra_g_cpsr = extra_g_cpsr
+        self.resume_stop_reply = resume_stop_reply
         self.timeouts = []
         self.n = 0
         self.stepped = False
@@ -93,7 +94,7 @@ class FakeGDB:
             if self.hang:
                 self.buf.extend(b'+')
                 return
-            response = b'W00' if self.exit_stop else b'S05'
+            response = b'W00' if self.exit_stop else self.resume_stop_reply
         elif cmd == 's':
             self.stepped = True
             response = self.step_stop_reply
@@ -498,13 +499,51 @@ class CaptureTests(unittest.TestCase):
             self.assertTrue(wire['truncated'])
 
     def test_resume_restores_configured_timeout(self):
+        # The old 1s deadline never shortened the timeout, so this test passed
+        # even when the resume() finally/restore was deliberately removed.
         stub = FakeGDB()
         rsp = m.RSP(stub)
-        stop, expired = rsp.resume(__import__('time').monotonic()+1.0, 0.15)
+        original_timeout = 0.15
+        stop, expired = rsp.resume(__import__('time').monotonic()+0.05, original_timeout)
         self.assertFalse(expired)
         self.assertEqual(stop, 'S05')
-        self.assertEqual(stub.timeout, 0.15)
-        self.assertEqual(stub.timeouts[-1], 0.15)
+        self.assertTrue(stub.timeouts)
+        self.assertLess(min(stub.timeouts), original_timeout,
+                        'test setup must exercise a shortened near-deadline read')
+        self.assertEqual(stub.timeouts[-1], original_timeout,
+                         'resume must restore the configured timeout after the stop')
+        self.assertEqual(stub.timeout, original_timeout)
+
+    def test_first_foreign_entry_has_no_previous_pair_to_lose(self):
+        # A rejected first entry is NOT evidence that an earlier pair was lost.
+        stub = FakeGDB(stop_pcs=[m.COPY_ENTRY], entry_actors={0: 1})
+        report, *_ = self.run_fake(stub, max_stops=1)
+        self.assertIsNone(report['failure'])
+        first = report['events'][0]
+        self.assertIn('not a validated actor0', first['copy_entry_rejected_reason'])
+        self.assertNotIn('incomplete_previous_copy_pair', first)
+        self.assertNotIn('source6_hex_private', first)
+
+    def test_resume_t05_stop_is_recorded_without_claiming_authority(self):
+        stub = FakeGDB(resume_stop_reply=b'T05thread:1;')
+        report, _, remote, _ = self.run_fake(stub, max_stops=1)
+        self.assertIsNone(report['failure'])
+        self.assertEqual(report['events'][0]['stop'], 'T05thread:1;')
+        self.assertEqual(report['marker_stop_count'], 1)
+        self.assertTrue(report['events'][0]['actor0_marker_only'])
+        self.assertEqual(remote.commands.count('c'), 1)
+
+    def test_extended_g_reply_inside_capture_remains_unverified(self):
+        stub = FakeGDB(extra_g_cpsr=True)
+        report, _, remote, _ = self.run_fake(stub, max_stops=1)
+        self.assertIsNone(report['failure'])
+        self.assertEqual(report['marker_stop_count'], 1)
+        self.assertEqual(report['events'][0]['candidate_original_pc'],
+                         f'0x{m.COPY_ENTRY:08x}')
+        self.assertFalse(report['emulator_loaded_rom_verified'])
+        self.assertIn('g', remote.commands)
+        # Extra register bytes are deliberately not mislabelled as verified CPSR.
+        self.assertNotIn('cpsr_verified', report['events'][0])
 
     def test_post_a_with_plus_four_bias(self):
         report, *_ = self.run_fake(FakeGDB(bias=4), max_stops=2)
