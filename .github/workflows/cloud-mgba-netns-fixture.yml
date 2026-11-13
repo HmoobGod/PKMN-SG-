@@ -1,4 +1,4 @@
-name: SoulGold synthetic mGBA no-network namespace lab
+name: SoulGold combined PR26 parser + Z0 in no-network cloud fixture
 
 on:
   pull_request:
@@ -9,6 +9,12 @@ on:
       - tools/cloud_rsp_netns_fixture.py
       - docker/cloud-mgba-netns.Dockerfile
       - docs/CLOUD_RSP_NETNS_LAB.md
+      - tools/cloud_mgba_z0_fixture.py
+      - tools/test_cloud_mgba_z0_fixture.py
+      - tools/pr26_exact_probe_parser_reference.py
+      - tools/cloud_rsp_combined_fixture.py
+      - tools/test_cloud_rsp_combined_fixture.py
+      - docs/CLOUD_RSP_COMBINED_LAB.md
   workflow_dispatch:
 
 permissions:
@@ -24,7 +30,9 @@ jobs:
         run: |
           set -eu
           mkdir -p /tmp/sg-netns-build/tools
-          cp tools/cloud_mgba_rsp_fixture.py tools/cloud_rsp_netns_fixture.py tools/cloud_rsp_netns_gate.py tools/test_cloud_rsp_netns_gate.py /tmp/sg-netns-build/tools/
+          cp tools/cloud_mgba_rsp_fixture.py tools/cloud_rsp_netns_gate.py tools/test_cloud_rsp_netns_gate.py /tmp/sg-netns-build/tools/
+          cp tools/cloud_mgba_z0_fixture.py tools/test_cloud_mgba_z0_fixture.py /tmp/sg-netns-build/tools/
+          cp tools/pr26_exact_probe_parser_reference.py tools/cloud_rsp_combined_fixture.py tools/test_cloud_rsp_combined_fixture.py /tmp/sg-netns-build/tools/
           cp docker/cloud-mgba-netns.Dockerfile /tmp/sg-netns-build/Dockerfile
           docker build -t soulgold-public-netns:lab /tmp/sg-netns-build
           echo "BUILT_CONTAINER_IMAGE_SHA256:"
@@ -40,4 +48,19 @@ jobs:
           docker inspect --format '{{json .NetworkSettings.Networks}}' "$cid"
           docker start -a "$cid"
           test "$(docker inspect --format '{{.State.ExitCode}}' "$cid")" = "0"
+      - name: Assert public networked-container negative preflight fails closed
+        run: |
+          set -eu
+          # This TEST deliberately uses bridge networking with a GENERATED fixture
+          # but never starts mGBA: inspect_network must reject eth0 before launch.
+          set +e
+          output=$(docker run --rm --network bridge --cap-drop ALL --security-opt no-new-privileges --read-only --user 65534:65534 --pids-limit 128 --memory 512m --tmpfs /tmp:rw,nosuid,nodev,size=128m --entrypoint python3 -e PYTHONPATH=/lab/tools soulgold-public-netns:lab -c 'from pathlib import Path; from cloud_rsp_netns_gate import inspect_network; inspect_network()' 2>&1)
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo "FAIL: networked container unexpectedly passed isolation preflight"
+            exit 1
+          fi
+          echo "$output" | grep -q 'unsafe network namespace interfaces'
+          echo "PASS: bridge-networked generated fixture was rejected before emulator"
       # No private game input, no GitHub secrets, no artifacts or cache.
