@@ -76,17 +76,38 @@ def inspect_network(
     return listeners
 
 
-def check_no_egress() -> None:
-    """Fail closed if direct IPv4 or IPv6 egress unexpectedly succeeds."""
-    for family, remote in ((socket.AF_INET, ("1.1.1.1", 443)),
-                           (socket.AF_INET6, ("2606:4700:4700::1111", 443))):
-        with socket.socket(family, socket.SOCK_STREAM) as sock:
-            sock.settimeout(0.8)
-            try:
-                sock.connect(remote)
-            except OSError:
-                continue
-            raise IsolationError("external network access unexpectedly available")
+def check_no_egress(
+    targets: tuple[tuple[int, tuple], ...] | None = None,
+) -> None:
+    """Reject any reachable endpoint; require both IP families.
+
+    Negative connect responses alone are NOT proof of isolation: the caller
+    must independently enforce Docker --network none and only-lo interfaces.
+    A timeout is INCONCLUSIVE, not a verified network denial.
+    """
+    if targets is None:
+        targets = ((socket.AF_INET, ("1.1.1.1", 443)),
+                   (socket.AF_INET6, ("2606:4700:4700::1111", 443)))
+    if len(targets) != 2 or {family for family, _ in targets} != {
+        socket.AF_INET, socket.AF_INET6
+    }:
+        raise IsolationError("egress check must probe both IPv4 and IPv6")
+    for family, remote in targets:
+        try:
+            with socket.socket(family, socket.SOCK_STREAM) as sock:
+                sock.settimeout(0.8)
+                try:
+                    sock.connect(remote)
+                except socket.timeout as error:
+                    raise IsolationError("egress probe timed out; result inconclusive") from error
+                except OSError:
+                    # Refusal or no route is negative connectivity evidence only.
+                    continue
+                raise IsolationError("external network access unexpectedly available")
+        except IsolationError:
+            raise
+        except OSError as error:
+            raise IsolationError("cannot initialize network-family egress probe") from error
 
 
 if __name__ == "__main__":
