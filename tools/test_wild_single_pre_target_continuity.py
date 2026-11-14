@@ -236,8 +236,8 @@ class PlayerProposalTargetContinuityTests(unittest.TestCase):
         import re
         for who in ("foe", "sSourceFirstWildLease.foe"):
             for field in ("items", "innates"):
-                pat = (r"gBattleMons\\["+re.escape(who)+r"\\]\\."+field+
-                       r"\\[[^\\]\\n]+\\]\\s*(?:=(?!=)|[+*/%&|^-]=|\\+\\+|--)")
+                pat = (re.escape(f"gBattleMons[{who}].{field}[")+
+                       r"[^]]+\]\s*(?:=(?!=)|[+*/%&|^-]=|\+\+|--)")
                 self.assertIsNone(re.search(pat,s))
 
 
