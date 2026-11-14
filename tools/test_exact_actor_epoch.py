@@ -96,4 +96,73 @@ class ActorEpochTests(unittest.TestCase):
         self.assertFalse(x["dynamic_legality_or_one_use_ownership_certified"])
 
 
+    @staticmethod
+    def main_bit_edge(step, before, after):
+        # Actual C observer kind2 watcher (Main.inBattle), including bit0
+        # updates. This is a source-only synthetic event, not private CPU.
+        return edge(2, step, 0x081C1234, address=base.MAIN+0x439,
+                    before=before, after=after, inbattle=after)
+
+    @staticmethod
+    def native_writer(step, slot=0):
+        return edge(5, step, 0x0809E6BA, address=base.PP+slot,
+                    slot=slot, before=20, after=19, r1=base.PP+slot)
+
+    def test_main_clear_closes_incomplete_candidate_without_cancellation_claim(self):
+        d=fixture()
+        d["events"]=chain(1,0,False)+[self.main_bit_edge(10,2,0)]
+        report=v.correlate(d)
+        self.assertEqual(report["candidate_player_submissions"],1)
+        self.assertEqual(report["original_submissions_without_matched_writer"],1)
+        self.assertFalse(report["unmatched_submissions_reason_certified"])
+        self.assertFalse(report["manual_fallback_or_full_terminal_certified"])
+
+    def test_main_clear_then_set_cannot_rearm_stale_player0_request(self):
+        d=fixture()
+        d["events"]=(chain(1,0,False)
+                     +[self.main_bit_edge(10,2,0),
+                       self.main_bit_edge(12,0,2),
+                       self.native_writer(15,0)])
+        self.denied(lambda original: original.update(events=d["events"]))
+
+    def test_main_clear_without_reentry_does_not_reuse_writer(self):
+        d=fixture()
+        d["events"]=(chain(1,0,False)+
+                     [self.main_bit_edge(10,2,0),self.native_writer(12,0)])
+        self.denied(lambda original: original.update(events=d["events"]))
+
+    def test_new_original_emitter_after_reentry_may_start_distinct_candidate(self):
+        d=fixture()
+        d["events"]=(chain(1,0,False)
+                     +[self.main_bit_edge(10,2,0),
+                       self.main_bit_edge(12,0,2)]
+                     +chain(20,1,True))
+        report=v.correlate(d)
+        self.assertEqual(report["candidate_player_submissions"],2)
+        self.assertEqual(report["complete_reply_commit_chains"],2)
+        self.assertEqual(report["original_pp_writer_debits"],1)
+        self.assertEqual(report["original_submissions_without_matched_writer"],1)
+        self.assertFalse(report["unmatched_submissions_reason_certified"])
+        self.assertFalse(report["dynamic_legality_or_one_use_ownership_certified"])
+
+    def test_main_bit0_only_does_not_cancel_live_candidate(self):
+        d=fixture()
+        d["events"]=(chain(1,0,False)
+                     +[self.main_bit_edge(10,2,3),self.native_writer(12,0)])
+        report=v.correlate(d)
+        self.assertEqual(report["candidate_player_submissions"],1)
+        self.assertEqual(report["original_pp_writer_debits"],1)
+        self.assertEqual(report["original_submissions_without_matched_writer"],0)
+        self.assertFalse(report["production_promotion_authorized"])
+
+    def test_main_clear_followed_by_manual_marker_is_not_auto_certification(self):
+        d=fixture()
+        d["events"]=(chain(1,0,False)
+                     +[self.main_bit_edge(10,2,0),
+                       edge(8,12,0x0806449C)])
+        result=v.correlate(d)
+        self.assertEqual(result["original_pp_writer_debits"],0)
+        self.assertFalse(result["manual_fallback_or_full_terminal_certified"])
+
+
 if __name__=="__main__":unittest.main()
