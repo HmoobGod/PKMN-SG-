@@ -18,7 +18,7 @@
          if (gBattleResources->bufferA[battler][0] < ARRAY_COUNT(sPlayerBufferCommands))
              sPlayerBufferCommands[gBattleResources->bufferA[battler][0]](battler);
          else
-@@ -2191,9 +2198,531 @@
+@@ -2191,9 +2198,547 @@
      }
  }
  
@@ -256,6 +256,8 @@
 +    enum BattlerId foe;
 +    struct ChooseMoveStruct *moveInfo = NULL;
 +    u8 preActionHeader[4];
++    u32 preRequestControllerFlags;
++    const void *preRequestResources;
 +    const u8 *originalActionBuffer = NULL;
 +    u16 preMoveMenuMoves[MAX_MON_MOVES];
 +    u8 preMoveMenuPp[MAX_MON_MOVES];
@@ -269,9 +271,13 @@
 +        (verifyReply ? CONTROLLER_CHOOSEMOVE : CONTROLLER_CHOOSEACTION))
 +        return FALSE;
 +
++    /* Freeze original controller owner bits and resources BEFORE helpers.
++     * An active player0 bit alone is not a unique request epoch. */
++    preRequestControllerFlags = gBattleControllerExecFlags;
++    preRequestResources = gBattleResources;
 +    foe = GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT);
 +    if (verifyReply)
-+        moveInfo = (struct ChooseMoveStruct *)&gBattleResources->bufferA[battler][4];
+++        moveInfo = (struct ChooseMoveStruct *)&gBattleResources->bufferA[battler][4];
 +    /* Freeze the ORIGINAL engine-owned command payload before any
 +     * move-limit or targeting helper; command byte alone is not an epoch. */
 +    if (verifyReply)
@@ -289,7 +295,12 @@
 +            preActionHeader[poolSlot] = originalActionBuffer[poolSlot];
 +    }
 +    unusable = verifyReply ? CheckMoveLimitations(battler, 0, MOVE_LIMITATIONS_ALL) : 0;
-+    /* Restrictions may trigger engine side effects. Recheck ownership and
++    /* The move-limitations helper may change the original controller mask
++     * or swap the resource owner without changing ChooseMove opcode. */
++    if (gBattleControllerExecFlags != preRequestControllerFlags ||
++        (const void *)gBattleResources != preRequestResources)
++        return FALSE;
+++    /* Restrictions may trigger engine side effects. Recheck ownership and
 +     * command after that call, before producing any automatic reply. */
 +    if (verifyReply && (!SourceFirstWildSingleOwner(battler) ||
 +        gBattleTurnCounter != sSourceFirstWildLease.turnCounter ||
@@ -466,8 +477,13 @@
 +            gBattleMons[battler].moves[slot] != move ||
 +            gBattleMons[battler].pp[slot] == 0))
 +            return FALSE;
++        /* A target helper may replace the original controller request
++         * or its execution-mask generation without losing player0's bit. */
++        if (gBattleControllerExecFlags != preRequestControllerFlags ||
++            (const void *)gBattleResources != preRequestResources)
++            return FALSE;
 +        /* A stale command buffer can retain its first byte while its
-+         * engine-owned payload or another move-menu slot has changed.
+++         * engine-owned payload or another move-menu slot has changed.
 +         * Deny before skipping an ineligible slot or committing a reply. */
 +        if (!verifyReply)
 +        {
@@ -550,7 +566,7 @@
  
      gBattlerControllerFuncs[battler] = HandleChooseActionAfterDma3;
      BattleTv_ClearExplosionFaintCause();
-@@ -2291,6 +2820,19 @@
+@@ -2291,6 +2836,19 @@
  
  void PlayerHandleChooseMove(enum BattlerId battler)
  {
