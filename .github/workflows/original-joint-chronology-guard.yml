@@ -1,0 +1,40 @@
+name: SoulGold public original joint CPU chronology gate
+
+on:
+  pull_request:
+    branches:
+      - research/original-main-clear-player0-proof-gate-20261113
+    paths:
+      - .github/workflows/original-joint-chronology-guard.yml
+      - tools/trace_exact_joint_player_terminal.c
+      - tools/test_exact_joint_frame_pc_chronology.c
+      - tools/test_exact_joint_player_terminal.c
+      - tools/test_exact_joint_player_terminal.py
+      - tools/verify_exact_joint_player_terminal.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-original-joint-chronology:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out public source only
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Compile and validate real C observer with memory-only fake CPU
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e 'Pokemon Soulgold.gba'
+          test ! -e 'Pokemon Soulgold.sav'
+          if cc -std=c11 -Wall -Wextra -Werror -pedantic -DNDEBUG -fsyntax-only tools/test_exact_joint_frame_pc_chronology.c 2>/tmp/sg-assert-gate.log; then
+            echo 'ERROR: test assertions were disabled' >&2
+            exit 1
+          fi
+          grep -Fq 'require enabled assertions' /tmp/sg-assert-gate.log
+          cc -std=c11 -Wall -Wextra -Werror -pedantic -O2 -o /tmp/sg-original-chronology tools/test_exact_joint_frame_pc_chronology.c
+          /tmp/sg-original-chronology
+          python3 tools/test_exact_joint_player_terminal.py
+          echo 'ORIGINAL_CPU_CHRONOLOGY: SOURCE_ONLY PASS; no original game run or native promotion'
