@@ -437,6 +437,61 @@ class ExactOutcomePpEdgeTests(unittest.TestCase):
         self.assertIsNone(v.observed_thumb_str_word_store(0x5000,
                           (0xFFFFFFFF,1,0,0,0,0,0,0)))
 
+
+    def test_thumb_stmia_can_explain_two_callback_words_one_cpu_step(self):
+        d=fixture()
+        a,b=d["events"][4],d["events"][5]
+        # PUBLIC synthetic STMIA r4!,{r0,r1}; exact two 32-bit stores.
+        a.update(opcode=0xC403,r0=a["after"],r1=b["after"],r4=v.MAIN,
+                 callback2=b["after"])
+        b.update(step=a["step"],frame=a["frame"],pc=a["pc"],
+                 opcode=a["opcode"],r0=a["r0"],r1=a["r1"],r4=a["r4"],
+                 callback1=a["after"],inbattle=a["inbattle"])
+        z=v.audit(d)
+        self.assertEqual(z["original_callback_pointer_transitions"],2)
+        self.assertEqual(z["original_callback_word_str_writer_matches_unverified"],0)
+        self.assertEqual(z["original_callback_stmia_word_matches_unverified"],2)
+        self.assertEqual(z["original_callback_unattributed_pointer_transitions"],0)
+        self.assertEqual(z["original_callback_stmia_writer_pc_candidates_unverified"],
+                         [0x0808E33C])
+        self.assertFalse(z["full_native_terminal_certified"])
+        self.assertFalse(z["production_promotion_authorized"])
+
+    def test_stmia_decoder_must_fail_closed_on_unsafe_forms(self):
+        regs=(0x081C7589,0x080C4265,0,v.MAIN,0,0,0,0)
+        self.assertEqual(v.observed_thumb_stmia_word_at(0xC303,regs,v.MAIN),
+                         0x081C7589)
+        self.assertEqual(v.observed_thumb_stmia_word_at(0xC303,regs,v.MAIN+4),
+                         0x080C4265)
+        for opcode,word_regs,addr in (
+            (0xCB03,regs,v.MAIN),    # LDMIA, not STMIA
+            (0xC300,regs,v.MAIN),    # empty register list
+            (0xC308,regs,v.MAIN),    # Rb is in its own writeback list
+            (0xC303,regs,v.MAIN+8),  # no such store in list
+            (0xC303,regs[:3]+(v.MAIN+2,)+regs[4:],v.MAIN),  # unaligned
+            (0xC303,regs[:3]+(0xFFFFFFFC,)+regs[4:],0xFFFFFFFC),
+            (0x6000,regs,v.MAIN),    # scalar STR is a separate decoder
+        ):
+            with self.subTest(opcode=hex(opcode),addr=hex(addr)):
+                self.assertIsNone(v.observed_thumb_stmia_word_at(
+                    opcode,word_regs,addr))
+        for bad in (regs[:7],tuple(regs[:-1])+(True,),
+                    tuple(regs[:-1])+(-1,)):
+            with self.assertRaisesRegex(ValueError,"low registers"):
+                v.observed_thumb_stmia_word_at(0xC303,bad,v.MAIN)
+        with self.assertRaisesRegex(ValueError,"watcher address"):
+            v.observed_thumb_stmia_word_at(0xC303,regs,True)
+
+    def test_wrong_stmia_source_is_unattributed_not_native_terminal(self):
+        d=fixture()
+        a=d["events"][4]
+        a.update(opcode=0xC303,r0=0x08000001,r1=0x08000003,
+                 r3=v.MAIN)
+        z=v.audit(d)
+        self.assertEqual(z["original_callback_stmia_word_matches_unverified"],0)
+        self.assertEqual(z["original_callback_unattributed_pointer_transitions"],2)
+        self.assertFalse(z["original_battle_outcome_decision_pc_certified"])
+
     def test_plain_callback_changes_remain_unattributed(self):
         z=v.audit(fixture())
         self.assertEqual(z["original_callback_pointer_transitions"],2)

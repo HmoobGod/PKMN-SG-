@@ -109,6 +109,39 @@ def observed_thumb_str_word_store(opcode, registers):
     return (address, registers[opcode & 7])
 
 
+
+def observed_thumb_stmia_word_at(opcode, registers, watched_address):
+    """Decode one word of a Thumb-1 STMIA register-list write, PRE-step only.
+
+    One original CPU instruction may write two different 32-bit callback
+    pointers, but this is a candidate, not proof of an overworld return.
+    Deny empty list, included base (writeback ambiguity), misalignment,
+    overflow, invalid snapshots, and LDMIA/non-store opcodes.
+    """
+    require(type(opcode) is int and 0 <= opcode <= 0xFFFF,
+            "invalid Thumb STMIA halfword")
+    require(type(registers) in (tuple, list) and len(registers) == 8 and
+            all(type(r) is int and 0 <= r <= 0xFFFFFFFF for r in registers),
+            "invalid original STMIA pre-step low registers")
+    require(type(watched_address) is int and
+            0 <= watched_address <= 0xFFFFFFFF,
+            "invalid callback watcher address")
+    if (opcode & 0xF800) != 0xC000:  # STMIA Rb!,{Rlist}, not LDMIA
+        return None
+    rb, mask = (opcode >> 8) & 7, opcode & 255
+    if mask == 0 or (mask & (1 << rb)):
+        return None  # empty/UNPREDICTABLE base-in-list
+    base = registers[rb]
+    if base & 3 or base + 4 * (mask.bit_count() - 1) > 0xFFFFFFFC:
+        return None
+    index = 0
+    for rt in range(8):
+        if mask & (1 << rt):
+            if base + 4 * index == watched_address:
+                return registers[rt]
+            index += 1
+    return None
+
 def audit(data):
     # Never trust a trace-supplied acceptance/privilege field; every top-level
     # key must belong to the fixed evidence envelope and has strict types.
@@ -152,6 +185,8 @@ def audit(data):
     # wrote a full word, much less a battle-to-overworld terminal.
     callback_word_store_matches = callback_unattributed = 0
     callback_writer_pcs = set()
+    callback_stmia_matches = 0
+    callback_stmia_writer_pcs = set()
     complete = validator = slots = moves = targets = 0
     prev_frame = prev_step = prev_pc = -1
     seen_edges = set()
@@ -306,6 +341,10 @@ def audit(data):
                     if word == (e["address"], e["after"]):
                         callback_word_store_matches += 1
                         callback_writer_pcs.add(pc)
+                    elif observed_thumb_stmia_word_at(
+                            e["opcode"], regs, e["address"]) == e["after"]:
+                        callback_stmia_matches += 1
+                        callback_stmia_writer_pcs.add(pc)
                     else:
                         callback_unattributed += 1
         prev_frame,prev_step,prev_pc = f,step,pc
@@ -324,6 +363,10 @@ def audit(data):
             callback_unattributed,
         "original_callback_writer_pc_candidates_unverified":
             sorted(callback_writer_pcs),
+        "original_callback_stmia_word_matches_unverified":
+            callback_stmia_matches,
+        "original_callback_stmia_writer_pc_candidates_unverified":
+            sorted(callback_stmia_writer_pcs),
         "original_player_emit_markers": emissions,
         "original_player_reply_markers": replies,
         "original_player_completion_markers": complete,
