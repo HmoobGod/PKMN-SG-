@@ -64,6 +64,8 @@ int main(int argc,char **argv)
     else if(strcmp(name,"missing_callback")==0)mode=7;
     else if(strcmp(name,"preexisting_equal")==0)mode=8;
     else if(strcmp(name,"opcode_drift")==0)mode=9;
+    else if(strcmp(name,"transient_dest")==0)mode=10;
+    else if(strcmp(name,"transient_source")==0)mode=11;
     else return 2;
     install(&m,mode);
     if(mode==2)m.ram[m.source-EWRAM_BASE]=18;

@@ -135,7 +135,8 @@ def audit_public_fixture(raw):
             and raw["mode"] in {
                 "valid", "skipped_store", "bad_opcode", "wrapped_buffer",
                 "wrong_register", "frame_rollback", "short_budget",
-                "missing_callback", "preexisting_equal", "opcode_drift"},
+                "missing_callback", "preexisting_equal", "opcode_drift",
+                "transient_dest", "transient_source"},
             "unknown request-copy fixture mode/schema")
     return audit_proof(raw["proof"])
 

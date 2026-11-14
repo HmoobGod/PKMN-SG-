@@ -115,6 +115,23 @@ void sg_capture_player_request(void* core,uint32_t* regs,uint32_t frames,uint32_
     if(observed_after!=verify_value||observed_after==verify_before){
       proof->error=7;break;
     }
+    /* Do not accept a final 44-byte match if an earlier copied byte
+     * was corrupted and later restored between store observations.
+     * All reads are passive; only the fake guest in tests mutates RAM. */
+    for(uint32_t j=0;j<verify_index;j++){
+      if((read8(core,proof->dest+j,0)&255u)!=proof->source_before[j]){
+        proof->error=12;break;
+      }
+    }
+    if(proof->error)break;
+    /* A transient source-buffer mutation could similarly disappear by
+     * POST_PC, evading only entry/post source comparisons. */
+    for(uint32_t j=0;j<SRC_N;j++){
+      if((read8(core,proof->source+j,0)&255u)!=proof->source_before[j]){
+        proof->error=13;break;
+      }
+    }
+    if(proof->error)break;
     proof->dest_before[verify_index]=(uint8_t)verify_before;
     proof->store_indices[verify_index]=verify_index;
     proof->store_values[verify_index]=(uint8_t)verify_value;

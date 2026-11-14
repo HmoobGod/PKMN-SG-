@@ -17,7 +17,8 @@ TOOLS = Path(__file__).resolve().parent
 C_FIXTURE = TOOLS / "test_player0_request_copy_json_fixture.c"
 MODES = ("valid", "skipped_store", "bad_opcode", "wrapped_buffer",
          "wrong_register", "frame_rollback", "short_budget", "missing_callback",
-         "preexisting_equal", "opcode_drift")
+         "preexisting_equal", "opcode_drift", "transient_dest",
+         "transient_source")
 
 
 class OriginalCopyProofRoundTrip(unittest.TestCase):
@@ -69,6 +70,16 @@ class OriginalCopyProofRoundTrip(unittest.TestCase):
                                     (2, 0))
                 with self.assertRaises(ValueError):
                     v.audit_public_fixture(rec)
+
+    def test_intermediate_corruption_detected_before_postloop(self):
+        for mode, code in (("transient_dest",12),("transient_source",13)):
+            with self.subTest(mode=mode):
+                p=self.records[mode]["proof"]
+                self.assertEqual(p["stores"],7)
+                self.assertEqual(p["error"],code)
+                self.assertNotEqual(p["state"],2)
+                with self.assertRaises(ValueError):
+                    v.audit_public_fixture(self.records[mode])
 
     def test_unrecognized_mode_binary_and_python_denied(self):
         p = subprocess.run((self.binary, "private-rom.sav"),
