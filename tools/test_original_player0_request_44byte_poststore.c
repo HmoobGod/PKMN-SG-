@@ -114,7 +114,8 @@ int main(void)
     assert(p.error==4u&&p.state==1u&&p.stores==5u);
 
     install(&m,5u);run(&m,&p,2u,1000u);
-    assert(p.error==9u&&p.state==1u&&p.total_steps==1u);
+    /* Final-frame rollback additionally invalidates the staged witness. */
+    assert(p.error==9u&&p.state==0u&&p.total_steps==1u);
 
     install(&m,0u);run(&m,&p,2u,1u);
     assert(p.state==1u&&p.error==0u&&p.stores==0u);
