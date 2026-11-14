@@ -62,7 +62,7 @@ def has_foe_guards(diff):
                 return False
             if not(move.index(frozen)<helper<helper2<move.index(check)<skip):
                 return False
-            if len(re.findall(r"\b"+name+WRITE,move))!=1:
+            if len(re.findall(r"\b"+name+r"\s*"+WRITE,move))!=1:
                 return False
         for name,(length,field) in ARRAYS.items():
             freeze=(f"for (poolSlot = 0; poolSlot < {length}; poolSlot++)\n"
@@ -76,7 +76,7 @@ def has_foe_guards(diff):
                 return False
             if not(move.index(freeze)<helper<helper2<move.index(check)<skip):
                 return False
-            if len(re.findall(r"\b"+name+r"\[[^\]\n]+\]"+WRITE,move))!=1:
+            if len(re.findall(r"\b"+name+r"\[[^\]\n]+\]\s*"+WRITE,move))!=1:
                 return False
         if "if (!verifyReply)\n        {\n            if (gBattleMons[foe].item" not in move:
             return False
