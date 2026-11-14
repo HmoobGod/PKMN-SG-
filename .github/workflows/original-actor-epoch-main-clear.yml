@@ -1,0 +1,33 @@
+name: SoulGold original actor0 epoch Main-clear guard (public)
+
+on:
+  pull_request:
+    branches:
+      - research/original-main-clear-player0-proof-gate-20261113
+    paths:
+      - .github/workflows/original-actor-epoch-main-clear.yml
+      - tools/verify_exact_actor_epoch.py
+      - tools/test_exact_actor_epoch.py
+      - tools/verify_exact_outcome_pp_edges.py
+      - tools/test_exact_outcome_pp_edges.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-actor-epoch-no-private-input:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out source-only draft
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Test original actor0 epoch Main-clear reentry denial
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e 'Pokemon Soulgold.gba'
+          test ! -e 'Pokemon Soulgold.sav'
+          python3 tools/test_exact_outcome_pp_edges.py
+          python3 tools/test_exact_actor_epoch.py
+          echo 'ORIGINAL_ACTOR_EPOCH_MAIN_CLEAR: PUBLIC SYNTHETIC PASS; original gameplay NOT tested'
