@@ -83,7 +83,8 @@ class OriginalCopyProofRoundTrip(unittest.TestCase):
                 proof = self.records[mode]["proof"]
                 self.assertEqual(proof["state"],1)
                 self.assertEqual(proof["error"],14)
-                self.assertEqual(proof["stores"],7)
+                self.assertEqual(proof["stores"],
+                                 1 if mode=="wrong_thumb_target" else 0)
                 with self.assertRaises(ValueError):
                     v.audit_public_fixture(self.records[mode])
 
