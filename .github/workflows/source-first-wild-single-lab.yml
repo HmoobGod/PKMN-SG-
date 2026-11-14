@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - source-first/rom-identity
+      - lab/player0-original-command-payload-freeze-20261114
     paths:
       - .github/workflows/source-first-wild-single-lab.yml
       - source-first/wild-single-lab.patch
@@ -14,6 +15,7 @@ on:
       - lab/player0-pretarget-movepool-continuity-20261113
       - lab/player0-pretarget-foe-combat-drift-20261114
       - lab/player0-pretarget-player-volatiles-20261114
+      - lab/player0-foe-effects-target-helper-continuity-20261114
       - lab/player0-original-command-payload-freeze-20261114
     paths:
       - .github/workflows/source-first-wild-single-lab.yml
