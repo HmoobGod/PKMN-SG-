@@ -18,7 +18,7 @@
          if (gBattleResources->bufferA[battler][0] < ARRAY_COUNT(sPlayerBufferCommands))
              sPlayerBufferCommands[gBattleResources->bufferA[battler][0]](battler);
          else
-@@ -2191,9 +2198,337 @@
+@@ -2191,9 +2198,361 @@
      }
  }
  
@@ -246,6 +246,14 @@
 +    u16 preTargetTurn = gBattleTurnCounter;
 +    u8 preTargetPlayerParty = gBattlerPartyIndexes[battler];
 +    u8 preTargetFoeParty = gBattlerPartyIndexes[foe];
++    /* Freeze foe combat identity BEFORE any possibly stateful target helper. */
++    u16 preTargetFoeSpecies = gBattleMons[foe].species;
++    u16 preTargetFoeHp = gBattleMons[foe].hp;
++    u32 preTargetFoeStatus1 = gBattleMons[foe].status1;
++    enum Ability preTargetFoeAbility = gBattleMons[foe].ability;
++    enum Type preTargetFoeTypes[3];
++    for (poolSlot = 0; poolSlot < 3; poolSlot++)
++        preTargetFoeTypes[poolSlot] = gBattleMons[foe].types[poolSlot];
 +
 +    /* Freeze all player-owned moves and PP once BEFORE any candidate helper.
 +     * Do not silently select a later slot from a mutated live move pool. */
@@ -283,6 +291,22 @@
 +            {
 +                if (gBattleMons[battler].moves[poolSlot] != preTargetMoves[poolSlot] ||
 +                    gBattleMons[battler].pp[poolSlot] != preTargetPP[poolSlot])
++                    return FALSE;
++            }
++        }
++        /* A target helper can alter species, HP, ability, status or typing
++         * before the staging token is armed. Reject even an ineligible
++         * candidate rather than selecting another move using altered foe. */
++        if (!verifyReply)
++        {
++            if (gBattleMons[foe].species != preTargetFoeSpecies ||
++                gBattleMons[foe].hp != preTargetFoeHp ||
++                gBattleMons[foe].status1 != preTargetFoeStatus1 ||
++                gBattleMons[foe].ability != preTargetFoeAbility)
++                return FALSE;
++            for (poolSlot = 0; poolSlot < 3; poolSlot++)
++            {
++                if (gBattleMons[foe].types[poolSlot] != preTargetFoeTypes[poolSlot])
 +                    return FALSE;
 +            }
 +        }
@@ -356,7 +380,7 @@
  
      gBattlerControllerFuncs[battler] = HandleChooseActionAfterDma3;
      BattleTv_ClearExplosionFaintCause();
-@@ -2291,6 +2626,19 @@
+@@ -2291,6 +2650,19 @@
  
  void PlayerHandleChooseMove(enum BattlerId battler)
  {
