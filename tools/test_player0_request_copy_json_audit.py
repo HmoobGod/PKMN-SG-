@@ -16,7 +16,8 @@ import verify_public_player0_request_copy as v
 TOOLS = Path(__file__).resolve().parent
 C_FIXTURE = TOOLS / "test_player0_request_copy_json_fixture.c"
 MODES = ("valid", "skipped_store", "bad_opcode", "wrapped_buffer",
-         "wrong_register", "frame_rollback", "short_budget", "missing_callback")
+         "wrong_register", "frame_rollback", "short_budget", "missing_callback",
+         "preexisting_equal")
 
 
 class OriginalCopyProofRoundTrip(unittest.TestCase):
@@ -53,6 +54,9 @@ class OriginalCopyProofRoundTrip(unittest.TestCase):
         p = rec["proof"]
         self.assertEqual((p["stores"], p["total_steps"], p["length"]), (44, 45, 44))
         self.assertEqual(p["source_before"][0], 19)
+        self.assertTrue(result["all_44_poststep_destination_changes_witnessed_in_fixture"])
+        self.assertTrue(all(before != after for before, after in
+                            zip(p["dest_before"], p["store_values"])))
 
     def test_all_real_c_error_modes_refused_by_python_gate(self):
         for mode in MODES[1:]:
@@ -102,6 +106,8 @@ class OriginalCopyProofRoundTrip(unittest.TestCase):
             lambda p: p["store_indices"].__setitem__(8, 7),
             lambda p: p["store_indices"].reverse(),
             lambda p: p["store_indices"].pop(),
+            lambda p: p["dest_before"].__setitem__(7,p["store_values"][7]),
+            lambda p: p["dest_before"].pop(),
             lambda p: p["source_before"].pop(),
             lambda p: p.update(extra_private_bytes="forbidden"),
         )
