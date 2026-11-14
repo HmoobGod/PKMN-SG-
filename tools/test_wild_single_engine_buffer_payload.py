@@ -49,7 +49,11 @@ def guarded(diff):
         # dereference and a second post-target before reply. Ensure the
         # new post-target guard occurs before the ineligible-slot skip.
         for token in rejects:
-            if src.count(token)<1 or not helper2<src.rindex(token)<skip<select:
+            # A parent pointer guard may legitimately repeat AFTER the
+            # ineligible-slot skip. Only a guard inside the new pre-skip
+            # block counts toward this protection.
+            pos=src.find(token,helper2,skip)
+            if pos<0 or not helper2<pos<skip<select:
                 return False
         if src.count("originalActionBuffer[poolSlot] != preActionHeader[poolSlot]")!=1:
             return False
