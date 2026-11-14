@@ -116,6 +116,10 @@ def audit(data):
     rows = data.get("events")
     require(type(rows) is list and 1 <= len(rows) <= 2048, "unbounded/no native edge events")
     candidate = native_pp = other_pp = emissions = replies = callbacks = manual = 0
+    # A watched arbitrary EWRAM byte is NOT gBattleOutcome. Keep opcode-
+    # decoded byte-store candidates distinct from raw watched transitions.
+    candidate_strb_stores = candidate_unattributed = 0
+    candidate_writer_pcs = set()
     complete = validator = slots = moves = targets = 0
     prev_frame = prev_step = prev_pc = -1
     seen_edges = set()
@@ -217,6 +221,19 @@ def audit(data):
                         e["before"] <= 255 and e["after"] <= 255,
                         "outcome CANDIDATE watcher address mismatch")
                 candidate += 1
+                # Only a Thumb-1 byte STORE whose PRE-step decoded address
+                # and Rt byte explain THIS watched change may be considered
+                # a CPU writer-PC candidate. This does not prove that addr
+                # is gBattleOutcome, that the original game ended, or that
+                # the ROM opcode has been privately authenticated.
+                regs = tuple(e["r"+str(i)] for i in range(8))
+                computed = observed_thumb_strb_address(e["opcode"], regs)
+                byte = observed_thumb_strb_source_byte(e["opcode"], regs)
+                if computed == addr and byte == e["after"]:
+                    candidate_strb_stores += 1
+                    candidate_writer_pcs.add(pc)
+                else:
+                    candidate_unattributed += 1
             elif kind == 5:
                 require(e["address"] == PP+e["slot"] and
                         e["before"] <= 255 and e["after"] <= 255,
@@ -256,6 +273,10 @@ def audit(data):
     return {
         "candidate_outcome_address_unverified": bool(addr),
         "candidate_outcome_byte_transitions": candidate,
+        "candidate_outcome_strb_writer_matches_unverified": candidate_strb_stores,
+        "candidate_outcome_unattributed_byte_transitions": candidate_unattributed,
+        "candidate_outcome_writer_pc_candidates_unverified":
+            sorted(candidate_writer_pcs),
         "original_callback_pointer_transitions": callbacks,
         "original_player_emit_markers": emissions,
         "original_player_reply_markers": replies,
