@@ -80,7 +80,7 @@ def observed_thumb_strb_source_byte(opcode, registers):
             "missing original pre-step r0-r7")
     require(type(opcode) is int and 0 <= opcode <= 0xFFFF,
             "invalid STRB source instruction")
-    if opcode & 0xF800 not in (0x7000,) and opcode & 0xFE00 != 0x5400:
+    if (opcode & 0xF800) != 0x7000 and (opcode & 0xFE00) != 0x5400:
         return None
     return registers[opcode & 7] & 255
 
