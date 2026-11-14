@@ -16,8 +16,14 @@ typedef struct {
  uint32_t store_indices[44];
  /* v2 evidence: observed destination byte before EACH stepped store. */
  uint8_t dest_before[44];
+ /* v3 public observer: PRE-step Thumb halfwords, NOT private attestation. */
+ uint32_t entry_insn, store_insn, post_insn;
 } Proof;
 static int ewram(uint32_t p, uint32_t n){return p>=EWRAM_BASE&&p<=EWRAM_END-n;}
+static uint32_t sg_thumb_halfword(void *core,
+    uint32_t (*read8)(void *,uint32_t,int), uint32_t pc){
+ return (read8(core,pc,0)&255u)|((read8(core,pc+1u,0)&255u)<<8);
+}
 void sg_capture_player_request(void* core,uint32_t* regs,uint32_t frames,uint32_t maxsteps,Proof*proof){
  if(!core||!regs||!proof)return;
  memset(proof,0,sizeof(*proof));
@@ -57,6 +63,8 @@ void sg_capture_player_request(void* core,uint32_t* regs,uint32_t frames,uint32_
    proof->state=1;proof->actor=0;proof->direction=0;proof->length=44;
    proof->source=s;proof->dest=d;proof->entry_sp=regs[13];proof->entry_lr=regs[14];proof->entry_frame=fr;
    proof->pending_entry=read32(core,0x02001D2C,0);
+   proof->entry_insn=sg_thumb_halfword(core,read8,ENTRY_PC);
+   if(!proof->entry_insn){proof->error=11;break;}
    for(uint32_t k=0;k<SRC_N;k++)proof->source_before[k]=(uint8_t)read8(core,s+k,0);
   }
   if(proof->state==1 && pc==STORE_PC){
@@ -64,6 +72,11 @@ void sg_capture_player_request(void* core,uint32_t* regs,uint32_t frames,uint32_
     if(k!=proof->stores||k>=SRC_N||regs[0]!=proof->dest||regs[4]!=proof->source ||
        (regs[3]&255u)!=proof->source_before[k]||regs[13]!=proof->entry_sp-8||
        regs[14]!=proof->entry_lr) {proof->error=4;break;}
+    uint32_t insn=sg_thumb_halfword(core,read8,STORE_PC);
+    if(!insn || (proof->stores && insn!=proof->store_insn)){
+      proof->error=11;break;
+    }
+    proof->store_insn=insn;
     /* The STORE_PC marker is pre-instruction. Only count the store
      * AFTER the real CPU step and after checking the actual destination
      * byte, not merely the pre-step register values. This still does not
@@ -79,6 +92,10 @@ void sg_capture_player_request(void* core,uint32_t* regs,uint32_t frames,uint32_
    proof->post_frame=fr;proof->post_sp=regs[13];proof->post_lr=regs[14];
    proof->pending_post=read32(core,0x02001D2C,0);
    proof->opcode_post=read8(core,proof->dest,0);
+   proof->post_insn=sg_thumb_halfword(core,read8,POST_PC);
+   if(!proof->post_insn||!proof->entry_insn||!proof->store_insn){
+      proof->error=11;break;
+   }
    if(proof->stores!=SRC_N||regs[1]!=SRC_N||regs[2]!=SRC_N||
       regs[0]!=proof->dest||regs[4]!=proof->source||
       fr!=proof->entry_frame||regs[13]!=proof->entry_sp-8||regs[14]!=proof->entry_lr){proof->error=5;break;}

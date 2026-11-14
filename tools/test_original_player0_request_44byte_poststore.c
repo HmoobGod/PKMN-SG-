@@ -19,6 +19,14 @@ static uint32_t fr(void *v){return ((FakeCore *)v)->frame;}
 static uint32_t rb(void *v,uint32_t addr,int unused)
 {
     FakeCore *m=v;(void)unused;
+    /* These are intentionally generated fake Thumb instructions, never
+     * original protected ROM halfwords or real emulator traces. */
+    if(addr==ENTRY_PC)return 0x01u;
+    if(addr==ENTRY_PC+1u)return 0x21u;
+    if(addr==STORE_PC)return (m->mode==9u&&m->count>=7u)?0x05u:0x03u;
+    if(addr==STORE_PC+1u)return 0x70u;
+    if(addr==POST_PC)return 0x18u;
+    if(addr==POST_PC+1u)return 0x47u;
     return (addr>=EWRAM_BASE&&addr<EWRAM_END)?
         m->ram[addr-EWRAM_BASE]:0u;
 }
@@ -93,6 +101,8 @@ int main(void)
     assert(p.total_steps==SRC_N+1u&&p.entry_frame==p.post_frame);
     assert(p.opcode_post==19u&&p.actor==0u&&p.length==44u);
     assert(p.source==m.source&&p.dest==m.dest);
+    assert(p.entry_insn==0x2101u&&p.store_insn==0x7003u&&
+           p.post_insn==0x4718u);
     for(uint32_t i=0;i<SRC_N;i++){
         assert(p.store_indices[i]==i);
         assert(p.store_values[i]==p.source_before[i]);
@@ -108,6 +118,10 @@ int main(void)
     m.ram[m.dest-EWRAM_BASE+7u]=m.ram[m.source-EWRAM_BASE+7u];
     run(&m,&p,2u,1000u);
     assert(p.error==10u&&p.state==1u&&p.stores==7u);
+
+    /* Changing a CPU halfword mid-copy invalidates its provenance. */
+    install(&m,9u);run(&m,&p,2u,1000u);
+    assert(p.error==11u&&p.state==1u&&p.stores==7u);
 
     install(&m,2u);m.ram[m.source-EWRAM_BASE]=18u;
     run(&m,&p,2u,1000u);

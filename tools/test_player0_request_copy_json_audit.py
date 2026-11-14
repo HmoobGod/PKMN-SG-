@@ -17,7 +17,7 @@ TOOLS = Path(__file__).resolve().parent
 C_FIXTURE = TOOLS / "test_player0_request_copy_json_fixture.c"
 MODES = ("valid", "skipped_store", "bad_opcode", "wrapped_buffer",
          "wrong_register", "frame_rollback", "short_budget", "missing_callback",
-         "preexisting_equal")
+         "preexisting_equal", "opcode_drift")
 
 
 class OriginalCopyProofRoundTrip(unittest.TestCase):
@@ -55,6 +55,9 @@ class OriginalCopyProofRoundTrip(unittest.TestCase):
         self.assertEqual((p["stores"], p["total_steps"], p["length"]), (44, 45, 44))
         self.assertEqual(p["source_before"][0], 19)
         self.assertTrue(result["all_44_poststep_destination_changes_witnessed_in_fixture"])
+        self.assertTrue(result["public_fake_cpu_opcode_triplet_recorded"])
+        self.assertEqual((p["entry_insn"],p["store_insn"],p["post_insn"]),
+                         (0x2101,0x7003,0x4718))
         self.assertTrue(all(before != after for before, after in
                             zip(p["dest_before"], p["store_values"])))
 
@@ -98,6 +101,9 @@ class OriginalCopyProofRoundTrip(unittest.TestCase):
             lambda p: p.update(post_sp=p["entry_sp"]),
             lambda p: p.update(post_lr=p["entry_lr"]+1),
             lambda p: p.update(tag=0),
+            lambda p: p.update(entry_insn=0),
+            lambda p: p.update(store_insn=65536),
+            lambda p: p.update(post_insn=True),
             lambda p: p.update(actor=True),
             lambda p: p["source_before"].__setitem__(0, 18),
             lambda p: p["source_after"].__setitem__(9, 71),
@@ -117,6 +123,29 @@ class OriginalCopyProofRoundTrip(unittest.TestCase):
                 mutate(rec["proof"])
                 with self.assertRaises(ValueError):
                     v.audit_public_fixture(rec)
+
+    def test_public_fake_opcode_image_parity_is_not_game_attestation(self):
+        p = self.records["valid"]["proof"]
+        fake_image = bytearray(0x200000)
+        for key,pc in (("entry_insn",v.ORIGINAL_ENTRY_PC),
+                       ("store_insn",v.ORIGINAL_STORE_PC),
+                       ("post_insn",v.ORIGINAL_POST_PC)):
+            off=pc-0x08000000
+            fake_image[off:off+2]=p[key].to_bytes(2,"little")
+        self.assertTrue(v.verify_public_opcode_triplet_against_image(p, fake_image))
+        self.assertFalse(v.audit_public_fixture(self.records["valid"])[
+            "original_modified_rom_instruction_pc_attested"])
+        for key,pc in (("entry_insn",v.ORIGINAL_ENTRY_PC),
+                       ("store_insn",v.ORIGINAL_STORE_PC),
+                       ("post_insn",v.ORIGINAL_POST_PC)):
+            with self.subTest(key=key):
+                off=pc-0x08000000
+                fake_image[off]^=1
+                with self.assertRaisesRegex(ValueError,"CPU opcode triplet"):
+                    v.verify_public_opcode_triplet_against_image(p,fake_image)
+                fake_image[off]^=1
+        with self.assertRaisesRegex(ValueError,"image missing"):
+            v.verify_public_opcode_triplet_against_image(p,bytearray(100))
 
     def test_ndebug_and_private_cli_fail_closed(self):
         bad = subprocess.run(("cc", "-std=c11", "-Wall", "-Wextra",
