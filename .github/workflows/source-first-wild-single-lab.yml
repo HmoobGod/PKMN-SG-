@@ -12,12 +12,14 @@ on:
       - source-first/rom-identity
       - lab/player0-proposal-target-continuity-20261113
       - lab/player0-pretarget-movepool-continuity-20261113
+      - lab/player0-pretarget-foe-combat-drift-20261114
     paths:
       - .github/workflows/source-first-wild-single-lab.yml
       - source-first/wild-single-lab.patch
       - tools/test_wild_single_pre_target_continuity.py
       - tools/test_wild_single_pre_target_pool.py
       - tools/test_wild_single_pre_target_foe_combat.py
+      - tools/test_wild_single_pre_target_player_state.py
   workflow_dispatch:
 
 permissions:
@@ -45,6 +47,7 @@ jobs:
           python3 tools/test_wild_single_pre_target_continuity.py
           python3 tools/test_wild_single_pre_target_pool.py
           python3 tools/test_wild_single_pre_target_foe_combat.py
+          python3 tools/test_wild_single_pre_target_player_state.py
           python3 tools/test_wild_single_action_recheck.py
 
       - name: Clone exact upstream source in disposable workspace

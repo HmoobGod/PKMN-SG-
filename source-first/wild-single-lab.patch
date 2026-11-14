@@ -18,7 +18,7 @@
          if (gBattleResources->bufferA[battler][0] < ARRAY_COUNT(sPlayerBufferCommands))
              sPlayerBufferCommands[gBattleResources->bufferA[battler][0]](battler);
          else
-@@ -2191,9 +2198,361 @@
+@@ -2191,9 +2198,412 @@
      }
  }
  
@@ -246,6 +246,26 @@
 +    u16 preTargetTurn = gBattleTurnCounter;
 +    u8 preTargetPlayerParty = gBattlerPartyIndexes[battler];
 +    u8 preTargetFoeParty = gBattlerPartyIndexes[foe];
++    /* The player may also be mutated by a target helper BEFORE the staging
++     * lease is armed. Do not freeze a post-mutation player as the baseline. */
++    u16 preTargetPlayerSpecies = gBattleMons[battler].species;
++    u16 preTargetPlayerHp = gBattleMons[battler].hp;
++    u32 preTargetPlayerStatus1 = gBattleMons[battler].status1;
++    enum Ability preTargetPlayerAbility = gBattleMons[battler].ability;
++    enum Item preTargetPlayerItem = gBattleMons[battler].item;
++    u32 preTargetTaunt = gBattleMons[battler].volatiles.tauntTimer;
++    u32 preTargetDisable = gBattleMons[battler].volatiles.disableTimer;
++    u32 preTargetEncore = gBattleMons[battler].volatiles.encoreTimer;
++    u32 preTargetTorment = gBattleMons[battler].volatiles.tormentTimer;
++    enum Type preTargetPlayerTypes[3];
++    enum Ability preTargetPlayerInnates[MAX_MON_INNATES_INTERNAL];
++    enum Item preTargetPlayerItems[MAX_MON_ITEMS_INTERNAL];
++    for (poolSlot = 0; poolSlot < 3; poolSlot++)
++        preTargetPlayerTypes[poolSlot] = gBattleMons[battler].types[poolSlot];
++    for (poolSlot = 0; poolSlot < MAX_MON_INNATES_INTERNAL; poolSlot++)
++        preTargetPlayerInnates[poolSlot] = gBattleMons[battler].innates[poolSlot];
++    for (poolSlot = 0; poolSlot < MAX_MON_ITEMS_INTERNAL; poolSlot++)
++        preTargetPlayerItems[poolSlot] = gBattleMons[battler].items[poolSlot];
 +    /* Freeze foe combat identity BEFORE any possibly stateful target helper. */
 +    u16 preTargetFoeSpecies = gBattleMons[foe].species;
 +    u16 preTargetFoeHp = gBattleMons[foe].hp;
@@ -291,6 +311,37 @@
 +            {
 +                if (gBattleMons[battler].moves[poolSlot] != preTargetMoves[poolSlot] ||
 +                    gBattleMons[battler].pp[poolSlot] != preTargetPP[poolSlot])
++                    return FALSE;
++            }
++        }
++        /* First-stage player volatility/ability/item changes are just as
++         * dangerous as foe changes: a fresh lease after the mutation would
++         * silently launder a stale automatic proposal. Fail before skip. */
++        if (!verifyReply)
++        {
++            if (gBattleMons[battler].species != preTargetPlayerSpecies ||
++                gBattleMons[battler].hp != preTargetPlayerHp ||
++                gBattleMons[battler].status1 != preTargetPlayerStatus1 ||
++                gBattleMons[battler].ability != preTargetPlayerAbility ||
++                gBattleMons[battler].item != preTargetPlayerItem ||
++                gBattleMons[battler].volatiles.tauntTimer != preTargetTaunt ||
++                gBattleMons[battler].volatiles.disableTimer != preTargetDisable ||
++                gBattleMons[battler].volatiles.encoreTimer != preTargetEncore ||
++                gBattleMons[battler].volatiles.tormentTimer != preTargetTorment)
++                return FALSE;
++            for (poolSlot = 0; poolSlot < 3; poolSlot++)
++            {
++                if (gBattleMons[battler].types[poolSlot] != preTargetPlayerTypes[poolSlot])
++                    return FALSE;
++            }
++            for (poolSlot = 0; poolSlot < MAX_MON_INNATES_INTERNAL; poolSlot++)
++            {
++                if (gBattleMons[battler].innates[poolSlot] != preTargetPlayerInnates[poolSlot])
++                    return FALSE;
++            }
++            for (poolSlot = 0; poolSlot < MAX_MON_ITEMS_INTERNAL; poolSlot++)
++            {
++                if (gBattleMons[battler].items[poolSlot] != preTargetPlayerItems[poolSlot])
 +                    return FALSE;
 +            }
 +        }
@@ -380,7 +431,7 @@
  
      gBattlerControllerFuncs[battler] = HandleChooseActionAfterDma3;
      BattleTv_ClearExplosionFaintCause();
-@@ -2291,6 +2650,19 @@
+@@ -2291,6 +2701,19 @@
  
  void PlayerHandleChooseMove(enum BattlerId battler)
  {

@@ -90,3 +90,36 @@ unaltered, and pending PR48 source overlap must be reconciled before
 any potential integration. No real original modified-ROM gameplay
 is exercised or certified. Native acceptance 0/20, production 0%,
 historical unmatched PP causes 0/2.
+
+
+## Isolated follow-up: freeze all first-stage player combat state
+
+Approved source-LAB PR51 froze the player's move/PP pool and actor/turn
+before target helper calls; draft PR71 then froze foe combat state.
+But original `ChooseAction` did not freeze the player's OTHER combat
+state before `GetBattlerMoveTargetType`/`CanTargetBattler`. If a
+helper mutates the player's HP, status, innate abilities, items,
+types, or volatile timers and an automatic proposal is staged
+afterward, the new lease would accept that mutated snapshot as its
+baseline. A later slot could be auto-selected after an ineligible
+first helper changed effective move legality.
+
+The new disposable source-LAB guard captures player species/HP/status1,
+main ability/legacy item, taunt/disable/encore/torment timers, three
+types, all innate abilities, and all configured held items ONCE before
+any candidate target helper. It rechecks every field AFTER each
+helper and BEFORE the candidate's eligibility skip or any Fight
+response. Any drift fails closed to the original manual path; it
+does not retry with a different move, re-arm the lease, call item/
+capture controls or alter an enemy/NPC AI controller. The existing
+frozen move/PP pool and foe state from PR51/PR71 remain independent,
+plus the original second-stage dynamic restrictions/target rechecks.
+
+Public Python structural mutation tests check actual C code,
+per-field capture/rechecks, full 3-type and all innate/item arrays,
+order around the target helpers, dead preprocessor guards and
+forbidden opponent state reads. Pinned disposable GNU ARM source
+patch application and full compile are mandatory. This does not
+execute protected Current ROM/save/modified game or authenticate
+the original ROM's one-use actor0 engine request. Original native
+0/20=0%, production 0%, two historical PP causes 0/2.
