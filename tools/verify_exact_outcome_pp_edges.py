@@ -37,6 +37,36 @@ def sha(value):
     return hashlib.sha256(value).hexdigest()
 
 
+
+def observed_thumb_strb_address(opcode, registers):
+    """Decode only original Thumb-1 byte stores with captured address regs.
+
+    Supports STRB immediate and register-offset forms, not arbitrary load/
+    store opcodes or unrecorded high-register state. None means UNPROVEN,
+    not that an original action failed or was cancelled.
+    """
+    require(type(opcode) is int and 0 <= opcode <= 0xFFFF,
+            "invalid Thumb store halfword")
+    require(type(registers) in (tuple, list) and len(registers) == 5 and
+            all(type(x) is int and 0 <= x <= 0xFFFFFFFF for x in registers),
+            "missing original CPU register snapshot")
+    if opcode & 0xF800 == 0x7000:  # Thumb STRB Rt,[Rb,#imm5]
+        rb = (opcode >> 3) & 7
+        imm = (opcode >> 6) & 31
+        if rb >= 5:
+            return None
+        address = registers[rb] + imm
+    elif opcode & 0xFE00 == 0x5400:  # Thumb STRB Rt,[Rb,Rm]
+        rb = (opcode >> 3) & 7
+        rm = (opcode >> 6) & 7
+        if rb >= 5 or rm >= 5:
+            return None
+        address = registers[rb] + registers[rm]
+    else:
+        return None
+    return address if address <= 0xFFFFFFFF else None
+
+
 def audit(data):
     # Never trust a trace-supplied acceptance/privilege field; every top-level
     # key must belong to the fixed evidence envelope and has strict types.
@@ -176,7 +206,14 @@ def audit(data):
                 require(e["address"] == PP+e["slot"] and
                         e["before"] <= 255 and e["after"] <= 255,
                         "wrong original own PP byte")
-                if (pc == 0x0809E6BA and e["r1"] == e["address"] and
+                # The original writer *PC alone* cannot attribute a PP
+                # debit. The recorded pre-step opcode must actually encode
+                # a Thumb byte STORE whose computed effective address is
+                # this one player-owned PP slot. A nonstore or unknown
+                # register operand is only an observed PP byte change.
+                regs = tuple(e["r"+str(i)] for i in range(5))
+                effective = observed_thumb_strb_address(e["opcode"], regs)
+                if (pc == 0x0809E6BA and effective == e["address"] and
                     e["before"] == e["after"]+1):
                     native_pp += 1
                 else:
@@ -211,6 +248,7 @@ def audit(data):
         "original_move_commit_markers": moves,
         "original_target_commit_markers": targets,
         "original_pp_writer_single_byte_debits_seen": native_pp,
+        "original_pp_byte_stores_with_decoded_effective_address": native_pp,
         "other_player_pp_byte_changes_not_certified": other_pp,
         "manual_move_menu_markers": manual,
         "previous_two_pp_unmatched_submissions_classified": False,
