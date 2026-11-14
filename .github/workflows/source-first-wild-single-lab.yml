@@ -5,6 +5,7 @@ on:
     branches:
       - source-first/rom-identity
       - lab/player0-original-command-payload-freeze-20261114
+      - lab/player0-original-controller-flag-request-continuity-20261114
     paths:
       - .github/workflows/source-first-wild-single-lab.yml
       - source-first/wild-single-lab.patch
@@ -17,6 +18,7 @@ on:
       - lab/player0-pretarget-player-volatiles-20261114
       - lab/player0-foe-effects-target-helper-continuity-20261114
       - lab/player0-original-command-payload-freeze-20261114
+      - lab/player0-original-command-payload-freeze-20261114
     paths:
       - .github/workflows/source-first-wild-single-lab.yml
       - source-first/wild-single-lab.patch
@@ -26,6 +28,7 @@ on:
       - tools/test_wild_single_pre_target_player_state.py
       - tools/test_wild_single_pre_target_foe_effects.py
       - tools/test_wild_single_engine_buffer_payload.py
+      - tools/test_wild_single_exec_owner_continuity.py
   workflow_dispatch:
 
 permissions:
@@ -56,6 +59,7 @@ jobs:
           python3 tools/test_wild_single_pre_target_player_state.py
           python3 tools/test_wild_single_pre_target_foe_effects.py
           python3 tools/test_wild_single_engine_buffer_payload.py
+          python3 tools/test_wild_single_exec_owner_continuity.py
           python3 tools/test_wild_single_action_recheck.py
 
       - name: Clone exact upstream source in disposable workspace
