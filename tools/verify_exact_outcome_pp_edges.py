@@ -12,7 +12,7 @@ from pathlib import Path
 CURRENT = "7b9ac66d38f38dcddc1cc907822615fcf56689600fdccaffa9df9a836fb9ee32"
 MODIFIED = "4b2585e10265805da12016819c880a4acd50eda2aa24ce977d1dbcc705d3ee44"
 SAVE = "8c6cb520de6dc475e5fde31cb78ddd49ceb6add89f5c208598977886fa5579a4"
-SCHEMA = "sg-original-outcome-pp-instruction-edges-v2"
+SCHEMA = "sg-original-outcome-pp-instruction-edges-v3"
 PP = 0x02001EF1
 MAIN = 0x030055D4
 CALLBACK_WINDOWS = {
@@ -21,7 +21,7 @@ CALLBACK_WINDOWS = {
     0x0809E6BA: "84ffa68c024412568ce64fdac3719cd460c40a55caf07a5549bd150a7fe50923",
 }
 FIELDS = {"frame", "step", "pc", "opcode", "kind", "address", "before", "after", "slot",
-          "r0", "r1", "r2", "r3", "r4", "flags", "battlers", "pending",
+          "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "flags", "battlers", "pending",
           "inbattle", "callback1", "callback2"}
 # Events 1..16 match C observer; markers 6..8 and 12..16.
 ADDRESSES = {2: MAIN+0x439, 3: MAIN, 4: MAIN+4,
@@ -65,6 +65,24 @@ def observed_thumb_strb_address(opcode, registers):
     else:
         return None
     return address if address <= 0xFFFFFFFF else None
+
+
+
+def observed_thumb_strb_source_byte(opcode, registers):
+    """Get PRE-instruction STRB low-register Rt byte; unknown means no proof.
+
+    Unlike the original address-only v2 helper, this checks the stored
+    VALUE from r0..r7. The actual original C observer records all 8 regs.
+    A matching byte is only a witnessed candidate, never action ownership.
+    """
+    require(type(registers) in (tuple, list) and len(registers) == 8 and
+            all(type(x) is int and 0 <= x <= 0xFFFFFFFF for x in registers),
+            "missing original pre-step r0-r7")
+    require(type(opcode) is int and 0 <= opcode <= 0xFFFF,
+            "invalid STRB source instruction")
+    if (opcode & 0xF800) != 0x7000 and (opcode & 0xFE00) != 0x5400:
+        return None
+    return registers[opcode & 7] & 255
 
 
 def audit(data):
@@ -134,7 +152,8 @@ def audit(data):
         # Watched RAM context may change as a result of the CPU step, so it
         # must NOT be frozen across pre/post events in the same step.
         cpu_snapshot = (f, pc, e["opcode"], e["r0"], e["r1"],
-                        e["r2"], e["r3"], e["r4"])
+                        e["r2"], e["r3"], e["r4"],
+                        e["r5"], e["r6"], e["r7"])
         if step == prev_step:
             require(cpu_snapshot == last_cpu_snapshot,
                     "split or forged original CPU event within one step")
@@ -213,7 +232,10 @@ def audit(data):
                 # register operand is only an observed PP byte change.
                 regs = tuple(e["r"+str(i)] for i in range(5))
                 effective = observed_thumb_strb_address(e["opcode"], regs)
+                source = observed_thumb_strb_source_byte(
+                    e["opcode"], tuple(e["r"+str(i)] for i in range(8)))
                 if (pc == 0x0809E6BA and effective == e["address"] and
+                    source == e["after"] and
                     e["before"] == e["after"]+1):
                     native_pp += 1
                 else:
@@ -249,6 +271,7 @@ def audit(data):
         "original_target_commit_markers": targets,
         "original_pp_writer_single_byte_debits_seen": native_pp,
         "original_pp_byte_stores_with_decoded_effective_address": native_pp,
+        "original_pp_strb_source_byte_matches_poststep": native_pp,
         "other_player_pp_byte_changes_not_certified": other_pp,
         "manual_move_menu_markers": manual,
         "previous_two_pp_unmatched_submissions_classified": False,

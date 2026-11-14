@@ -194,3 +194,37 @@ This is independent source research stacked on the review-pending
 outcome/PP PR69 and does not modify protected main/source-first, approved
 exact heads, Current ROM/save or manual fallback. Formal native 0/20
 (0%), production 0%, two historical PP causes 0/2.
+
+
+## Public source v3: actual Thumb STRB source-register evidence
+
+The previous byte-store writer gate could recognize a matching STRB
+**effective address** without knowing the *data byte* written. In an
+original Thumb instruction, `Rt` may be r5/r6/r7, which the prior source
+collector did not record; even a recorded PP -1 could be misattributed
+to a store carrying a different value.
+
+This isolated public source-only v3 evidence change extends each C
+`SG_OutcomeEdge` by PRE-instruction r5, r6, r7 and retains r0..r4
+for a total 23 uint32 words. The Python evidence schema upgrades
+strictly from `sg-original-outcome-pp-instruction-edges-v2` to `-v3`.
+It refuses the old shape. A candidate original writer is counted
+ONLY for a recognized 16-bit STRB immediate/register opcode whose
+computed address equals the observed own PP byte, with a PRE-step Rt
+low byte matching the actual POST-step watched value, exact original
+writer CPU PC, and a single decrement. All same-step CPU events must
+also preserve the original eight low registers and opcode. An
+invalid/unsupported opcode, changed source value, missing r5..r7,
+or contradictory same-step snapshot cannot establish a writer.
+
+Source and address confirmation do not prove which engine request
+caused the instruction, a successful committed move, or whether the
+two historical missing debits were cancelled. No protected original
+ROM/save, emulator or private traces are read or run here. Public
+FAKE C recorder and synthetic Python mutation tests only.
+
+The original C-to-host event record ABI and strict Python schema are
+intentionally incompatible and would require an explicitly reviewed
+future owner-local host adaptation before private attestation.
+No native integration or production promotion is authorized:
+original gameplay 0/20 = 0%, production 0%, prior PP causes 0/2.

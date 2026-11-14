@@ -22,7 +22,7 @@ def fixture():
     data["events"]=[
         row(6,1,0x0806BD80,r0=0,r2=10),
         row(7,3,0x0806B370,r0=0,r1=1,r3=6),
-        row(5,12,0x0809E6BA,v.PP,20,19,0,r1=v.PP,opcode=0x700E),
+        row(5,12,0x0809E6BA,v.PP,20,19,0,r1=v.PP,r6=19,opcode=0x700E),
         row(2,20,0x081C1234, v.MAIN+0x439,2,0,inbattle=0),
         row(3,24,0x0808E33C,v.MAIN,0x0808CBDD,0x081C7589,
             r4=v.MAIN,callback1=0x081C7589),
@@ -121,7 +121,7 @@ class ExactOutcomePpEdgeTests(unittest.TestCase):
         self.denied(lambda d:d.update(status=True))
 
     def test_version_one_lacks_per_event_opcode_provenance(self):
-        self.denied(lambda d:d.update(schema="sg-original-outcome-pp-instruction-edges-v1"))
+        self.denied(lambda d:d.update(schema="sg-original-outcome-pp-instruction-edges-v2"))
     def test_missing_original_opcode_on_native_main_clear(self):
         self.denied(lambda d:d["events"][3].pop("opcode"))
     def test_unknown_zero_pc_main_transition_does_not_claim_terminal(self):
@@ -188,11 +188,47 @@ class ExactOutcomePpEdgeTests(unittest.TestCase):
 
     def test_pp_writer_register_offset_is_only_candidate(self):
         d=fixture()
-        d["events"][2].update(opcode=0x5443,r0=v.PP-1,r1=1)
+        d["events"][2].update(opcode=0x5443,r0=v.PP-1,r1=1,r3=19)
         z=v.audit(d)
         self.assertEqual(z["original_pp_writer_single_byte_debits_seen"],1)
         self.assertFalse(z["previous_two_pp_unmatched_submissions_classified"])
         self.assertFalse(z["one_use_request_ownership_certified"])
+
+    def test_original_store_source_byte_from_full_cpu_r0_to_r7(self):
+        registers=(0,v.PP,0,19,0,99,19,255)
+        self.assertEqual(v.observed_thumb_strb_source_byte(0x700E,registers),19)
+        self.assertEqual(v.observed_thumb_strb_source_byte(0x5443,registers),19)
+        self.assertEqual(v.observed_thumb_strb_source_byte(0x700D,registers),99)
+        self.assertEqual(v.observed_thumb_strb_source_byte(0x700F,registers),255)
+        for op in (0x780E,0x600E,0x0000):
+            self.assertIsNone(v.observed_thumb_strb_source_byte(op,registers))
+        with self.assertRaisesRegex(ValueError,"r0-r7"):
+            v.observed_thumb_strb_source_byte(0x700E,registers[:5])
+
+    def test_thumb_source_byte_must_match_pp_after_value(self):
+        for key,value in (("r6",18),("r6",20),("r6",0),("r6",0x100),
+                          ("r6",0xFFFFFFFF)):
+            with self.subTest(reg=key,value=value):
+                d=fixture()
+                d["events"][2][key]=value
+                z=v.audit(d)
+                self.assertEqual(z["original_pp_writer_single_byte_debits_seen"],0)
+                self.assertEqual(z["other_player_pp_byte_changes_not_certified"],1)
+                self.assertFalse(z["production_promotion_authorized"])
+        d=fixture()
+        d["events"][2]["r6"]=0x12340013  # low byte = 19
+        self.assertEqual(v.audit(d)["original_pp_writer_single_byte_debits_seen"],1)
+
+    def test_pp_source_register_mutation_same_cpu_step_denied(self):
+        d=self.shared_step_pair()
+        d["events"][1]["r6"]=11
+        with self.assertRaisesRegex(ValueError,"split or forged"):
+            v.audit(d)
+
+    def test_v2_trace_missing_new_c_source_cpu_registers_denied(self):
+        self.denied(lambda d:d.update(schema="sg-original-outcome-pp-instruction-edges-v2"))
+        self.denied(lambda d:d["events"][2].pop("r7"))
+        self.denied(lambda d:d["events"][2].update(r6=True))
 
     def test_original_writer_pc_alone_never_certifies_real_outcome(self):
         d=fixture()
