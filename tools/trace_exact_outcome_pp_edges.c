@@ -22,7 +22,7 @@ enum {
     SG_NATIVE_MOVE, SG_NATIVE_TARGET
 };
 typedef struct {
-    uint32_t frame, step, pc, kind, address, before, after, slot;
+    uint32_t frame, step, pc, opcode, kind, address, before, after, slot;
     uint32_t r0, r1, r2, r3, r4, flags, battlers, pending, inbattle,
              callback1, callback2;
 } SG_OutcomeEdge;
@@ -54,11 +54,18 @@ static void sg_edge_append(void *core, uint32_t (*read8)(void *,uint32_t,int),
                            uint32_t slot, const uint32_t r[5])
 {
     SG_OutcomeEdge *e;
+    uint32_t opcode;
     if (!sg_original_thumb_pc(pc)) {out->status=6;return;}
     if (out->event_count >= capacity) {out->status=3;return;}
+    /* Original ROM opcode is captured at PRE-instruction raw r15-2.
+     * RAM-origin instructions are NOT byte-attested by this version.
+     * The strict offline v2 verifier denies them rather than guessing. */
+    opcode=(pc>=0x08000002u && pc<=0x0A000000u)?
+           ((read8(core,pc-2u,0)&255u) |
+            ((read8(core,pc-1u,0)&255u)<<8)):0u;
     e=&events[out->event_count++];
     *e=(SG_OutcomeEdge){
-        frame,step,pc-2u,kind,addr,old,now,slot,
+        frame,step,pc-2u,opcode,kind,addr,old,now,slot,
         r[0],r[1],r[2],r[3],r[4],
         read32(core,SG_FLAGS,0),read8(core,0x02001AB8u,0),
         read32(core,SG_PENDING,0),read8(core,SG_MAIN+0x439u,0),
