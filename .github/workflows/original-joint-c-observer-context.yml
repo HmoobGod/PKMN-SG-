@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - research/original-main-clear-player0-proof-gate-20261113
+      - research/original-joint-c-observer-negative-20261113
     paths:
       - .github/workflows/original-joint-c-observer-context.yml
       - tools/test_exact_joint_player_terminal_context_c.c
@@ -28,6 +29,12 @@ jobs:
           set -euo pipefail
           test ! -e "Pokemon Soulgold.gba"
           test ! -e "Pokemon Soulgold.sav"
+          # Prove the test suite cannot be accidentally compiled without assertions.
+          if cc -std=c11 -Wall -Wextra -Werror -pedantic -DNDEBUG -fsyntax-only tools/test_exact_joint_player_terminal_context_c.c 2>/tmp/sg-ndebug-gate.log; then
+            echo "ERROR: NDEBUG unexpectedly compiled the assertion test" >&2
+            exit 1
+          fi
+          grep -Fq 'require enabled assert() checks' /tmp/sg-ndebug-gate.log
           cc -std=c11 -Wall -Wextra -Werror -pedantic -O2 -o /tmp/sg-original-joint-context tools/test_exact_joint_player_terminal_context_c.c
           /tmp/sg-original-joint-context
           python3 tools/test_exact_joint_player_terminal.py
