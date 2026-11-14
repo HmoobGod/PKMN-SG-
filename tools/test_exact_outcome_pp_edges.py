@@ -23,7 +23,7 @@ def fixture():
         row(6,1,0x0806BD80,r0=0,r2=10),
         row(7,3,0x0806B370,r0=0,r1=1,r3=6),
         row(5,12,0x0809E6BA,v.PP,20,19,0,r1=v.PP),
-        row(2,20,v.MAIN+0x200, v.MAIN+0x439,2,0),
+        row(2,20,0x081C1234, v.MAIN+0x439,2,0),
         row(3,24,0x0808E33C,v.MAIN,0x0808CBDD,0x081C7589,
             r4=v.MAIN,callback1=0x081C7589),
         row(4,27,0x081AED58,v.MAIN+4,0x0808F225,0x080C4265,
@@ -33,6 +33,43 @@ def fixture():
 
 
 class ExactOutcomePpEdgeTests(unittest.TestCase):
+    def test_version_one_lacks_per_event_opcode_provenance(self):
+        self.denied(lambda d:d.update(schema="sg-original-outcome-pp-instruction-edges-v1"))
+    def test_missing_original_opcode_on_native_main_clear(self):
+        self.denied(lambda d:d["events"][3].pop("opcode"))
+    def test_unknown_zero_pc_main_transition_does_not_claim_terminal(self):
+        self.denied(lambda d:d["events"][3].update(pc=0,opcode=0))
+    def test_ram_pc_on_original_outcome_observation_rejected(self):
+        self.denied(lambda d:d["events"][3].update(pc=v.MAIN+0x200))
+    def test_odd_original_rom_pc_rejected(self):
+        self.denied(lambda d:d["events"][3].update(pc=0x081C1235))
+    def test_oversized_thumb_opcode_rejected(self):
+        self.denied(lambda d:d["events"][3].update(opcode=0x10000))
+    def test_opcode_bool_not_u32(self):
+        self.denied(lambda d:d["events"][3].update(opcode=True))
+    def test_each_observed_original_pc_is_byte_checked(self):
+        d=fixture()
+        # PUBLIC synthetic instruction image only, no protected original
+        # ROM, save, emulator or private auth hashes are touched.
+        image=bytearray(0x200000)
+        v.verify_original_event_opcodes(d["events"],image)
+        for e in d["events"]:
+            with self.subTest(kind=e["kind"],pc=e["pc"]):
+                image[e["pc"]-0x08000000]=0xA5
+                with self.assertRaisesRegex(ValueError,"CPU opcode parity"):
+                    v.verify_original_event_opcodes(d["events"],image)
+                image[e["pc"]-0x08000000]=0
+        with self.assertRaisesRegex(ValueError,"outside byte-pinned"):
+            v.verify_original_event_opcodes(d["events"],bytearray(1024))
+    def test_original_writer_pc_alone_never_certifies_real_outcome(self):
+        d=fixture()
+        d["events"][2]["opcode"]=0x700E
+        report=v.audit(d)
+        self.assertEqual(report["original_pp_writer_single_byte_debits_seen"],1)
+        self.assertFalse(report["original_battle_outcome_decision_pc_certified"])
+        self.assertFalse(report["full_native_terminal_certified"])
+        self.assertFalse(report["production_promotion_authorized"])
+
     def test_fixture_is_only_triage(self):
         z=v.audit(fixture())
         self.assertEqual(z["original_pp_writer_single_byte_debits_seen"],1)
