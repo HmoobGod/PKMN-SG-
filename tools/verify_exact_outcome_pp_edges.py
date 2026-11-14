@@ -81,6 +81,34 @@ def observed_thumb_strb_source_byte(opcode, registers):
     return registers[opcode & 7] & 255
 
 
+
+def observed_thumb_str_word_store(opcode, registers):
+    """Return (address, value) for a witnessed Thumb-1 32-bit STR only.
+
+    Callback pointers are 32-bit; a byte store, halfword store, LDR,
+    non-aligned write, overflow, or unknown instruction cannot prove the
+    original CPU wrote the 32-bit callback. This is candidate evidence
+    even when source registers and the watcher agree.
+    """
+    require(type(opcode) is int and 0 <= opcode <= 0xFFFF,
+            "invalid Thumb word store halfword")
+    require(type(registers) in (tuple, list) and len(registers) == 8 and
+            all(type(x) is int and 0 <= x <= 0xFFFFFFFF for x in registers),
+            "missing original pre-step r0-r7 word-store registers")
+    if (opcode & 0xF800) == 0x6000:  # STR Rt,[Rb,#imm5*4]
+        rb = (opcode >> 3) & 7
+        offset = ((opcode >> 6) & 31) * 4
+    elif (opcode & 0xFE00) == 0x5000:  # STR Rt,[Rb,Rm]
+        rb = (opcode >> 3) & 7
+        offset = registers[(opcode >> 6) & 7]
+    else:
+        return None
+    address = registers[rb] + offset
+    if address > 0xFFFFFFFF or (address & 3):
+        return None
+    return (address, registers[opcode & 7])
+
+
 def audit(data):
     # Never trust a trace-supplied acceptance/privilege field; every top-level
     # key must belong to the fixed evidence envelope and has strict types.
@@ -120,6 +148,10 @@ def audit(data):
     # decoded byte-store candidates distinct from raw watched transitions.
     candidate_strb_stores = candidate_unattributed = 0
     candidate_writer_pcs = set()
+    # Callback watcher changes alone do not prove the instruction that
+    # wrote a full word, much less a battle-to-overworld terminal.
+    callback_word_store_matches = callback_unattributed = 0
+    callback_writer_pcs = set()
     complete = validator = slots = moves = targets = 0
     prev_frame = prev_step = prev_pc = -1
     seen_edges = set()
@@ -268,6 +300,14 @@ def audit(data):
                     if pc == 0x081AED58:
                         require(e["r3"] == MAIN and e["callback2"] == e["after"],
                                 "original callback2 CPU registers disagree")
+                if kind in (3, 4):
+                    regs = tuple(e["r"+str(i)] for i in range(8))
+                    word = observed_thumb_str_word_store(e["opcode"], regs)
+                    if word == (e["address"], e["after"]):
+                        callback_word_store_matches += 1
+                        callback_writer_pcs.add(pc)
+                    else:
+                        callback_unattributed += 1
         prev_frame,prev_step,prev_pc = f,step,pc
     # Counts are observations ONLY; no guessing a PP debit's action epoch.
     return {
@@ -278,6 +318,12 @@ def audit(data):
         "candidate_outcome_writer_pc_candidates_unverified":
             sorted(candidate_writer_pcs),
         "original_callback_pointer_transitions": callbacks,
+        "original_callback_word_str_writer_matches_unverified":
+            callback_word_store_matches,
+        "original_callback_unattributed_pointer_transitions":
+            callback_unattributed,
+        "original_callback_writer_pc_candidates_unverified":
+            sorted(callback_writer_pcs),
         "original_player_emit_markers": emissions,
         "original_player_reply_markers": replies,
         "original_player_completion_markers": complete,
