@@ -8,6 +8,7 @@ on:
       - research/player0-request-changed-store-v2-20261114
       - research/player0-request-copy-cpu-opcode-triplet-20261114
       - research/player0-request-copy-intermediate-integrity-20261114
+      - research/player0-request-thumb-strb-store-semantics-20261114
     paths:
       - .github/workflows/public-player0-request-copy-proof.yml
       - tools/test_player0_request_copy_json_fixture.c
