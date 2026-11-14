@@ -26,7 +26,7 @@ integer-wrap EWRAM aliasing.
 - Validate the engine buffer pointer is in EWRAM and has enough room
   for 16-byte header + 44-byte request **before** adding the offset,
   preventing an invalid `0x01FFFFF0+16` from masquerading as EWRAM.
-- Count a candidate store only **after** the original CPU `step()`
+- Report the exact count of CPU steps performed at the final observed\n  POST_PC; the previous recorder incorrectly included that unstepped\n  post-copy observation as an extra instruction.\n- Count a candidate store only **after** the original CPU `step()`
   returns and the actual destination byte equals the expected
   pre-instruction value. The captured sequence is not merely 44
   matching PC/register observations before execution.
