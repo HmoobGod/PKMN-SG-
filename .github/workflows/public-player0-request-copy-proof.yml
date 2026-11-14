@@ -7,6 +7,7 @@ on:
       - research/player0-request-44-byte-proof-audit-20261113
       - research/player0-request-changed-store-v2-20261114
       - research/player0-request-copy-cpu-opcode-triplet-20261114
+      - research/player0-request-copy-intermediate-integrity-20261114
     paths:
       - .github/workflows/public-player0-request-copy-proof.yml
       - tools/test_player0_request_copy_json_fixture.c
@@ -14,6 +15,7 @@ on:
       - tools/verify_public_player0_request_copy.py
       - tools/test_original_player0_request_44byte_poststore.c
       - tools/alternate_mgba_capture_player_copy.c
+      - docs/PUBLIC_PLAYER0_THUMB_STORE_SEMANTICS_V4.md
   workflow_dispatch:
 
 permissions:
@@ -33,4 +35,6 @@ jobs:
           test ! -e 'Pokemon Soulgold.gba'
           test ! -e 'Pokemon Soulgold.sav'
           python3 tools/test_player0_request_copy_json_audit.py
+          cc -std=c11 -Wall -Wextra -Werror -pedantic -O2 -o /tmp/sg-public-player0-thumb-v4 tools/test_original_player0_request_44byte_poststore.c
+          /tmp/sg-public-player0-thumb-v4
           echo 'PUBLIC_ORIGINAL_PLAYER0_44_COPY_TO_PYTHON: PASS FAKE CPU ONLY; native acceptance 0/20'
