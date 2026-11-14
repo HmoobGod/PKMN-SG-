@@ -160,3 +160,37 @@ new native game hook or player inputs, no foe/NPC AI or fallback edits.
 All previously independently approved exact heads and protected
 main/source-first stay unchanged. Native original-game formal
 acceptance 0/20, production 0%, historical PP causes 0/2.
+
+
+## Isolated source follow-up: original PP STRB effective-address evidence
+
+A mutation to one watched PP byte while the CPU reports original writer PC
+0x0809E6BA, register r1 equal to that byte, and before=after+1 is **not by
+itself** sufficient to classify an original PP writer instruction.
+The previous Python audit could count such a mutation even when the
+recorded instruction was a load, unrelated ALU operation, or a byte store
+whose **actual effective address** pointed elsewhere.
+
+The verifier now decodes the 16-bit original Thumb opcode from the C CPU
+observer as either Thumb STRB immediate offset or STRB register offset.
+Only if **all address operands are among the recorded r0..r4**, effective
+address fits in 32 bits, equals the watched actor-owned PP slot address,
+the original PC matches 0x0809E6BA, and exactly one PP was removed,
+does it count a *candidate* original PP writer store. Unknown operand
+registers, nonstore opcodes, mismatched address or arithmetic overflow
+remain unclassified observations. The source byte value is not
+authenticated because r5..r7 are not recorded; matching a byte store
+cannot authenticate original action ownership or execution semantics.
+
+Public synthetic tests exercise STRB r6,[r1,#0] 0x700E and register form
+STRB r3,[r0,r1] 0x5443, while wrong base/offset, load, word store,
+missing registers and overflow fail closed. The existing original-ROM
+attestation path would still need independent, separately owner-authorized
+immutable modified-ROM opcode parity and authentic guest replay; it is
+NOT invoked. No new private data, original-game CPU stepping or
+gameplay hook is involved.
+
+This is independent source research stacked on the review-pending
+outcome/PP PR69 and does not modify protected main/source-first, approved
+exact heads, Current ROM/save or manual fallback. Formal native 0/20
+(0%), production 0%, two historical PP causes 0/2.
