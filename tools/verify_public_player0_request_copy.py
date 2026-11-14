@@ -8,15 +8,16 @@ or movement. No private file loading or attestation entry point exists.
 """
 import json
 
-BRIDGE_SCHEMA = "sg-public-synthetic-request-copy-v1"
+BRIDGE_SCHEMA = "sg-public-synthetic-request-copy-v2"
 PROOF_FIELDS = frozenset((
     "state", "error", "begin_frame", "end_frame", "entry_frame", "post_frame",
     "source", "dest", "actor", "direction", "length", "entry_sp", "entry_lr",
     "post_sp", "post_lr", "stores", "pending_entry", "pending_post",
     "opcode_post", "total_steps", "tag", "source_before", "source_after",
-    "dest_after", "store_values", "store_indices",
+    "dest_after", "store_values", "store_indices", "dest_before",
 ))
-ARRAYS = ("source_before", "source_after", "dest_after", "store_values")
+ARRAYS = ("source_before", "source_after", "dest_after", "store_values",
+          "dest_before")
 BASE = 0x02000000
 END = 0x02040000
 COUNT = 44
@@ -61,6 +62,9 @@ def audit_proof(proof):
     require(proof["source_before"] == proof["source_after"]
             == proof["dest_after"] == proof["store_values"],
             "observed request-copy bytes do not match")
+    require(all(before != after for before, after in
+                zip(proof["dest_before"], proof["store_values"])),
+            "unchanged destination byte cannot witness original store")
     source, dest = proof["source"], proof["dest"]
     require(BASE <= source <= END - COUNT and
             BASE + 0x10 <= dest <= END - COUNT and
@@ -76,11 +80,14 @@ def audit_proof(proof):
             proof["post_sp"] == proof["entry_sp"] - 8 and
             proof["post_lr"] == proof["entry_lr"],
             "original player0 copy entry/post CPU register drift")
+    # v2 rejects a pre-existing equal destination: this shows a memory
+    # difference on FAKE CPU, not authentic original ROM instruction provenance.
     # The source pointer, pending status and byte equality do not attest
     # which instruction generated the trace. Zero certified gameplay.
     return {
         "scope": "PUBLIC SYNTHETIC C-proof INTERNAL consistency only",
         "internally_consistent_44_byte_player0_copy_candidate": True,
+        "all_44_poststep_destination_changes_witnessed_in_fixture": True,
         "original_modified_rom_instruction_pc_attested": False,
         "engine_owned_one_use_request_epoch_certified": False,
         "effective_move_target_legality_certified": False,
@@ -100,7 +107,7 @@ def audit_public_fixture(raw):
             and raw["mode"] in {
                 "valid", "skipped_store", "bad_opcode", "wrapped_buffer",
                 "wrong_register", "frame_rollback", "short_budget",
-                "missing_callback"},
+                "missing_callback", "preexisting_equal"},
             "unknown request-copy fixture mode/schema")
     return audit_proof(raw["proof"])
 

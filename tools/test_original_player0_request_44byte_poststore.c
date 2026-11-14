@@ -96,11 +96,18 @@ int main(void)
     for(uint32_t i=0;i<SRC_N;i++){
         assert(p.store_indices[i]==i);
         assert(p.store_values[i]==p.source_before[i]);
+        assert(p.dest_before[i]!=p.store_values[i]);
         assert(p.dest_after[i]==p.source_before[i]);
         assert(p.source_after[i]==p.source_before[i]);
     }
     install(&m,1u);run(&m,&p,2u,1000u);
     assert(p.state==1u&&p.error==7u&&p.stores==7u);
+
+    /* Pre-existing same byte is not observable proof of a CPU store. */
+    install(&m,8u);
+    m.ram[m.dest-EWRAM_BASE+7u]=m.ram[m.source-EWRAM_BASE+7u];
+    run(&m,&p,2u,1000u);
+    assert(p.error==10u&&p.state==1u&&p.stores==7u);
 
     install(&m,2u);m.ram[m.source-EWRAM_BASE]=18u;
     run(&m,&p,2u,1000u);

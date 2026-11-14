@@ -68,3 +68,37 @@ Two historical PP-unmatched causes classified **0/2**.
 Hold this new draft unmerged until full exact-head Source CI, dedicated
 C→Python workflow and an **independent Claude exact-head** source,
 test and security review. An approved parent never authorizes child.
+
+
+## Isolated PR64 follow-up: unchanged destination must fail closed
+
+This intentionally incompatible **v2** synthetic proof envelope (not native
+emulator evidence) requires a real *pre-step* destination byte for every one
+of the 44 original STORE_PC candidate iterations. The read-only C recorder
+refuses to increment its successful store count when the byte was already
+equal to the intended store value, because a poststep equal byte alone does
+not demonstrate an observable CPU memory change. A changed value must then
+be observed **after** the corresponding step. Each original store index's
+`dest_before[44]` is sent to the strict Python auditor, which requires a
+well-formed 44-byte vector and an actual before/after difference for each
+index, with the existing source/destination and chronology checks retained.
+The old v1 JSON envelope is explicitly rejected; the C `Proof` struct has
+been **extended at the tail** and any future local host binding must adopt
+the new ABI explicitly before use. Its original fields retain order/offsets.
+
+The new FAKE C mode `preexisting_equal` poisons byte 7 with the correct value
+**before** the CPU step, so the old poststep-only check would wrongly pass.
+The v2 test requires error 10 at index 7; 44 changed-byte positive cases,
+negative C modes and Python JSON tamper mutations remain covered by CI.
+This will reject legitimate original stores when destination bytes were
+already equal (known evidence limitation; strict failure, not a false pass).
+A changed byte after a fake CPU step also does **not** prove the original
+modified-ROM instruction actually executed, prove engine-issued one-use
+request ownership, legality, PP debit/cancellation, native battle outcome or
+manual fallback. Separately owner-authorized exact modified-ROM provenance
+and real original-game execution would still be needed; no Current ROM/save,
+private trace or emulator is staged, read or run in this research patch.
+
+Do not merge, install, release or count this source-only test as a native
+acceptance case. Native original-game acceptance 0/20 (0%), production 0%,
+and historical two PP-unmatched causes classified 0/2.
