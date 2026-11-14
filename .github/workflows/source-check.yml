@@ -55,6 +55,7 @@ jobs:
           python3 tools/test_exact_next_wild.py
           python3 tools/test_exact_main_callback.py
           python3 tools/test_exact_outcome_pp_edges.py
+          python3 tools/test_public_exact_outcome_pp_v3_handoff.py
           python3 tools/test_exact_actor_epoch.py
           python3 tools/test_exact_thumb_byte_stores.py
           python3 tools/test_exact_main_battle_edge.py
