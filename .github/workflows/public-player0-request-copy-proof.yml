@@ -1,0 +1,33 @@
+name: SoulGold public original player0 request-copy C to Python proof
+
+on:
+  pull_request:
+    branches:
+      - research/original-player0-request-44-byte-poststore-20261113
+    paths:
+      - .github/workflows/public-player0-request-copy-proof.yml
+      - tools/test_player0_request_copy_json_fixture.c
+      - tools/test_player0_request_copy_json_audit.py
+      - tools/verify_public_player0_request_copy.py
+      - tools/test_original_player0_request_44byte_poststore.c
+      - tools/alternate_mgba_capture_player_copy.c
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-memory-only-proof-round-trip:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout immutable public source only
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Test actual 44-byte C observer to strict Python verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e 'Pokemon Soulgold.gba'
+          test ! -e 'Pokemon Soulgold.sav'
+          python3 tools/test_player0_request_copy_json_audit.py
+          echo 'PUBLIC_ORIGINAL_PLAYER0_44_COPY_TO_PYTHON: PASS FAKE CPU ONLY; native acceptance 0/20'
