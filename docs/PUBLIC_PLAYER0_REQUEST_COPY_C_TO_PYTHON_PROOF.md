@@ -102,3 +102,36 @@ private trace or emulator is staged, read or run in this research patch.
 Do not merge, install, release or count this source-only test as a native
 acceptance case. Native original-game acceptance 0/20 (0%), production 0%,
 and historical two PP-unmatched causes classified 0/2.
+
+
+## Isolated PR67 follow-up: read-only pre-step Thumb instruction fingerprints
+
+Existing fake-only 44-byte request-copy evidence records CPU markers, registers,
+destination byte changes and source/destination identity, but no original
+instruction halfwords at ENTRY_PC 0x0806B372, STORE_PC 0x0806B3C0, POST_PC
+0x0806B3C8. New C observer records their PRE-step Thumb 16-bit halfwords
+using its existing read8 callback, in append-only Proof ABI fields:
+entry_insn, store_insn and post_insn. Every one of 44 pre-step STORE_PC
+observations must yield the SAME nonzero halfword; an intervening opcode
+mutation fails closed with error 11 before counting the changed byte.
+Entry and post markers also require nonzero halfwords. The public JSON
+bridge is explicitly incompatible v3, and strict Python rejects missing,
+zero, oversized or boolean halfword fields.
+
+A new pure byte-image parity helper compares the three observations with
+the same fixed CPU addresses on a supplied **public synthetic 2-MiB image**.
+It reads no files and does not authenticate any image hash. The C FAKE
+core generates instruction words 0x2101/0x7003/0x4718 deliberately; these
+values are NOT original Pokémon ROM instruction bytes. A mutation to the
+store opcode after seven synthetic steps, changes in supplied image bytes,
+and tampered JSON are negative controls. Exact original modified-ROM
+identity and real CPU execution are still NOT proved. Future owner-local
+private attestation would need a separately authorized authenticated
+immutable ROM and actual emulator trace; none are read or executed here.
+
+PR67 is an isolated child of PR64, itself independent-review pending,
+and does not touch approved PR62 or PR61, main/source-first or Current
+ROM/save. This is source-only evidence instrumentation, not playable
+native gameplay, one-use engine request authority, effective legality,
+PP debit/cancellation, outcome decision or manual fallback certification.
+Original native 0/20 = 0%, production 0%, historical PP causes 0/2.
