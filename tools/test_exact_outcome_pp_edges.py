@@ -164,7 +164,7 @@ class ExactOutcomePpEdgeTests(unittest.TestCase):
         regs=(v.PP-1,1,0,0,0)
         self.assertEqual(v.observed_thumb_strb_address(0x5443,regs),v.PP)
         self.assertIsNone(v.observed_thumb_strb_address(0x5C43,regs))
-        self.assertIsNone(v.observed_thumb_strb_address(0x54C3,regs))
+        self.assertEqual(v.observed_thumb_strb_address(0x54C3,regs),v.PP-1)
         self.assertIsNone(v.observed_thumb_strb_address(0x5443,
                                                         (0xFFFFFFFF,1,0,0,0)))
 
