@@ -80,3 +80,25 @@ approval.
 Formal native modified-game acceptance **0/20 (0%)**.
 Production player0 Smart Auto-Battle **0%**.
 Unmatched PP causes resolved **0/2**.
+
+## Isolated PR65 follow-up: one CPU step, one CPU identity
+
+The original C observer can emit an instruction marker before stepping
+and multiple changed-memory watcher records after that same step. The v2
+Python auditor previously allowed multiple records with the same step and
+PC to disagree about the **opcode, CPU registers or frame**, which permits
+an internally split/spliced step to masquerade as a corroborated native
+PP/terminal observation. It now requires one exact (frame, PC, opcode,
+r0..r4) snapshot for all records in a single step, while still allowing
+observed RAM/context fields to change due to the step. The fixed top-level
+trace envelope also rejects extra client-supplied promotion claims and
+boolean stand-ins for the status or guest-write integer fields.
+
+Public-only synthetic tests exercise an actual marker+memory-change
+same-step pair, plus opcode/register/frame corruption, injected promotion
+metadata, and boolean schema misuse. The approved/other draft SHA heads
+are not modified. This is a stricter source-evidence consumer, **not**
+proof of an original game instruction, action-ownership lease, PP cause,
+original outcome identity, full overworld return or production readiness.
+Real modified-ROM native acceptance remains 0/20 (0%), production 0%,
+old two PP-unmatched submissions 0/2. No private game assets staged or run.
