@@ -277,7 +277,7 @@
 +    preRequestResources = gBattleResources;
 +    foe = GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT);
 +    if (verifyReply)
-++        moveInfo = (struct ChooseMoveStruct *)&gBattleResources->bufferA[battler][4];
++        moveInfo = (struct ChooseMoveStruct *)&gBattleResources->bufferA[battler][4];
 +    /* Freeze the ORIGINAL engine-owned command payload before any
 +     * move-limit or targeting helper; command byte alone is not an epoch. */
 +    if (verifyReply)
@@ -300,7 +300,7 @@
 +    if (gBattleControllerExecFlags != preRequestControllerFlags ||
 +        (const void *)gBattleResources != preRequestResources)
 +        return FALSE;
-++    /* Restrictions may trigger engine side effects. Recheck ownership and
++    /* Restrictions may trigger engine side effects. Recheck ownership and
 +     * command after that call, before producing any automatic reply. */
 +    if (verifyReply && (!SourceFirstWildSingleOwner(battler) ||
 +        gBattleTurnCounter != sSourceFirstWildLease.turnCounter ||
@@ -483,7 +483,7 @@
 +            (const void *)gBattleResources != preRequestResources)
 +            return FALSE;
 +        /* A stale command buffer can retain its first byte while its
-++         * engine-owned payload or another move-menu slot has changed.
++         * engine-owned payload or another move-menu slot has changed.
 +         * Deny before skipping an ineligible slot or committing a reply. */
 +        if (!verifyReply)
 +        {

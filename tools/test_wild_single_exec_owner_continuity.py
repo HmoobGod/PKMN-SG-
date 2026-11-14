@@ -62,6 +62,9 @@ class ExecOwnerTests(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token,self.diff)
                 self.assertFalse(checked(self.diff.replace(token,token.replace("!=","=="),1)))
+    def test_no_literal_double_plus_added_c_lines(self):
+        self.assertEqual([line for line in self.diff.splitlines()
+                          if line.startswith("++") and not line.startswith("+++")],[])
     def test_owner_mask_changes_even_if_player0_bit_stays_set(self):
         old=Context()
         self.assertNotEqual(old,replace(old,original_exec_mask=old.original_exec_mask|8))
