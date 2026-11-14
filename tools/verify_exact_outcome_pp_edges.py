@@ -71,6 +71,13 @@ def audit(data):
     prev_frame = prev_step = prev_pc = -1
     seen_edges = set()
     last_cpu_snapshot = None
+    last_poststep_context = None
+    last_poststep_step = None
+    prior_watched_after = {}
+    # C samples all poststep watcher values from the same live core.
+    # A trace cannot mix contradictory poststates for one CPU step.
+    watcher_value_fields = {2: 'inbattle', 3: 'callback1', 4: 'callback2',
+                            9: 'flags', 10: 'pending'}
     for e in rows:
         require(type(e) is dict and set(e) == FIELDS and
                 all(type(e[k]) is int and 0 <= e[k] <= 0xFFFFFFFF for k in FIELDS),
@@ -131,6 +138,27 @@ def audit(data):
                 require(pc == 0x08094380, "wrong original target commit PC")
                 targets += 1
         else:
+            # sg_edge_append samples the watcher's `after` value and the
+            # live snapshot only AFTER step(core). They must agree exactly.
+            expected_context_field = watcher_value_fields.get(kind)
+            if expected_context_field is not None:
+                require(e[expected_context_field] == e["after"],
+                        "poststep watcher and live RAM snapshot disagree")
+            # Each PP slot is its own watcher; never link one slot's
+            # previous byte to a different party move slot.
+            watch_key = (kind, e["slot"]) if kind == 5 else kind
+            if watch_key in prior_watched_after:
+                require(prior_watched_after[watch_key] == e["before"],
+                        "watcher chronology skips a changed RAM value")
+            prior_watched_after[watch_key] = e["after"]
+            context = tuple(e[k] for k in
+                ("flags", "battlers", "pending", "inbattle", "callback1", "callback2"))
+            if last_poststep_step == step:
+                require(last_poststep_context == context,
+                        "one CPU step has contradictory poststep RAM snapshots")
+            else:
+                last_poststep_step = step
+                last_poststep_context = context
             require(e["before"] != e["after"], "non-changing memory edge")
             require(e["slot"] == 255 if kind != 5 else 0 <= e["slot"] < 4,
                     "invalid PP slot / watcher slot")

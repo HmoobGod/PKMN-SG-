@@ -23,7 +23,7 @@ def fixture():
         row(6,1,0x0806BD80,r0=0,r2=10),
         row(7,3,0x0806B370,r0=0,r1=1,r3=6),
         row(5,12,0x0809E6BA,v.PP,20,19,0,r1=v.PP),
-        row(2,20,0x081C1234, v.MAIN+0x439,2,0),
+        row(2,20,0x081C1234, v.MAIN+0x439,2,0,inbattle=0),
         row(3,24,0x0808E33C,v.MAIN,0x0808CBDD,0x081C7589,
             r4=v.MAIN,callback1=0x081C7589),
         row(4,27,0x081AED58,v.MAIN+4,0x0808F225,0x080C4265,
@@ -33,13 +33,58 @@ def fixture():
 
 
 class ExactOutcomePpEdgeTests(unittest.TestCase):
+    def test_every_poststep_watcher_value_matches_live_snapshot(self):
+        self.assertFalse(v.audit(fixture())["production_promotion_authorized"])
+        for index, field in ((3,"inbattle"),(4,"callback1"),(5,"callback2")):
+            with self.subTest(kind=fixture()["events"][index]["kind"]):
+                d=fixture()
+                d["events"][index][field]=d["events"][index]["before"]
+                with self.assertRaisesRegex(ValueError,"poststep watcher"):
+                    v.audit(d)
+        for kind, field, address in ((9,"flags",0x02001AB4),
+                                     (10,"pending",0x02001D2C)):
+            with self.subTest(kind=kind):
+                d=fixture()
+                d["events"].insert(2,row(kind,5,0x08012340,address,4,5)
+                                   if kind==9 else
+                                   row(kind,5,0x08012340,address,0,1))
+                with self.assertRaisesRegex(ValueError,"poststep watcher"):
+                    v.audit(d)
+
+    def test_changed_flag_and_pending_snapshots_succeed(self):
+        d=fixture()
+        d["events"].insert(2,row(9,5,0x08012340,0x02001AB4,4,5,flags=5))
+        d["events"].insert(3,row(10,7,0x08012340,0x02001D2C,0,1,pending=1))
+        self.assertFalse(v.audit(d)["full_native_terminal_certified"])
+
+    def test_missing_watcher_intermediate_value_denied(self):
+        d=fixture()
+        d["events"].insert(2,row(9,5,0x08012340,0x02001AB4,4,5,flags=5))
+        d["events"].insert(3,row(9,7,0x08012340,0x02001AB4,3,4,flags=4))
+        with self.assertRaisesRegex(ValueError,"watcher chronology"):
+            v.audit(d)
+
+    def test_two_poststep_changes_on_same_cpu_step_agree(self):
+        d=fixture()
+        # One instruction changed both Main and Callback1; C emits one
+        # poststep record for each. Same CPU snapshot and same final RAM
+        # context even though their before/after bytes differ.
+        a,b=d["events"][3],d["events"][4]
+        b.update(step=a["step"],frame=a["frame"],pc=a["pc"],r4=a["r4"],
+                 inbattle=0)
+        a["callback1"]=b["after"]
+        self.assertFalse(v.audit(d)["production_promotion_authorized"])
+        b["pending"]=1
+        with self.assertRaisesRegex(ValueError,"contradictory poststep"):
+            v.audit(d)
+
     @staticmethod
     def shared_step_pair():
         d=fixture()
         # Marker is PRE-step; FLAGS watcher fires POST-step. Same C CPU
         # snapshot, but changed RAM/context fields need not be identical.
         d["events"].insert(1,row(9,1,0x0806BD80,0x02001AB4,4,5,
-                                 r0=0,r2=10))
+                                 r0=0,r2=10,flags=5))
         return d
 
     def test_original_marker_and_memory_change_share_one_cpu_step(self):

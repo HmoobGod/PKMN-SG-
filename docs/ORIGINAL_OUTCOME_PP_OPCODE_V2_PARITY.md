@@ -102,3 +102,32 @@ proof of an original game instruction, action-ownership lease, PP cause,
 original outcome identity, full overworld return or production readiness.
 Real modified-ROM native acceptance remains 0/20 (0%), production 0%,
 old two PP-unmatched submissions 0/2. No private game assets staged or run.
+
+
+## Isolated PR66: watcher after-value binding and chronology (public synthetic)
+
+The original C observer steps its guest CPU first, then records each
+changed RAM watcher together with the poststep live core snapshot. The prior
+v2 Python verifier checked addresses/before-after values, but could accept
+a changed Main.inBattle, callback1/2, flags or pending watcher whose
+poststep field contradicted its own recorded after-value. This patch
+fails closed on such contradictions. It also requires subsequent edges
+of the **same watcher** to begin at its last observed after-value,
+with PP slots tracked separately; all poststep watcher rows attributed
+to the *same* CPU instruction must share the final poststep context.
+PRE-step instruction markers retain their own prestate and are never
+incorrectly forced to equal the poststate.
+
+Public negative tests cover forged Main/Callback/Flags/Pending snapshots,
+missing intermediate watcher history, and multiple poststep records with
+contradictory contexts. Legitimate simulated multi-watcher same-step
+mutations and per-watcher continuity are permitted. This does not
+certify a ROM instruction or a truthful original emulator transcript:
+only authenticated owner-local, separately authorized replay could do
+that. No private ROM/save/emulator is accessed by this source patch.
+
+This is an isolated research child of PR65 (itself pending independent
+Claude exact-head review); PR65, PR63, protected main/source-first,
+approved original heads and Current ROM/save remain unmodified.
+Native modified-game acceptance 0/20 (0%), production 0%; historical
+two PP-unmatched causes classified 0/2. DRAFT, not promotion-ready.
