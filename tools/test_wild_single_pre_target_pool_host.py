@@ -165,7 +165,7 @@ def extract_exact_function():
     added = "\n".join(line[1:] for line in patch.splitlines()
                       if line.startswith("+") and not line.startswith("+++"))
     start = added.index("static bool32 SourceFirstWildSingleMove(")
-    end = added.index("static void PlayerHandleChooseAction(", start)
+    end = added.index("u32 proposedSlot = MAX_MON_MOVES;", start)
     func = added[start:end]
     if func.count("static bool32 SourceFirstWildSingleMove(") != 1:
         raise RuntimeError("ambiguous real C function")
