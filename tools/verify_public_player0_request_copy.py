@@ -94,6 +94,8 @@ def audit_proof(proof):
             "decoded Thumb instruction did not address each copied byte")
     require(proof["store_encoded_source_bytes"] == proof["store_values"],
             "decoded Thumb Rt source does not match observed stores")
+    require(proof["pending_entry"] == proof["pending_post"],
+            "original request pending word changed during copy")
     require(proof["entry_frame"] == proof["post_frame"] and
             proof["begin_frame"] <= proof["entry_frame"] <= proof["end_frame"]
             and proof["end_frame"] - proof["begin_frame"] <= 10000,
@@ -114,6 +116,7 @@ def audit_proof(proof):
         "all_44_poststep_destination_changes_witnessed_in_fixture": True,
         "public_fake_cpu_opcode_triplet_recorded": True,
         "all_44_public_thumb_strb_operand_addresses_and_bytes_checked": True,
+        "public_original_request_pointer_and_pending_continuity_checked": True,
         "original_modified_rom_instruction_pc_attested": False,
         "engine_owned_one_use_request_epoch_certified": False,
         "effective_move_target_legality_certified": False,
@@ -159,7 +162,8 @@ def audit_public_fixture(raw):
                 "missing_callback", "preexisting_equal", "opcode_drift",
                 "transient_dest", "transient_source",
                 "wrong_thumb_target", "wrong_thumb_source",
-                "not_thumb_byte_store"},
+                "not_thumb_byte_store", "transient_buffer_pointer",
+                "transient_pending_word", "entry_pending_drift"},
             "unknown request-copy fixture mode/schema")
     return audit_proof(raw["proof"])
 
