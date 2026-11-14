@@ -38,6 +38,20 @@ ARRAYS=(
     ("MAX_MON_ITEMS_INTERNAL","preTargetPlayerItems","items"),
 )
 
+# An assertion that the original snapshot appears *somewhere* before a
+# helper is insufficient: a later re-baseline can launder a mutated field.
+# Require exactly one write to every frozen scalar and array in the entire
+# selection function, not just the expected spelling of its first write.
+SCALARS=tuple(re.search(r"\\b(preTarget\\w+)\\s*=", c).group(1)
+              for c in CAPTURE)
+ASSIGNMENT=r"(?:=(?!=)|(?:<<|>>|[+*/%&|^-])=|\\+\\+|--)"
+
+def freeze_written_once(code, name, array=False):
+    target=(rf"\\b{re.escape(name)}\\s*\\[[^\\]\\n]+\\]"
+            if array else rf"\\b{re.escape(name)}\\b")
+    writes=re.findall(target+rf"\\s*{ASSIGNMENT}",code)
+    return len(writes)==1
+
 
 def added(diff):
     if not diff.startswith("--- a/src/battle_controller_player.c\n"
@@ -66,6 +80,11 @@ def player_gate_valid(diff):
         for c in CAPTURE:
             if code.count(c)!=1 or code.index(c)>helper:
                 return False
+        # Hard gate against overwritten "frozen" baselines. These checks
+        # scan the *entire* function, so a write after helper A, after the
+        # eligibility skip, or before helper B cannot be accepted.
+        if any(not freeze_written_once(code,name) for name in SCALARS):
+            return False
         for c in COMPARE:
             if code.count(c)!=1 or not next_helper<code.index(c)<skip:
                 return False
@@ -82,6 +101,8 @@ def player_gate_valid(diff):
             if not(code.index(freeze)<helper<code.index(check)<skip):
                 return False
             if code.count(f"{name}[poolSlot]")!=2:
+                return False
+            if not freeze_written_once(code,name,array=True):
                 return False
         pattern=(r"if\s*\(!verifyReply\)\s*\{\s*"
                  r"if\s*\(\s*gBattleMons\[battler\]\.species\s*!=\s*preTargetPlayerSpecies\s*\|\|"
@@ -144,6 +165,58 @@ class FirstStagePlayerContinuity(unittest.TestCase):
                     self.assertIn(x,self.patch)
                     self.assertFalse(player_gate_valid(
                         self.patch.replace(x,x.replace(n,"1",1),1)))
+
+    def test_rebaseline_each_scalar_after_target_helper_denied(self):
+        # Claude B1: previously an overwritten freeze could pass the
+        # structural gate, even though actual auto selection then accepted
+        # a helper-mutated field as if it were the original baseline.
+        insertion="+        /* A targeting helper may mutate an EARLIER or LATER move/PP slot."
+        self.assertIn(insertion,self.patch)
+        for cap,name in zip(CAPTURE,SCALARS):
+            field=cap.split(" = ",1)[1].removesuffix(";")
+            with self.subTest(scalar=name):
+                mutant=self.patch.replace(
+                    insertion,f"+        {name} = {field};\\n"+insertion,1)
+                self.assertFalse(player_gate_valid(mutant))
+
+    def test_rebaseline_every_array_element_after_helper_denied(self):
+        insertion="+        /* A targeting helper may mutate an EARLIER or LATER move/PP slot."
+        self.assertIn(insertion,self.patch)
+        for length,name,field in ARRAYS:
+            # Actual pinned public source has 3 types, 3 innates, 2 items.
+            count={"3":3,"MAX_MON_INNATES_INTERNAL":3,
+                   "MAX_MON_ITEMS_INTERNAL":2}[length]
+            for index in range(count):
+                with self.subTest(array=name,index=index):
+                    overwrite=(f"+        {name}[{index}] = "
+                               f"gBattleMons[battler].{field}[{index}];")
+                    mutant=self.patch.replace(
+                        insertion,overwrite+"\\n"+insertion,1)
+                    self.assertFalse(player_gate_valid(mutant))
+
+    def test_compound_assignments_and_increments_rejected(self):
+        insertion="+        /* A targeting helper may mutate an EARLIER or LATER move/PP slot."
+        for mutation in ("preTargetPlayerHp += 1;",
+                         "preTargetTaunt++;",
+                         "preTargetPlayerAbility ^= 1;",
+                         "preTargetPlayerTypes[2]++;",
+                         "preTargetPlayerInnates[0] += 1;",
+                         "preTargetPlayerItems[1]--;"):
+            with self.subTest(write=mutation):
+                self.assertFalse(player_gate_valid(
+                    self.patch.replace(
+                        insertion,"+        "+mutation+"\\n"+insertion,1)))
+
+    def test_original_scalar_and_array_freezes_written_once(self):
+        # Positive assertion on the actual added controller source, not
+        # just a toy model's before == after comparison.
+        code=added(self.patch)
+        for name in SCALARS:
+            with self.subTest(scalar=name):
+                self.assertTrue(freeze_written_once(code,name))
+        for _,name,_ in ARRAYS:
+            with self.subTest(array=name):
+                self.assertTrue(freeze_written_once(code,name,array=True))
 
     def test_no_dead_guards_or_tautologies(self):
         x=CAPTURE[0]
