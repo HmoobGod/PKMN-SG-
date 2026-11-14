@@ -42,25 +42,21 @@ def observed_thumb_strb_address(opcode, registers):
     """Decode only original Thumb-1 byte stores with captured address regs.
 
     Supports STRB immediate and register-offset forms, not arbitrary load/
-    store opcodes or unrecorded high-register state. None means UNPROVEN,
+    store opcodes or unknown/non-Thumb pre-step origins. None means UNPROVEN,
     not that an original action failed or was cancelled.
     """
     require(type(opcode) is int and 0 <= opcode <= 0xFFFF,
             "invalid Thumb store halfword")
-    require(type(registers) in (tuple, list) and len(registers) == 5 and
+    require(type(registers) in (tuple, list) and len(registers) == 8 and
             all(type(x) is int and 0 <= x <= 0xFFFFFFFF for x in registers),
-            "missing original CPU register snapshot")
+            "missing original CPU r0-r7 register snapshot")
     if opcode & 0xF800 == 0x7000:  # Thumb STRB Rt,[Rb,#imm5]
         rb = (opcode >> 3) & 7
         imm = (opcode >> 6) & 31
-        if rb >= 5:
-            return None
         address = registers[rb] + imm
     elif opcode & 0xFE00 == 0x5400:  # Thumb STRB Rt,[Rb,Rm]
         rb = (opcode >> 3) & 7
         rm = (opcode >> 6) & 7
-        if rb >= 5 or rm >= 5:
-            return None
         address = registers[rb] + registers[rm]
     else:
         return None
@@ -230,10 +226,9 @@ def audit(data):
                 # a Thumb byte STORE whose computed effective address is
                 # this one player-owned PP slot. A nonstore or unknown
                 # register operand is only an observed PP byte change.
-                regs = tuple(e["r"+str(i)] for i in range(5))
+                regs = tuple(e["r"+str(i)] for i in range(8))
                 effective = observed_thumb_strb_address(e["opcode"], regs)
-                source = observed_thumb_strb_source_byte(
-                    e["opcode"], tuple(e["r"+str(i)] for i in range(8)))
+                source = observed_thumb_strb_source_byte(e["opcode"], regs)
                 if (pc == 0x0809E6BA and effective == e["address"] and
                     source == e["after"] and
                     e["before"] == e["after"]+1):
