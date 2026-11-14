@@ -227,11 +227,18 @@ class PlayerProposalTargetContinuityTests(unittest.TestCase):
     def test_no_enemy_hidden_moves_items_or_ai_writes_added(self):
         s = added_source(self.diff)
         for forbidden in ("gBattleMons[foe].moves", "gBattleMons[foe].pp",
-                          "gBattleMons[foe].items", "gBattleMons[foe].innates",
                           "gBattlerControllerFuncs[foe] =",
                           "B_ACTION_USE_ITEM", "B_ACTION_SWITCH",
                           "B_ACTION_RUN"):
             self.assertNotIn(forbidden, s)
+        # A passive read of foe items/innates is required to prevent target
+        # helper drift. The safety rule is NO OPPONENT WRITES, not no reads.
+        import re
+        for who in ("foe", "sSourceFirstWildLease.foe"):
+            for field in ("items", "innates"):
+                pat = (re.escape(f"gBattleMons[{who}].{field}[")+
+                       r"[^]]+\]\s*(?:=(?!=)|[+*/%&|^-]=|\+\+|--)")
+                self.assertIsNone(re.search(pat,s))
 
 
 if __name__ == "__main__":

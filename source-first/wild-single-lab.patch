@@ -18,7 +18,7 @@
          if (gBattleResources->bufferA[battler][0] < ARRAY_COUNT(sPlayerBufferCommands))
              sPlayerBufferCommands[gBattleResources->bufferA[battler][0]](battler);
          else
-@@ -2191,9 +2198,412 @@
+@@ -2191,9 +2198,484 @@
      }
  }
  
@@ -96,6 +96,15 @@
 +    u16 foeHp;
 +    u32 foeStatus1;
 +    enum Ability foeAbility;
++    /* Both original selection stages must retain the opponent's remaining
++     * target-affecting state; neither stage may modify foe AI/actions. */
++    enum Item foeItem;
++    enum Item foeItems[MAX_MON_ITEMS_INTERNAL];
++    enum Ability foeInnates[MAX_MON_INNATES_INTERNAL];
++    u32 foeTauntTimer;
++    u32 foeDisableTimer;
++    u32 foeEncoreTimer;
++    u32 foeTormentTimer;
 +} sSourceFirstWildLease;
 +
 +static void SourceFirstInvalidateWildLease(void)
@@ -125,10 +134,19 @@
 +    sSourceFirstWildLease.foeHp = gBattleMons[sSourceFirstWildLease.foe].hp;
 +    sSourceFirstWildLease.foeStatus1 = gBattleMons[sSourceFirstWildLease.foe].status1;
 +    sSourceFirstWildLease.foeAbility = gBattleMons[sSourceFirstWildLease.foe].ability;
++    sSourceFirstWildLease.foeItem = gBattleMons[sSourceFirstWildLease.foe].item;
++    sSourceFirstWildLease.foeTauntTimer = gBattleMons[sSourceFirstWildLease.foe].volatiles.tauntTimer;
++    sSourceFirstWildLease.foeDisableTimer = gBattleMons[sSourceFirstWildLease.foe].volatiles.disableTimer;
++    sSourceFirstWildLease.foeEncoreTimer = gBattleMons[sSourceFirstWildLease.foe].volatiles.encoreTimer;
++    sSourceFirstWildLease.foeTormentTimer = gBattleMons[sSourceFirstWildLease.foe].volatiles.tormentTimer;
 +    for (slot = 0; slot < MAX_MON_ITEMS_INTERNAL; slot++)
 +        sSourceFirstWildLease.items[slot] = gBattleMons[battler].items[slot];
 +    for (slot = 0; slot < MAX_MON_INNATES_INTERNAL; slot++)
 +        sSourceFirstWildLease.innates[slot] = gBattleMons[battler].innates[slot];
++    for (slot = 0; slot < MAX_MON_ITEMS_INTERNAL; slot++)
++        sSourceFirstWildLease.foeItems[slot] = gBattleMons[sSourceFirstWildLease.foe].items[slot];
++    for (slot = 0; slot < MAX_MON_INNATES_INTERNAL; slot++)
++        sSourceFirstWildLease.foeInnates[slot] = gBattleMons[sSourceFirstWildLease.foe].innates[slot];
 +    for (slot = 0; slot < 3; slot++)
 +    {
 +        sSourceFirstWildLease.types[slot] = gBattleMons[battler].types[slot];
@@ -169,6 +187,24 @@
 +        gBattleMons[sSourceFirstWildLease.foe].status1 != sSourceFirstWildLease.foeStatus1 ||
 +        gBattleMons[sSourceFirstWildLease.foe].ability != sSourceFirstWildLease.foeAbility)
 +        return FALSE;
++    if (gBattleMons[sSourceFirstWildLease.foe].item != sSourceFirstWildLease.foeItem ||
++        gBattleMons[sSourceFirstWildLease.foe].volatiles.tauntTimer != sSourceFirstWildLease.foeTauntTimer ||
++        gBattleMons[sSourceFirstWildLease.foe].volatiles.disableTimer != sSourceFirstWildLease.foeDisableTimer ||
++        gBattleMons[sSourceFirstWildLease.foe].volatiles.encoreTimer != sSourceFirstWildLease.foeEncoreTimer ||
++        gBattleMons[sSourceFirstWildLease.foe].volatiles.tormentTimer != sSourceFirstWildLease.foeTormentTimer)
++        return FALSE;
++    for (slot = 0; slot < MAX_MON_ITEMS_INTERNAL; slot++)
++    {
++        if (sSourceFirstWildLease.foeItems[slot] !=
++            gBattleMons[sSourceFirstWildLease.foe].items[slot])
++            return FALSE;
++    }
++    for (slot = 0; slot < MAX_MON_INNATES_INTERNAL; slot++)
++    {
++        if (sSourceFirstWildLease.foeInnates[slot] !=
++            gBattleMons[sSourceFirstWildLease.foe].innates[slot])
++            return FALSE;
++    }
 +    for (slot = 0; slot < MAX_MON_ITEMS_INTERNAL; slot++)
 +    {
 +        if (sSourceFirstWildLease.items[slot] != gBattleMons[battler].items[slot])
@@ -275,6 +311,20 @@
 +    for (poolSlot = 0; poolSlot < 3; poolSlot++)
 +        preTargetFoeTypes[poolSlot] = gBattleMons[foe].types[poolSlot];
 +
++    /* Freeze foe item, passive abilities and volatile target rules BEFORE
++     * any target helper. A later helper must not re-baseline these fields. */
++    enum Item preTargetFoeItem = gBattleMons[foe].item;
++    u32 preTargetFoeTaunt = gBattleMons[foe].volatiles.tauntTimer;
++    u32 preTargetFoeDisable = gBattleMons[foe].volatiles.disableTimer;
++    u32 preTargetFoeEncore = gBattleMons[foe].volatiles.encoreTimer;
++    u32 preTargetFoeTorment = gBattleMons[foe].volatiles.tormentTimer;
++    enum Item preTargetFoeItems[MAX_MON_ITEMS_INTERNAL];
++    enum Ability preTargetFoeInnates[MAX_MON_INNATES_INTERNAL];
++    for (poolSlot = 0; poolSlot < MAX_MON_ITEMS_INTERNAL; poolSlot++)
++        preTargetFoeItems[poolSlot] = gBattleMons[foe].items[poolSlot];
++    for (poolSlot = 0; poolSlot < MAX_MON_INNATES_INTERNAL; poolSlot++)
++        preTargetFoeInnates[poolSlot] = gBattleMons[foe].innates[poolSlot];
++
 +    /* Freeze all player-owned moves and PP once BEFORE any candidate helper.
 +     * Do not silently select a later slot from a mutated live move pool. */
 +    if (!verifyReply)
@@ -361,6 +411,28 @@
 +                    return FALSE;
 +            }
 +        }
++        /* Reject foe-held items, passive abilities and volatile timers
++         * changed by either targeting helper before skipping this slot or
++         * arming a new lease. The foe's actions are never modified here. */
++        if (!verifyReply)
++        {
++            if (gBattleMons[foe].item != preTargetFoeItem ||
++                gBattleMons[foe].volatiles.tauntTimer != preTargetFoeTaunt ||
++                gBattleMons[foe].volatiles.disableTimer != preTargetFoeDisable ||
++                gBattleMons[foe].volatiles.encoreTimer != preTargetFoeEncore ||
++                gBattleMons[foe].volatiles.tormentTimer != preTargetFoeTorment)
++                return FALSE;
++            for (poolSlot = 0; poolSlot < MAX_MON_ITEMS_INTERNAL; poolSlot++)
++            {
++                if (gBattleMons[foe].items[poolSlot] != preTargetFoeItems[poolSlot])
++                    return FALSE;
++            }
++            for (poolSlot = 0; poolSlot < MAX_MON_INNATES_INTERNAL; poolSlot++)
++            {
++                if (gBattleMons[foe].innates[poolSlot] != preTargetFoeInnates[poolSlot])
++                    return FALSE;
++            }
++        }
 +        /* Source-LAB action proposal: targeting helpers must not silently
 +         * change the original player0 ChooseAction request, selected move,
 +         * PP, foe or active owner before Fight is submitted. */
@@ -431,7 +503,7 @@
  
      gBattlerControllerFuncs[battler] = HandleChooseActionAfterDma3;
      BattleTv_ClearExplosionFaintCause();
-@@ -2291,6 +2701,19 @@
+@@ -2291,6 +2773,19 @@
  
  void PlayerHandleChooseMove(enum BattlerId battler)
  {

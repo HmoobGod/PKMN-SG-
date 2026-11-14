@@ -52,6 +52,7 @@ jobs:
           python3 tools/test_wild_single_pre_target_pool.py
           python3 tools/test_wild_single_pre_target_foe_combat.py
           python3 tools/test_wild_single_pre_target_player_state.py
+          python3 tools/test_wild_single_pre_target_foe_effects.py
           python3 tools/test_exact_modified_autoplay.py
           python3 tools/test_second_wild_auto.py
           python3 tools/test_exact_terminal_gate.py

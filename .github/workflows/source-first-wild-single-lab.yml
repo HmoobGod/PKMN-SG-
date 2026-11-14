@@ -13,6 +13,7 @@ on:
       - lab/player0-proposal-target-continuity-20261113
       - lab/player0-pretarget-movepool-continuity-20261113
       - lab/player0-pretarget-foe-combat-drift-20261114
+      - lab/player0-pretarget-player-volatiles-20261114
     paths:
       - .github/workflows/source-first-wild-single-lab.yml
       - source-first/wild-single-lab.patch
@@ -20,6 +21,7 @@ on:
       - tools/test_wild_single_pre_target_pool.py
       - tools/test_wild_single_pre_target_foe_combat.py
       - tools/test_wild_single_pre_target_player_state.py
+      - tools/test_wild_single_pre_target_foe_effects.py
   workflow_dispatch:
 
 permissions:
@@ -48,6 +50,7 @@ jobs:
           python3 tools/test_wild_single_pre_target_pool.py
           python3 tools/test_wild_single_pre_target_foe_combat.py
           python3 tools/test_wild_single_pre_target_player_state.py
+          python3 tools/test_wild_single_pre_target_foe_effects.py
           python3 tools/test_wild_single_action_recheck.py
 
       - name: Clone exact upstream source in disposable workspace
