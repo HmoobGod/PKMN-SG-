@@ -42,14 +42,14 @@ ARRAYS=(
 # helper is insufficient: a later re-baseline can launder a mutated field.
 # Require exactly one write to every frozen scalar and array in the entire
 # selection function, not just the expected spelling of its first write.
-SCALARS=tuple(re.search(r"\\b(preTarget\\w+)\\s*=", c).group(1)
+SCALARS=tuple(re.search(r"\b(preTarget\w+)\s*=", c).group(1)
               for c in CAPTURE)
-ASSIGNMENT=r"(?:=(?!=)|(?:<<|>>|[+*/%&|^-])=|\\+\\+|--)"
+ASSIGNMENT=r"(?:=(?!=)|(?:<<|>>|[+*/%&|^-])=|\+\+|--)"
 
 def freeze_written_once(code, name, array=False):
-    target=(rf"\\b{re.escape(name)}\\s*\\[[^\\]\\n]+\\]"
-            if array else rf"\\b{re.escape(name)}\\b")
-    writes=re.findall(target+rf"\\s*{ASSIGNMENT}",code)
+    target=(rf"\b{re.escape(name)}\s*\[[^\]\n]+\]"
+            if array else rf"\b{re.escape(name)}\b")
+    writes=re.findall(target+rf"\s*{ASSIGNMENT}",code)
     return len(writes)==1
 
 
@@ -176,7 +176,7 @@ class FirstStagePlayerContinuity(unittest.TestCase):
             field=cap.split(" = ",1)[1].removesuffix(";")
             with self.subTest(scalar=name):
                 mutant=self.patch.replace(
-                    insertion,f"+        {name} = {field};\\n"+insertion,1)
+                    insertion,f"+        {name} = {field};\n"+insertion,1)
                 self.assertFalse(player_gate_valid(mutant))
 
     def test_rebaseline_every_array_element_after_helper_denied(self):
@@ -191,7 +191,7 @@ class FirstStagePlayerContinuity(unittest.TestCase):
                     overwrite=(f"+        {name}[{index}] = "
                                f"gBattleMons[battler].{field}[{index}];")
                     mutant=self.patch.replace(
-                        insertion,overwrite+"\\n"+insertion,1)
+                        insertion,overwrite+"\n"+insertion,1)
                     self.assertFalse(player_gate_valid(mutant))
 
     def test_compound_assignments_and_increments_rejected(self):
@@ -205,7 +205,7 @@ class FirstStagePlayerContinuity(unittest.TestCase):
             with self.subTest(write=mutation):
                 self.assertFalse(player_gate_valid(
                     self.patch.replace(
-                        insertion,"+        "+mutation+"\\n"+insertion,1)))
+                        insertion,"+        "+mutation+"\n"+insertion,1)))
 
     def test_original_scalar_and_array_freezes_written_once(self):
         # Positive assertion on the actual added controller source, not
