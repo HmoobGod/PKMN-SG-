@@ -135,3 +135,31 @@ ROM/save. This is source-only evidence instrumentation, not playable
 native gameplay, one-use engine request authority, effective legality,
 PP debit/cancellation, outcome decision or manual fallback certification.
 Original native 0/20 = 0%, production 0%, historical PP causes 0/2.
+
+
+## Isolated follow-up: intermediate byte integrity at every observed store
+
+The source-only read-only C 44-byte request observer originally checked
+the destination's current store byte after each CPU step, but only
+re-checked the full source and destination byte arrays at POST_PC.
+That permits a prior destination byte or unrelated source byte to be
+corrupted by a fake guest and **restored** before the final full-array
+comparison, producing an apparently successful source-only proof.
+
+The observer now checks the entire copied destination prefix AND all
+44 unchanged source bytes after each witnessed STORE_PC step, before
+incrementing its accepted store count. Transient copied-prefix corruption
+fails with error 12 and in-flight source mutation with error 13. Dedicated
+fake-only C modes corrupt byte 0 at store index 7 and would restore it
+at index 8; both are rejected at index 7 (7 stores counted), so the
+later restoration never masks the evidence violation. No guest writes
+are performed by the observer; the fake core alone makes those changes.
+No Proof ABI or JSON schema changes relative to PR67 v3.
+
+This gate increases public trace *internal consistency* but is not an
+authenticated instruction stream, original modified-ROM byte attestation,
+engine-issued one-use request, dynamic legality, PP cause, battle outcome
+or manual fallback. In a real run, a failure is conservatively rejected.
+No protected private ROM/save/savestate or emulator is staged/read/executed,
+and no upstream approved or review-pending head is changed. Formal
+native 0/20 (0%), production 0%, old unmatched PP causes 0/2.
