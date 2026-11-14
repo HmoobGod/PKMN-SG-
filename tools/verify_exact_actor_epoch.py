@@ -28,10 +28,17 @@ def correlate(trace):
     after_battle_clear = False
     for e in trace["events"]:
         kind = e["kind"]
-        if kind == 2 and not (e["after"] & 2):
-            after_battle_clear = True
-        elif kind == 2 and (e["after"] & 2):
-            after_battle_clear = False
+        if kind == 2:
+            # C watcher may report Main bit0-only noise. Only an original
+            # battle-bit1 edge changes the lifetime of an actor0 candidate.
+            if (e["before"] ^ e["after"]) & 2:
+                # A genuine Main clear irrevocably closes the candidate.
+                # A later Main set does NOT resume the old submission;
+                # only a fresh actor0 emitter can start a new one.
+                after_battle_clear = not bool(e["after"] & 2)
+                if after_battle_clear and active is not None:
+                    results.append(active)
+                    active = None
         if kind == 6:
             # A fresh original actor0 emitter is a boundary, NOT a guaranteed
             # new engine-owned request epoch. No double attribution across it.
