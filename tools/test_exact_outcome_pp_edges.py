@@ -445,7 +445,7 @@ class ExactOutcomePpEdgeTests(unittest.TestCase):
         a.update(opcode=0xC403,r0=a["after"],r1=b["after"],r4=v.MAIN,
                  callback2=b["after"])
         b.update(step=a["step"],frame=a["frame"],pc=a["pc"],
-                 opcode=a["opcode"],r0=a["r0"],r1=a["r1"],r4=a["r4"],
+                 opcode=a["opcode"],r0=a["r0"],r1=a["r1"],r3=a["r3"],r4=a["r4"],
                  callback1=a["after"],inbattle=a["inbattle"])
         z=v.audit(d)
         self.assertEqual(z["original_callback_pointer_transitions"],2)
