@@ -121,6 +121,55 @@ class PpMarkerWindowsTests(unittest.TestCase):
         self.assertEqual(z["overlapping_emitter_windows_AMBIGUOUS"],0)
         self.assertEqual(z["windows"][1]["syntactic_pp_candidate_count"],1)
 
+    def test_actor0_emitter_during_same_cpu_step_as_exit_is_denied(self):
+        d=fixture()
+        m=row(6,20,0x0806BD80,r0=0,r2=10,inbattle=0)
+        exit_e=d["events"][3]
+        exit_e.update(pc=m["pc"],r0=0,r2=10)
+        d["events"].insert(3,m)
+        z=v.triage(d)
+        self.assertEqual(z["emitter_markers_denied_for_owner_epoch"],1)
+        self.assertEqual(z["original_emitter_marker_windows_unverified"],1)
+        self.assertFalse(z["real_actor0_one_use_engine_request_certified"])
+
+    def test_emitter_after_exit_without_reentry_is_denied(self):
+        d=fixture()
+        d["events"].insert(4,row(6,22,0x0806BD80,r0=0,r2=10,inbattle=0))
+        z=v.triage(d)
+        self.assertEqual(z["emitter_markers_denied_for_owner_epoch"],1)
+        self.assertEqual(z["original_emitter_marker_windows_unverified"],1)
+        self.assertEqual(z["windows"][0]["closed_by"],"manual_or_overworld_boundary")
+
+    def test_new_request_after_witnessed_reentry_is_only_unverified(self):
+        d=fixture()
+        d["events"].insert(4,row(2,22,0x08012346,v.MAIN+0x439,0,2,inbattle=2))
+        d["events"].insert(5,row(6,23,0x0806BD80,r0=0,r2=10,inbattle=2))
+        z=v.triage(d)
+        self.assertEqual(z["emitter_markers_denied_for_owner_epoch"],0)
+        self.assertEqual(z["original_emitter_marker_windows_unverified"],2)
+        self.assertEqual(z["no_syntactic_pp_writer_in_window_UNCLASSIFIED"],1)
+        self.assertFalse(z["real_actor0_one_use_engine_request_certified"])
+
+    def test_reentry_step_emitter_denied_regardless_event_order(self):
+        d=fixture()
+        m=row(6,22,0x0806BD80,r0=0,r2=10,inbattle=2)
+        r=row(2,22,0x0806BD80,v.MAIN+0x439,0,2,inbattle=2,r0=0,r2=10)
+        for ordering in ((r,m),(m,r)):
+            with self.subTest(order=ordering[0]["kind"]):
+                x=copy.deepcopy(d)
+                x["events"][4:4]=list(ordering)
+                z=v.triage(x)
+                self.assertEqual(z["emitter_markers_denied_for_owner_epoch"],1)
+                self.assertEqual(z["original_emitter_marker_windows_unverified"],1)
+                self.assertFalse(z["actual_pp_execution_or_cancellation_certified"])
+
+    def test_emitter_with_inbattle_zero_denied_without_explicit_exit_watcher(self):
+        d=fixture()
+        d["events"].insert(2,row(6,5,0x0806BD80,r0=0,r2=10,inbattle=0))
+        z=v.triage(d)
+        self.assertEqual(z["emitter_markers_denied_for_owner_epoch"],1)
+        self.assertEqual(z["one_syntactic_pp_writer_in_window_unverified"],1)
+
     def test_bad_cpu_identity_field_or_promotion_claim_rejected(self):
         for change in (lambda d:d["events"][2].update(r7=True),
                        lambda d:d.update(production_authorized=True),
