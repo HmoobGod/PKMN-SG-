@@ -38,11 +38,20 @@ def sha(value):
 
 
 def audit(data):
-    require(type(data) is dict and data.get("schema") == SCHEMA, "wrong trace schema")
+    # Never trust a trace-supplied acceptance/privilege field; every top-level
+    # key must belong to the fixed evidence envelope and has strict types.
+    top_fields = {"schema", "current_sha256", "modified_sha256",
+                  "save_sha256", "guest_writes", "host_move_menu_inputs",
+                  "new_hook_installed", "candidate_outcome_byte_address",
+                  "status", "steps", "events"}
+    require(type(data) is dict and set(data) == top_fields and
+            data.get("schema") == SCHEMA, "wrong trace schema/field set")
     require(data.get("current_sha256") == CURRENT and
             data.get("modified_sha256") == MODIFIED and
             data.get("save_sha256") == SAVE, "identity metadata does not match")
-    require(data.get("guest_writes") == 0 and data.get("host_move_menu_inputs") == 0
+    require(type(data.get("guest_writes")) is int and
+            type(data.get("host_move_menu_inputs")) is int and
+            data.get("guest_writes") == 0 and data.get("host_move_menu_inputs") == 0
             and data.get("new_hook_installed") is False,
             "active input/guest writes or installed hook not allowed")
     addr = data.get("candidate_outcome_byte_address")
@@ -51,7 +60,8 @@ def audit(data):
     require(type(addr) is int and (addr == 0 or
             (0x02000000 <= addr <= 0x0203FFFF and addr not in reserved)),
             "outcome address must be absent or a non-overlapping EWRAM candidate")
-    require(data.get("status") == 1 and type(data.get("steps")) is int
+    require(type(data.get("status")) is int and data.get("status") == 1 and
+            type(data.get("steps")) is int
             and 0 < data["steps"] <= 0xFFFFFFFF,
             "only completed bounded original guest stepping is accepted")
     rows = data.get("events")
@@ -60,6 +70,7 @@ def audit(data):
     complete = validator = slots = moves = targets = 0
     prev_frame = prev_step = prev_pc = -1
     seen_edges = set()
+    last_cpu_snapshot = None
     for e in rows:
         require(type(e) is dict and set(e) == FIELDS and
                 all(type(e[k]) is int and 0 <= e[k] <= 0xFFFFFFFF for k in FIELDS),
@@ -75,6 +86,17 @@ def audit(data):
         require(step < data["steps"] and
                 (step > prev_step or (step == prev_step and pc == prev_pc)) and
                 f >= prev_frame, "reordered, duplicated or post-budget guest instructions")
+        # The C collector records each marker before executing one CPU
+        # instruction and memory changes after that SAME step; the original
+        # registers, PC, opcode and frame cannot change among those events.
+        # Watched RAM context may change as a result of the CPU step, so it
+        # must NOT be frozen across pre/post events in the same step.
+        cpu_snapshot = (f, pc, e["opcode"], e["r0"], e["r1"],
+                        e["r2"], e["r3"], e["r4"])
+        if step == prev_step:
+            require(cpu_snapshot == last_cpu_snapshot,
+                    "split or forged original CPU event within one step")
+        last_cpu_snapshot = cpu_snapshot
         edge_key = (step, pc, kind, e["address"], e["slot"])
         require(edge_key not in seen_edges, "duplicated original guest instruction edge")
         seen_edges.add(edge_key)
