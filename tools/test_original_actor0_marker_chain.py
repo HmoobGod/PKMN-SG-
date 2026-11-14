@@ -46,7 +46,9 @@ class OriginalMarkerChainTests(unittest.TestCase):
             with self.subTest(kind=kind):
                 d=synthetic();e=next(x for x in d["events"] if x["kind"]==kind)
                 duplicate=copy.deepcopy(e)
-                duplicate.update(step=e["step"]+1,frame=3980+(e["step"]+1)//4)
+                # Choose an otherwise unused original CPU step; the
+                # fixture's nearby PCs belong to other marker instructions.
+                duplicate.update(step=13,frame=3980+13//4)
                 # Identical PP watcher transitions are not duplicated here;
                 # markers at a new real CPU step are legal but ambiguous.
                 d["events"].append(duplicate)
@@ -85,12 +87,8 @@ class OriginalMarkerChainTests(unittest.TestCase):
         self.assertEqual(count(d),1)
     def test_manual_barrier_denies_even_when_markers_follow(self):
         d=synthetic()
-        d["events"].insert(2,row(8,4,0x0806449C))
-        # Avoid distinct original instruction PC on same step.
-        d["events"][-1]["step"]=6
-        d["events"][-1]["frame"]=3980+6//4
-        # Better: place manual marker at step 2, between emitter and reply.
-        d["events"]=[x for x in d["events"] if x["kind"]!=8]
+        # Place the original manual marker on a genuine separate CPU
+        # step, between emitter and reply; never mutate another fixture row.
         d["events"].append(row(8,2,0x0806449C))
         d["events"].sort(key=lambda x:x["step"])
         self.assertEqual(count(d),0)
