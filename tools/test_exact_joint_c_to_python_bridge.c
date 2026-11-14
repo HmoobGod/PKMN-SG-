@@ -6,9 +6,9 @@
 #ifdef NDEBUG
 #error "Public C observer bridge requires enabled assertions"
 #endif
-#define main sg_existing_fake_context_fixture_main
+#define SG_CONTEXT_MAIN sg_existing_fake_context_fixture_main
 #include "test_exact_joint_player_terminal_context_c.c"
-#undef main
+#undef SG_CONTEXT_MAIN
 #include <inttypes.h>
 #include <stdlib.h>
 
