@@ -96,7 +96,7 @@ class PpMarkerWindowsTests(unittest.TestCase):
         d=fixture()
         d["events"].insert(2,row(6,6,0x0806BD80,r0=0,r2=10))
         z=v.triage(d)
-        self.assertEqual(z["overlapping_emitter_windows_AMBIGUOUS"],1)
+        self.assertEqual(z["overlapping_emitter_windows_AMBIGUOUS"],2)
         self.assertEqual(z["one_syntactic_pp_writer_in_window_unverified"],0)
         self.assertTrue(z["windows"][0]["ambiguous_overlap"])
         self.assertTrue(z["windows"][1]["ambiguous_overlap"])
