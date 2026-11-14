@@ -28,7 +28,7 @@ static void emit_u32(const uint32_t *words, size_t n)
 }
 static void emit(const Proof *p, const char *mode)
 {
-    printf("{\"bridge_schema\":\"sg-public-synthetic-request-copy-v3\",");
+    printf("{\"bridge_schema\":\"sg-public-synthetic-request-copy-v4\",");
     printf("\"mode\":\"%s\",\"proof\":{",mode);
 #define FIELD(name) printf("\"" #name "\":%" PRIu32 ",",p->name)
     FIELD(state);FIELD(error);FIELD(begin_frame);FIELD(end_frame);
@@ -45,6 +45,8 @@ static void emit(const Proof *p, const char *mode)
     printf(",\"store_values\":");emit_u8(p->store_values,SRC_N);
     printf(",\"store_indices\":");emit_u32(p->store_indices,SRC_N);
     printf(",\"dest_before\":");emit_u8(p->dest_before,SRC_N);
+    printf(",\"store_effective_addresses\":");emit_u32(p->store_effective_addresses,SRC_N);
+    printf(",\"store_encoded_source_bytes\":");emit_u32(p->store_encoded_source_bytes,SRC_N);
     puts("}}");
 }
 int main(int argc,char **argv)
@@ -66,6 +68,9 @@ int main(int argc,char **argv)
     else if(strcmp(name,"opcode_drift")==0)mode=9;
     else if(strcmp(name,"transient_dest")==0)mode=10;
     else if(strcmp(name,"transient_source")==0)mode=11;
+    else if(strcmp(name,"wrong_thumb_target")==0)mode=12;
+    else if(strcmp(name,"wrong_thumb_source")==0)mode=13;
+    else if(strcmp(name,"not_thumb_byte_store")==0)mode=14;
     else return 2;
     install(&m,mode);
     if(mode==2)m.ram[m.source-EWRAM_BASE]=18;
