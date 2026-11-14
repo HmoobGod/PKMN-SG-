@@ -55,6 +55,72 @@ class PpMarkerWindowsTests(unittest.TestCase):
                 z=v.triage(d)
                 self.assertEqual(z["syntactic_pp_writer_candidates_total"],0)
                 self.assertEqual(z["other_pp_changes_in_emitter_windows_unattributed"],1)
+
+    def test_manual_menu_terminates_automatic_pp_attribution(self):
+        d=fixture()
+        d["events"].insert(2,row(8,8,0x0806449C))
+        z=v.triage(d)
+        self.assertEqual(z["manual_menu_boundary_markers"],1)
+        self.assertEqual(z["pp_changes_after_manual_or_overworld_boundary_unattributed"],1)
+        self.assertEqual(z["one_syntactic_pp_writer_in_window_unverified"],0)
+        self.assertEqual(z["windows"][0]["closed_by"],"manual_or_overworld_boundary")
+        self.assertFalse(z["historical_two_pp_missing_causes_classified"])
+
+    def test_inbattle_zero_then_pp_is_not_attributed_to_old_emit(self):
+        d=fixture()
+        p=self.pp_edge(22,1,10,9)
+        p["inbattle"]=0
+        d["events"].insert(4,p)
+        z=v.triage(d)
+        self.assertEqual(z["overworld_exit_boundary_watches"],1)
+        self.assertEqual(z["pp_changes_after_manual_or_overworld_boundary_unattributed"],1)
+        self.assertEqual(z["one_syntactic_pp_writer_in_window_unverified"],1)
+        self.assertFalse(z["actual_pp_execution_or_cancellation_certified"])
+
+    def test_same_step_boundary_is_not_laundered_by_json_event_order(self):
+        d=fixture()
+        p=self.pp_edge(20,1,10,9)
+        p["inbattle"]=0
+        # A synthetic single CPU snapshot exposes both watchers at one
+        # step. The audit accepts consistent PRE CPU regs/POST state.
+        exit_e=d["events"][3]
+        exit_e.update(pc=p["pc"],opcode=p["opcode"],r1=p["r1"],r6=p["r6"])
+        d["events"].insert(3,p)
+        z=v.triage(d)
+        self.assertEqual(z["overworld_exit_boundary_watches"],1)
+        self.assertEqual(z["pp_changes_after_manual_or_overworld_boundary_unattributed"],1)
+        self.assertEqual(z["windows"][0]["syntactic_pp_candidate_count"],1)
+        self.assertFalse(z["real_actor0_one_use_engine_request_certified"])
+
+    def test_overlapping_emitters_do_not_prove_unique_request_owner(self):
+        d=fixture()
+        d["events"].insert(2,row(6,6,0x0806BD80,r0=0,r2=10))
+        z=v.triage(d)
+        self.assertEqual(z["overlapping_emitter_windows_AMBIGUOUS"],1)
+        self.assertEqual(z["one_syntactic_pp_writer_in_window_unverified"],0)
+        self.assertTrue(z["windows"][0]["ambiguous_overlap"])
+        self.assertTrue(z["windows"][1]["ambiguous_overlap"])
+        self.assertEqual(z["windows"][1]["syntactic_pp_candidate_count"],1)
+        self.assertFalse(z["actual_pp_execution_or_cancellation_certified"])
+
+    def test_completion_does_not_prematurely_close_legitimate_pp_window(self):
+        d=fixture()
+        d["events"].insert(2,row(12,9,0x0806261C,r0=0))
+        z=v.triage(d)
+        self.assertEqual(z["windows_with_completion_marker_unverified"],1)
+        self.assertEqual(z["one_syntactic_pp_writer_in_window_unverified"],1)
+        self.assertFalse(z["real_actor0_one_use_engine_request_certified"])
+
+    def test_new_emitter_after_manual_boundary_is_separate_unverified(self):
+        d=fixture()
+        d["events"].insert(2,row(8,5,0x0806449C))
+        d["events"].insert(3,row(6,7,0x0806BD80,r0=0,r2=10))
+        z=v.triage(d)
+        self.assertEqual(z["original_emitter_marker_windows_unverified"],2)
+        self.assertEqual(z["one_syntactic_pp_writer_in_window_unverified"],1)
+        self.assertEqual(z["overlapping_emitter_windows_AMBIGUOUS"],0)
+        self.assertEqual(z["windows"][1]["syntactic_pp_candidate_count"],1)
+
     def test_bad_cpu_identity_field_or_promotion_claim_rejected(self):
         for change in (lambda d:d["events"][2].update(r7=True),
                        lambda d:d.update(production_authorized=True),
