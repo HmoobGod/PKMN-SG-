@@ -56,3 +56,37 @@ Two historical PP-unmatched cases resolved: **0/2**.
 Keep DRAFT/unmerged pending new exact-head Source CI, GNU ARM compile
 and independent Claude source/test/security review. Parent PR48 R4's
 pending verdict does not transfer to this new head.
+
+
+## Isolated follow-up: pre-proposal foe state cannot drift during targeting
+
+The source-LAB two-stage wild-single auto move revalidates a broad player
+and foe snapshot at the **ChooseMove** reply. At the earlier ChooseAction
+proposal stage, the original target-helper pair may be stateful. The
+previous pre-target snapshot froze own move/PP pool, turn and party
+identity but **not** the foe's species/HP/status1/ability/3 types before
+those helpers ran. An ineligible slot could run a helper that mutated foe
+combat identity and then let the next slot be proposed from that altered
+state. Arming the lease *after* such a mutation would snapshot the wrong
+baseline and mask the first-stage drift.
+
+An independent, read-only foe snapshot is now taken BEFORE the first
+target helper, only for the disposable player-owned source-LAB. Every
+candidate's helper is followed by an unconditional first-stage comparison
+of species, HP, status1, ability and all 3 types **before** the
+`if (!canTarget) continue` branch or any Fight reply. Any drift cancels
+the automatic proposal and leaves the original engine's manual path.
+The second-stage existing snapshot/lease consumption and move legality
+checks remain unchanged. No foe moves/PP, hidden items or AI are
+read/changed by the new guard.
+
+New source-level mutation tests require each freeze and comparison to
+be live, after helpers and before candidate skip; synthetic fixtures
+check species/HP/status1/ability/types and no slot reselection.
+Source checks + pinned disposable public GNU ARM compile are required
+before independent Claude exact-head source/test/security review.
+Approved PR51 and protected main/source-first/Current ROM/save remain
+unaltered, and pending PR48 source overlap must be reconciled before
+any potential integration. No real original modified-ROM gameplay
+is exercised or certified. Native acceptance 0/20, production 0%,
+historical unmatched PP causes 0/2.
