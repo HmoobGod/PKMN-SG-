@@ -139,7 +139,7 @@
 +    sSourceFirstWildLease.foeDisableTimer = gBattleMons[sSourceFirstWildLease.foe].volatiles.disableTimer;
 +    sSourceFirstWildLease.foeEncoreTimer = gBattleMons[sSourceFirstWildLease.foe].volatiles.encoreTimer;
 +    sSourceFirstWildLease.foeTormentTimer = gBattleMons[sSourceFirstWildLease.foe].volatiles.tormentTimer;
-++    for (slot = 0; slot < MAX_MON_ITEMS_INTERNAL; slot++)
++    for (slot = 0; slot < MAX_MON_ITEMS_INTERNAL; slot++)
 +        sSourceFirstWildLease.items[slot] = gBattleMons[battler].items[slot];
 +    for (slot = 0; slot < MAX_MON_INNATES_INTERNAL; slot++)
 +        sSourceFirstWildLease.innates[slot] = gBattleMons[battler].innates[slot];
