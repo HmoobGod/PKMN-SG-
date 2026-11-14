@@ -30,12 +30,12 @@ static uint32_t rb(void *v,uint32_t addr,int unused)
      * demonstrate the claimed source CPU STORE_PC semantics. */
     if(addr==STORE_PC) {
         if(m->count>=7u&&m->mode==9u)return 0x44u; /* changed opcode */
-        if(m->count>=7u&&m->mode==12u)return 0x03u; /* WRONG address */
-        if(m->count>=7u&&m->mode==13u)return 0x42u; /* WRONG Rt */
+        if(m->mode==12u)return 0x03u; /* WRONG address */
+        if(m->mode==13u)return 0x42u; /* WRONG Rt */
         return 0x43u;
     }
-    if(addr==STORE_PC+1u)return (m->count>=7u&&m->mode==12u)?0x70u:
-                                 (m->count>=7u&&m->mode==14u)?0x5Cu:0x54u;
+    if(addr==STORE_PC+1u)return (m->mode==12u)?0x70u:
+                                 (m->mode==14u)?0x5Cu:0x54u;
     if(addr==POST_PC)return 0x18u;
     if(addr==POST_PC+1u)return 0x47u;
     return (addr>=EWRAM_BASE&&addr<EWRAM_END)?
@@ -143,12 +143,14 @@ int main(void)
     install(&m,9u);run(&m,&p,2u,1000u);
     assert(p.error==11u&&p.state==1u&&p.stores==7u);
 
-    /* The fake CPU may physically write dest+k while its claimed
-     * instruction points elsewhere, uses the wrong source register,
-     * or is not even a byte STORE. None may count as original CPU proof. */
+    /* Keep each invalid halfword STABLE across fake CPU steps. This
+     * isolates the STRB semantic decoder from opcode-drift error 11.
+     * The #imm0 store addresses byte zero once then fails at index 1;
+     * wrong source-register and LDRB are rejected at the first store. */
     for(uint32_t mode=12u;mode<=14u;mode++){
         install(&m,mode);run(&m,&p,2u,1000u);
-        assert(p.error==14u&&p.state==1u&&p.stores==7u);
+        assert(p.error==14u&&p.state==1u);
+        assert(p.stores==(mode==12u ? 1u : 0u));
     }
 
     uint32_t test_regs[16]={0},a=0,b=0;
