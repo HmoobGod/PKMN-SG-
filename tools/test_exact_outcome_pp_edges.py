@@ -33,6 +33,48 @@ def fixture():
 
 
 class ExactOutcomePpEdgeTests(unittest.TestCase):
+    @staticmethod
+    def shared_step_pair():
+        d=fixture()
+        # Marker is PRE-step; FLAGS watcher fires POST-step. Same C CPU
+        # snapshot, but changed RAM/context fields need not be identical.
+        d["events"].insert(1,row(9,1,0x0806BD80,0x02001AB4,4,5,
+                                 r0=0,r2=10))
+        return d
+
+    def test_original_marker_and_memory_change_share_one_cpu_step(self):
+        d=self.shared_step_pair()
+        result=v.audit(d)
+        self.assertEqual(result["original_player_emit_markers"],1)
+        self.assertFalse(result["one_use_request_ownership_certified"])
+
+    def test_same_step_opcode_disagreement_denied(self):
+        d=self.shared_step_pair()
+        d["events"][1]["opcode"]=0xBEEF
+        with self.assertRaisesRegex(ValueError,"split or forged"):
+            v.audit(d)
+
+    def test_same_step_register_disagreement_denied(self):
+        d=self.shared_step_pair()
+        d["events"][1]["r4"]=0x42
+        with self.assertRaisesRegex(ValueError,"split or forged"):
+            v.audit(d)
+
+    def test_same_step_frame_disagreement_denied(self):
+        d=self.shared_step_pair()
+        d["events"][1]["frame"]+=1
+        with self.assertRaisesRegex(ValueError,"split or forged"):
+            v.audit(d)
+
+    def test_trace_supplied_promotion_key_denied(self):
+        self.denied(lambda d:d.update(production_promotion_authorized=True))
+
+    def test_boolean_guest_write_field_denied(self):
+        self.denied(lambda d:d.update(guest_writes=False))
+
+    def test_boolean_status_field_denied(self):
+        self.denied(lambda d:d.update(status=True))
+
     def test_version_one_lacks_per_event_opcode_provenance(self):
         self.denied(lambda d:d.update(schema="sg-original-outcome-pp-instruction-edges-v1"))
     def test_missing_original_opcode_on_native_main_clear(self):
