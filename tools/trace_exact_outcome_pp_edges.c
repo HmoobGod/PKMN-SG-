@@ -12,6 +12,18 @@
 #define SG_FLAGS 0x02001AB4u
 #define SG_PENDING 0x02001D2Cu
 #define SG_PP 0x02001EF1u
+#define SG_BATTLERS 0x02001AB8u
+#define SG_PLAYER0_BUFFER_PTR 0x02001C6Cu
+/* These are already known battle/request metadata, never independent
+ * evidence for an unknown result byte. Conservative aliases fail closed. */
+static int sg_reserved_outcome_candidate(uint32_t addr)
+{
+    return (addr>=SG_PP && addr<SG_PP+4u) ||
+           (addr>=SG_FLAGS && addr<=SG_BATTLERS) ||
+           (addr>=SG_PENDING && addr<SG_PENDING+4u) ||
+           (addr>=SG_PLAYER0_BUFFER_PTR &&
+            addr<SG_PLAYER0_BUFFER_PTR+4u);
+}
 #define SG_MAX_WATCH 11u
 
 enum {
@@ -94,9 +106,7 @@ void sg_trace_exact_outcome_pp_edges(void *core, uint32_t *regs,
     if (candidate_outcome_byte_addr &&
         (candidate_outcome_byte_addr<0x02000000u ||
          candidate_outcome_byte_addr>0x0203FFFFu ||
-         (candidate_outcome_byte_addr>=SG_PP && candidate_outcome_byte_addr<SG_PP+4u) ||
-         (candidate_outcome_byte_addr>=SG_FLAGS && candidate_outcome_byte_addr<SG_FLAGS+4u) ||
-         (candidate_outcome_byte_addr>=SG_PENDING && candidate_outcome_byte_addr<SG_PENDING+4u))) {
+         sg_reserved_outcome_candidate(candidate_outcome_byte_addr))) {
         out->status=4;return;
     }
     /* ABI slots may not satisfy host function-pointer alignment.
