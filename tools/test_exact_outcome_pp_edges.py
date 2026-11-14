@@ -379,6 +379,72 @@ class ExactOutcomePpEdgeTests(unittest.TestCase):
     def test_wrong_own_pp_address(self):self.denied(lambda d:d["events"][2].update(address=v.PP+1))
     def test_duplicate_stale_step(self):self.denied(lambda d:d["events"].insert(1,copy.deepcopy(d["events"][0])))
     def test_reverse_instruction_order(self):self.denied(lambda d:d["events"].reverse())
+
+    def test_original_callback_pointer_str_word_is_only_candidate(self):
+        d=fixture()
+        a,b=d["events"][4],d["events"][5]
+        a.update(opcode=0x6022,r2=a["after"])  # STR r2,[r4,#0]
+        b.update(opcode=0x605A,r2=b["after"])  # STR r2,[r3,#4]
+        z=v.audit(d)
+        self.assertEqual(z["original_callback_pointer_transitions"],2)
+        self.assertEqual(z["original_callback_word_str_writer_matches_unverified"],2)
+        self.assertEqual(z["original_callback_unattributed_pointer_transitions"],0)
+        self.assertEqual(z["original_callback_writer_pc_candidates_unverified"],
+                         [0x0808E33C,0x081AED58])
+        self.assertFalse(z["original_battle_outcome_decision_pc_certified"])
+        self.assertFalse(z["full_native_terminal_certified"])
+        self.assertFalse(z["production_promotion_authorized"])
+
+    def test_callback_word_store_register_offset(self):
+        regs=(0,4,0x080C4265,v.MAIN,0,0,0,0)
+        self.assertEqual(v.observed_thumb_str_word_store(0x505A,regs),
+                         (v.MAIN+4,0x080C4265))
+        d=fixture()
+        b=d["events"][5]
+        b.update(opcode=0x505A,r1=4,r2=b["after"],r3=v.MAIN)
+        z=v.audit(d)
+        self.assertEqual(z["original_callback_word_str_writer_matches_unverified"],1)
+        self.assertEqual(z["original_callback_unattributed_pointer_transitions"],1)
+        self.assertEqual(z["original_callback_writer_pc_candidates_unverified"],
+                         [0x081AED58])
+
+    def test_callback_word_store_mismatch_denial(self):
+        for opcode,changes in (
+            (0x6822,{"r2":0x081C7589}),
+            (0x7022,{"r2":0x081C7589}),
+            (0x8022,{"r2":0x081C7589}),
+            (0x6022,{"r2":0}),
+            (0x6062,{"r2":0x081C7589}),
+            (0x5062,{"r1":1,"r2":0x081C7589}),
+            (0x5062,{"r1":0xFFFFFFFF,"r2":0x081C7589}),
+        ):
+            with self.subTest(opcode=hex(opcode),changes=changes):
+                d=fixture()
+                d["events"][4].update(opcode=opcode,**changes)
+                z=v.audit(d)
+                self.assertEqual(z["original_callback_word_str_writer_matches_unverified"],0)
+                self.assertEqual(z["original_callback_unattributed_pointer_transitions"],2)
+                self.assertEqual(z["original_callback_writer_pc_candidates_unverified"],[])
+                self.assertFalse(z["full_native_terminal_certified"])
+
+    def test_callback_word_store_invalid_snapshot(self):
+        regs=(0,4,0x080C4265,v.MAIN,0,0,0,0)
+        for bad in (regs[:5],tuple(regs[:-1])+(True,),tuple(regs[:-1])+(-1,)):
+            with self.subTest(bad=bad):
+                with self.assertRaisesRegex(ValueError,"r0-r7"):
+                    v.observed_thumb_str_word_store(0x505A,bad)
+        self.assertIsNone(v.observed_thumb_str_word_store(0x5C5A,regs))
+        self.assertIsNone(v.observed_thumb_str_word_store(0x5000,
+                          (0xFFFFFFFF,1,0,0,0,0,0,0)))
+
+    def test_plain_callback_changes_remain_unattributed(self):
+        z=v.audit(fixture())
+        self.assertEqual(z["original_callback_pointer_transitions"],2)
+        self.assertEqual(z["original_callback_word_str_writer_matches_unverified"],0)
+        self.assertEqual(z["original_callback_unattributed_pointer_transitions"],2)
+        self.assertEqual(z["original_callback_writer_pc_candidates_unverified"],[])
+        self.assertFalse(z["full_native_terminal_certified"])
+
     def test_callback_wrong_register(self):self.denied(lambda d:d["events"][4].update(r4=0))
     def test_callback_wrong_value(self):self.denied(lambda d:d["events"][5].update(callback2=0))
     def test_callback_wrong_base(self):self.denied(lambda d:d["events"][5].update(address=0))
