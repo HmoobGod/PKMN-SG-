@@ -1,0 +1,32 @@
+name: SoulGold public original outcome PP actor0-context boundary
+
+on:
+  pull_request:
+    branches:
+      - source-first/rom-identity
+    paths:
+      - .github/workflows/original-outcome-pp-context.yml
+      - tools/verify_exact_outcome_pp_edges.py
+      - tools/test_exact_outcome_pp_edges.py
+      - tools/test_exact_outcome_pp_active_context.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-pp-context:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out public source only
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Validate original writer PC context without private inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e 'Pokemon Soulgold.gba'
+          test ! -e 'Pokemon Soulgold.sav'
+          python3 tools/test_exact_outcome_pp_edges.py
+          python3 tools/test_exact_outcome_pp_active_context.py
+          echo 'PUBLIC_ORIGINAL_PP_CONTEXT: PASS; raw writer PC and actor0 context are NOT actual gameplay evidence'
