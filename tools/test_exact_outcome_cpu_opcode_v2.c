@@ -22,9 +22,14 @@ int main(void)
     SG_OutcomeEdgeRun run={0};
     SG_OutcomeEdge events[64]={0};
     uint32_t (*read8)(void *,uint32_t,int)=fake_opcode_read8;
-    assert(sizeof(SG_OutcomeEdge)==20u*sizeof(uint32_t));
+    assert(sizeof(SG_OutcomeEdge)==23u*sizeof(uint32_t));
     assert(sg_existing_public_outcome_safety_main()==0);
     install(&m,0u);
+    /* Real read-only C recorder must capture higher source-register values
+     * from the PRE-step CPU snapshot, never infer them from after RAM. */
+    m.regs[5]=0x87654321u;
+    m.regs[6]=19u;
+    m.regs[7]=0xBAD5CAFEu;
     memcpy(m.abi+0x1488,&read8,sizeof read8);
     trace(&m,&run,events,64u,2u);
     assert(run.status==1u&&run.guest_steps==3u);
@@ -35,6 +40,8 @@ int main(void)
     int saw_writer=0,saw_post=0;
     for(uint32_t i=0;i<run.event_count;i++){
         assert(events[i].opcode<=0xFFFFu);
+        assert(events[i].r5==0x87654321u&&events[i].r6==19u&&
+               events[i].r7==0xBAD5CAFEu);
         if(events[i].kind==SG_PP_CHANGE){
             saw_writer++;
             assert(events[i].pc==0x0806BD80u);
