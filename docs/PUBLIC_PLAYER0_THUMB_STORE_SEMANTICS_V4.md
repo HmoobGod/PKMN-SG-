@@ -29,8 +29,10 @@ The public fake machine now advertises a **coherent synthetic** Thumb
 opcode `0x5443` (`STRB r3,[r0,r1]`), matching its fake registers and
 44 destination-byte writes. Three additional FAKE modes deliberately
 supply `STRB r3,[r0,#0]` at later indices, a wrong Rt, and an LDRB
-rather than a store; all must fail with a new error code 14 at store
-index 7. These are fabricated instructions, **not** alleged original
+rather than a store; all must fail with error code 14. The
+unchanging but wrong immediate-zero store reaches index 1 before failing;
+the other two invalid instructions fail at the first store. The
+separate existing opcode-drift mode continues to fail with error 11. These are fabricated instructions, **not** alleged original
 Pokémon CPU opcode bytes.
 
 The read-only C `Proof` now emits exactly 44 decoded effective
