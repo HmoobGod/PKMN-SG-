@@ -1,3 +1,7 @@
+#ifdef NDEBUG
+#error "Original joint C observer tests require enabled assert() checks"
+#endif
+
 /* Bounded C-level FAKE core observer regressions; NO owner ROM is run.
  * Include existing public fake fixture to exercise the exact C observer with
  * the same original CPU marker, PP byte and Main/callback instrumentation.
@@ -66,11 +70,68 @@ static void assert_stable_core_observation(unsigned mode)
         assert(count_kind(event,run.count,SG_JOIN_INBATTLE)==1u);
     }
 }
+/* Exercise a nonzero PP slot and a non-unit delta in the actual C
+ * observer. Keep the fake's slot0 PP already decremented so the original
+ * fake_step emits only the deliberately injected slot1 change. */
+static void fake_step_slot1_delta(void *v)
+{
+    Mock *m=v;
+    uint32_t was=m->index;
+    fake_step(v);
+    if(was==7u)m->pp[1]=7u; /* slot1 10 -> 7, NOT an original -1 debit */
+    if(m->index==7u)m->regs[1]=OWN_PP+1u;
+}
+
+static void assert_slot1_nonunit_delta_observed_without_promotion(void)
+{
+    Mock m={0};
+    SG_JointRun run={0};
+    SG_JointEvent event[64]={0};
+    const SG_JointEvent *writer;
+    void (*step)(void *)=fake_step_slot1_delta;
+    install(&m);
+    m.pp[0]=19u; /* No slot0 change is permitted in this scenario. */
+    memcpy(m.abi+0x13e8,&step,sizeof step);
+    observe(&m,&run,event);
+    writer=find_writer(event,run.count);
+    assert(writer!=NULL);
+    assert(count_kind(event,run.count,SG_JOIN_PP_BYTE)==1u);
+    assert(writer->slot==1u && writer->address==OWN_PP+1u);
+    assert(writer->before==10u && writer->after==7u);
+    assert(writer->r1==OWN_PP+1u);
+    assert(run.initial_pp[0]==19u && run.final_pp[0]==19u);
+    assert(run.initial_pp[1]==10u && run.final_pp[1]==7u);
+}
+
+/* A mutation of Main bit0 alone cannot be forged into a true Main battle
+ * bit1 edge. The existing original observer intentionally ignores it. */
+static void fake_step_main_bit0(void *v)
+{
+    Mock *m=v;
+    uint32_t was=m->index;
+    fake_step(v);
+    if(was==8u)m->main_byte=3u; /* Main 2 -> 3 toggles bit0 only. */
+}
+static void assert_main_bit0_change_does_not_forge_exit(void)
+{
+    Mock m={0};
+    SG_JointRun run={0};
+    SG_JointEvent event[64]={0};
+    void (*step)(void *)=fake_step_main_bit0;
+    install(&m);
+    memcpy(m.abi+0x13e8,&step,sizeof step);
+    observe(&m,&run,event);
+    assert(count_kind(event,run.count,SG_JOIN_INBATTLE)==0u);
+    assert(run.initial_main==2u && run.final_main==3u);
+}
+
 int main(void)
 {
     assert(original_joint_baseline_fixture_main()==0);
     for(unsigned mode=0;mode<=4;mode++)
         assert_stable_core_observation(mode);
+    assert_slot1_nonunit_delta_observed_without_promotion();
+    assert_main_bit0_change_does_not_forge_exit();
     puts("original joint C observer negative-context FAKE core PASS");
     return 0;
 }
