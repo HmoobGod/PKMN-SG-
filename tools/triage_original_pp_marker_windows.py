@@ -39,6 +39,13 @@ def triage(raw):
     barrier_steps={e["step"] for e in raw["events"]
                    if e["kind"]==8 or
                    (e["kind"]==2 and e["after"]==0)}
+    # A watched inBattle 0->nonzero transition is only a possible re-entry
+    # boundary. An emitter on the SAME CPU step is still ambiguous and must
+    # not inherit authorization from either its pre- or poststep state.
+    reentry_steps={e["step"] for e in raw["events"]
+                   if e["kind"]==2 and e["before"]==0 and e["after"]!=0}
+    terminal_lock=False
+    denied_emitter_markers=0
     saw_emitter=False
     for e in raw["events"]:
         kind=e["kind"]
@@ -51,7 +58,21 @@ def triage(raw):
             barrier_counts["manual_menu"]+=1
         elif kind==2 and e["after"]==0:
             barrier_counts["overworld_return"]+=1
+            terminal_lock=True
+        elif kind==2 and e["before"]==0 and e["after"]!=0:
+            # Re-entry only unlocks FUTURE CPU steps, never this step.
+            terminal_lock=False
         if kind==6:  # only a pre-step original actor0 marker, no epoch
+            # Do not turn a stale emitter into a new automatic request.
+            # Require a new observed inBattle re-entry after field exit,
+            # never allow a marker at a boundary step, and deny a marker
+            # whose observed battle context says it is already outside.
+            saw_emitter=True
+            if (e["step"] in barrier_steps or
+                e["step"] in reentry_steps or terminal_lock or
+                e["inbattle"]==0):
+                denied_emitter_markers+=1
+                continue
             overlap=current is not None
             if overlap:
                 # Two emitter markers without an independently observed
@@ -97,6 +118,7 @@ def triage(raw):
     return {
         "schema": "sg-public-original-pp-marker-windows-v1",
         "original_emitter_marker_windows_unverified":len(emitted),
+        "emitter_markers_denied_for_owner_epoch":denied_emitter_markers,
         "windows_with_reply_marker_unverified":sum(w["reply_count"]>0 for w in emitted),
         "windows_with_completion_marker_unverified":sum(w["completion_count"]>0 for w in emitted),
         "one_syntactic_pp_writer_in_window_unverified":n1,

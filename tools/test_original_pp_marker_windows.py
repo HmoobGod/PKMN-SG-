@@ -4,6 +4,7 @@ import copy
 import unittest
 import triage_original_pp_marker_windows as v
 from test_exact_outcome_pp_edges import fixture,row
+from verify_exact_outcome_pp_edges import MAIN
 
 class PpMarkerWindowsTests(unittest.TestCase):
     @staticmethod
@@ -40,8 +41,11 @@ class PpMarkerWindowsTests(unittest.TestCase):
         self.assertFalse(z["real_actor0_one_use_engine_request_certified"])
     def test_next_emitter_starts_distinct_unverified_window(self):
         d=fixture()
-        d["events"].extend([row(6,32,0x0806BD80,r0=0,r2=10),
-                            row(7,34,0x0806B370,r0=0,r1=1,r3=6)])
+        # A new original actor0 emitter is only a PP hypothesis after
+        # the observed battle has re-entered on an earlier CPU step.
+        d["events"].extend([row(2,30,0x08012340,MAIN+0x439,0,2,inbattle=2),
+                            row(6,32,0x0806BD80,r0=0,r2=10,inbattle=2),
+                            row(7,34,0x0806B370,r0=0,r1=1,r3=6,inbattle=2)])
         z=v.triage(d)
         self.assertEqual(z["original_emitter_marker_windows_unverified"],2)
         self.assertEqual(z["one_syntactic_pp_writer_in_window_unverified"],1)
@@ -120,6 +124,55 @@ class PpMarkerWindowsTests(unittest.TestCase):
         self.assertEqual(z["one_syntactic_pp_writer_in_window_unverified"],1)
         self.assertEqual(z["overlapping_emitter_windows_AMBIGUOUS"],0)
         self.assertEqual(z["windows"][1]["syntactic_pp_candidate_count"],1)
+
+    def test_actor0_emitter_during_same_cpu_step_as_exit_is_denied(self):
+        d=fixture()
+        m=row(6,20,0x0806BD80,r0=0,r2=10,inbattle=0)
+        exit_e=d["events"][3]
+        exit_e.update(pc=m["pc"],r0=0,r2=10)
+        d["events"].insert(3,m)
+        z=v.triage(d)
+        self.assertEqual(z["emitter_markers_denied_for_owner_epoch"],1)
+        self.assertEqual(z["original_emitter_marker_windows_unverified"],1)
+        self.assertFalse(z["real_actor0_one_use_engine_request_certified"])
+
+    def test_emitter_after_exit_without_reentry_is_denied(self):
+        d=fixture()
+        d["events"].insert(4,row(6,22,0x0806BD80,r0=0,r2=10,inbattle=0))
+        z=v.triage(d)
+        self.assertEqual(z["emitter_markers_denied_for_owner_epoch"],1)
+        self.assertEqual(z["original_emitter_marker_windows_unverified"],1)
+        self.assertEqual(z["windows"][0]["closed_by"],"manual_or_overworld_boundary")
+
+    def test_new_request_after_witnessed_reentry_is_only_unverified(self):
+        d=fixture()
+        d["events"].insert(4,row(2,22,0x08012346,MAIN+0x439,0,2,inbattle=2))
+        d["events"].insert(5,row(6,23,0x0806BD80,r0=0,r2=10,inbattle=2))
+        z=v.triage(d)
+        self.assertEqual(z["emitter_markers_denied_for_owner_epoch"],0)
+        self.assertEqual(z["original_emitter_marker_windows_unverified"],2)
+        self.assertEqual(z["no_syntactic_pp_writer_in_window_UNCLASSIFIED"],1)
+        self.assertFalse(z["real_actor0_one_use_engine_request_certified"])
+
+    def test_reentry_step_emitter_denied_regardless_event_order(self):
+        d=fixture()
+        m=row(6,22,0x0806BD80,r0=0,r2=10,inbattle=2)
+        r=row(2,22,0x0806BD80,MAIN+0x439,0,2,inbattle=2,r0=0,r2=10)
+        for ordering in ((r,m),(m,r)):
+            with self.subTest(order=ordering[0]["kind"]):
+                x=copy.deepcopy(d)
+                x["events"][4:4]=list(ordering)
+                z=v.triage(x)
+                self.assertEqual(z["emitter_markers_denied_for_owner_epoch"],1)
+                self.assertEqual(z["original_emitter_marker_windows_unverified"],1)
+                self.assertFalse(z["actual_pp_execution_or_cancellation_certified"])
+
+    def test_emitter_with_inbattle_zero_denied_without_explicit_exit_watcher(self):
+        d=fixture()
+        d["events"].insert(2,row(6,5,0x0806BD80,r0=0,r2=10,inbattle=0))
+        z=v.triage(d)
+        self.assertEqual(z["emitter_markers_denied_for_owner_epoch"],1)
+        self.assertEqual(z["one_syntactic_pp_writer_in_window_unverified"],1)
 
     def test_bad_cpu_identity_field_or_promotion_claim_rejected(self):
         for change in (lambda d:d["events"][2].update(r7=True),
