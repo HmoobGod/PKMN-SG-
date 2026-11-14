@@ -58,6 +58,13 @@ static void st(void *v)
         assert(k<44u);
         if(!(m->mode==1u&&k==7u))
             m->ram[m->dest-EWRAM_BASE+k]=(uint8_t)m->regs[3];
+        /* Deliberately corrupt then restore a *previous* destination or
+         * source byte. Endpoint-only post-loop checks miss these. */
+        if(k==7u&&m->mode==10u)m->ram[m->dest-EWRAM_BASE]=0xFFu;
+        if(k==8u&&m->mode==10u)
+            m->ram[m->dest-EWRAM_BASE]=m->ram[m->source-EWRAM_BASE];
+        if(k==7u&&m->mode==11u)m->ram[m->source-EWRAM_BASE]=0xFFu;
+        if(k==8u&&m->mode==11u)m->ram[m->source-EWRAM_BASE]=19u;
         if(k+1u<44u)arm_store(m,k+1u);
         else {
             m->regs[15]=POST_PC;
@@ -122,6 +129,11 @@ int main(void)
     /* Changing a CPU halfword mid-copy invalidates its provenance. */
     install(&m,9u);run(&m,&p,2u,1000u);
     assert(p.error==11u&&p.state==1u&&p.stores==7u);
+
+    install(&m,10u);run(&m,&p,2u,1000u);
+    assert(p.error==12u&&p.state==1u&&p.stores==7u);
+    install(&m,11u);run(&m,&p,2u,1000u);
+    assert(p.error==13u&&p.state==1u&&p.stores==7u);
 
     install(&m,2u);m.ram[m.source-EWRAM_BASE]=18u;
     run(&m,&p,2u,1000u);
