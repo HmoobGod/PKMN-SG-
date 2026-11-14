@@ -120,6 +120,28 @@ class OriginalJoinTests(unittest.TestCase):
     def test_bad_order(self):self.reject(lambda x:x["events"].reverse())
     def test_bad_event_field(self):self.reject(lambda x:x["events"][0].update(raw="private"))
     def test_bool_not_int(self):self.reject(lambda x:x["events"][0].update(frame=True))
+    def test_zero_pc_main_clear_cannot_invent_original_terminal(self):
+        # Before this repair, audit accepted pc=0/opcode=0 on Main clear,
+        # and still counted a callback following it in the same run.
+        self.reject(lambda x:x["events"][8].update(pc=0,opcode=0))
+    def test_zero_pc_callback1_cannot_bypass_opcode_attestation(self):
+        self.reject(lambda x:x["events"][9].update(pc=0,opcode=0))
+    def test_zero_pc_callback2_cannot_bypass_opcode_attestation(self):
+        self.reject(lambda x:x["events"][10].update(pc=0,opcode=0))
+    def test_zero_pc_unattributed_pp_is_not_valid_original_trace(self):
+        self.reject(lambda x:x["events"][7].update(pc=0,opcode=0))
+    def test_odd_original_pc_is_rejected_even_for_nonmarker(self):
+        self.reject(lambda x:x["events"][9].update(pc=0x0808E33D))
+    def test_ram_origin_without_exact_rom_parity_is_rejected(self):
+        self.reject(lambda x:x["events"][8].update(pc=0x03001234))
+    def test_non_16bit_original_opcode_is_rejected(self):
+        self.reject(lambda x:x["events"][10].update(opcode=0x10000))
+    def test_known_original_cpu_pc_still_correlates_without_promotion(self):
+        result=v.audit(fixture())
+        self.assertEqual(result["main_clear_precedes_later_callback_in_same_run"],1)
+        self.assertEqual(result["attributed_original_pp_writer_candidates"],1)
+        self.assertFalse(result["original_outcome_writer_pc_certified"])
+        self.assertFalse(result["full_native_terminal_certified"])
     def test_bad_original_emit_pc(self):self.reject(lambda x:x["events"][0].update(pc=0x0809E6BA))
     def test_bad_move_action(self):self.reject(lambda x:x["events"][0].update(r2=9))
     def test_wrong_target(self):self.reject(lambda x:x["events"][0].update(r3=0))
