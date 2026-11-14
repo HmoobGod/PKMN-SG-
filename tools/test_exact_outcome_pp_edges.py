@@ -139,13 +139,19 @@ class ExactOutcomePpEdgeTests(unittest.TestCase):
         # PUBLIC synthetic instruction image only, no protected original
         # ROM, save, emulator or private auth hashes are touched.
         image=bytearray(0x200000)
+        # Public fake image must contain the explicitly recorded synthetic
+        # STRB halfword, not imply a zero opcode at every instruction PC.
+        for e in d["events"]:
+            off=e["pc"]-0x08000000
+            image[off:off+2]=e["opcode"].to_bytes(2,"little")
         v.verify_original_event_opcodes(d["events"],image)
         for e in d["events"]:
             with self.subTest(kind=e["kind"],pc=e["pc"]):
                 image[e["pc"]-0x08000000]=0xA5
                 with self.assertRaisesRegex(ValueError,"CPU opcode parity"):
                     v.verify_original_event_opcodes(d["events"],image)
-                image[e["pc"]-0x08000000]=0
+                off=e["pc"]-0x08000000
+                image[off:off+2]=e["opcode"].to_bytes(2,"little")
         with self.assertRaisesRegex(ValueError,"outside byte-pinned"):
             v.verify_original_event_opcodes(d["events"],bytearray(1024))
     def test_thumb_strb_immediate_effective_address(self):
