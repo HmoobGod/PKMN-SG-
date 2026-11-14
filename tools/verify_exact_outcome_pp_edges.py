@@ -58,6 +58,12 @@ def audit(data):
     require(type(rows) is list and 1 <= len(rows) <= 2048, "unbounded/no native edge events")
     candidate = native_pp = other_pp = emissions = replies = callbacks = manual = 0
     complete = validator = slots = moves = targets = 0
+    contextual_actor0_pp = 0
+    # Contextual *candidate* ONLY, not one-use ownership/legality proof.
+    # A real Main bit1 clear permanently retires the old emitter. A later
+    # battle re-entry never resurrects it without another original emitter.
+    actor0_slot = None
+    main_cleared = False
     prev_frame = prev_step = prev_pc = -1
     seen_edges = set()
     for e in rows:
@@ -83,6 +89,13 @@ def audit(data):
                 require(pc == 0x0806BD80 and e["r0"] == 0 and e["r2"] == 10,
                         "move emitter is not original actor0")
                 emissions += 1
+                packed = e["r3"]
+                if (not main_cleared and (e["inbattle"] & 2) and
+                    e["flags"] == 4 and e["battlers"] == 2 and
+                    packed >> 8 == 1 and (packed & 255) < 4):
+                    actor0_slot = packed & 255
+                else:
+                    actor0_slot = None
             elif kind == 7:
                 require(pc == 0x0806B370 and e["r0"] == 0 and e["r1"] == 1
                         and e["r3"] == 6, "reply is not original actor0")
@@ -122,6 +135,10 @@ def audit(data):
                 if (pc == 0x0809E6BA and e["r1"] == e["address"] and
                     e["before"] == e["after"]+1):
                     native_pp += 1
+                    if (actor0_slot == e["slot"] and not main_cleared and
+                        (e["inbattle"] & 2) and e["flags"] == 4 and
+                        e["battlers"] == 2):
+                        contextual_actor0_pp += 1
                 else:
                     other_pp += 1
             else:
@@ -130,6 +147,10 @@ def audit(data):
                 if kind in (2,11):
                     require(e["before"] <= 255 and e["after"] <= 255,
                             "expected single-byte Main field")
+                if kind == 2 and ((e["before"] ^ e["after"]) & 2):
+                    main_cleared = not bool(e["after"] & 2)
+                    if main_cleared:
+                        actor0_slot = None
                 if kind == 3:
                     callbacks += 1
                     if pc == 0x0808E33C:
@@ -154,6 +175,10 @@ def audit(data):
         "original_move_commit_markers": moves,
         "original_target_commit_markers": targets,
         "original_pp_writer_single_byte_debits_seen": native_pp,
+        # Subset of raw writer sightings with a preceding original actor0
+        # emitter since the last Main clear and live wild-single context.
+        # NOT original engine-issued epoch proof or actual attack acceptance.
+        "contextual_actor0_pp_writer_candidates_unverified": contextual_actor0_pp,
         "other_player_pp_byte_changes_not_certified": other_pp,
         "manual_move_menu_markers": manual,
         "previous_two_pp_unmatched_submissions_classified": False,
