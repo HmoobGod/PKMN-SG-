@@ -70,6 +70,51 @@ class OriginalTerminalOrderTests(unittest.TestCase):
         d=synthetic()
         d["events"].insert(5,row(2,23,0x081D0000,MAIN+0x439,0,2,inbattle=2))
         self.assertEqual(tool.triage(d)["ordered_result_main_callback1_callback2_sequences_unverified"],0)
+    def test_manual_marker_before_main_clear_invalidates_stale_result(self):
+        d=synthetic()
+        d["events"].insert(4,row(8,18,0x0806449C))
+        z=tool.triage(d)
+        self.assertEqual(z["manual_cpu_barrier_steps_seen"],1)
+        self.assertEqual(z["ordered_result_main_callback1_callback2_sequences_unverified"],0)
+        self.assertEqual(z["segments"][0]["prior_result_steps"],[])
+        self.assertFalse(z["original_overworld_callback_return_certified"])
+
+    def test_manual_same_step_as_result_disallows_any_order(self):
+        d=synthetic()
+        m=row(8,15,0x08101234,opcode=0x700E,r1=CANDIDATE,r6=1)
+        # Exact original PC check on kind8 forces its PC to 0x0806449C,
+        # so same-step CPU parity only permits a matching PC. Model the
+        # same instruction's result watcher instead of forging CPU metadata.
+        m["pc"]=0x0806449C
+        r=d["events"][3]
+        r["pc"]=0x0806449C
+        d["events"].insert(4,m)
+        z=tool.triage(d)
+        self.assertEqual(z["manual_cpu_barrier_steps_seen"],1)
+        self.assertEqual(z["ordered_result_main_callback1_callback2_sequences_unverified"],0)
+        d["events"][3],d["events"][4]=d["events"][4],d["events"][3]
+        z=tool.triage(d)
+        self.assertEqual(z["ordered_result_main_callback1_callback2_sequences_unverified"],0)
+
+    def test_second_unattributed_result_transition_denies_sole_writer(self):
+        d=synthetic()
+        other=row(1,17,0x08105540,CANDIDATE,1,2,
+                  r1=CANDIDATE,r6=2,opcode=0x780E)
+        d["events"].insert(4,other)
+        z=tool.triage(d)
+        self.assertEqual(z["segments"][0]["prior_result_transition_steps"],[15,17])
+        self.assertEqual(z["ordered_result_main_callback1_callback2_sequences_unverified"],0)
+
+    def test_new_result_change_during_callbacks_aborts_return_hypothesis(self):
+        d=synthetic()
+        d["events"].insert(6,row(1,25,0x08105540,CANDIDATE,1,2,
+                                 r1=CANDIDATE,r6=2,opcode=0x780E))
+        z=tool.triage(d)
+        self.assertEqual(z["segments"][0]["closed_by"],
+                         "new_result_transition_after_main_clear")
+        self.assertEqual(z["ordered_result_main_callback1_callback2_sequences_unverified"],0)
+        self.assertFalse(z["full_original_native_terminal_certified"])
+
     def test_malformed_original_cpu_snapshot_denied_by_parent_audit(self):
         d=synthetic()
         d["events"][3]["opcode"]=True
