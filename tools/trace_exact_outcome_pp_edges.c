@@ -34,6 +34,16 @@ typedef struct {
     uint32_t address, width, kind, slot, previous;
 } SG_Watch;
 
+/* Raw Thumb r15 is execution PC+2. Deny invalid or ambiguous CPU origin
+ * BEFORE recording a putative original outcome, callback or PP writer. */
+static int sg_original_thumb_pc(uint32_t raw)
+{
+    return !(raw&1u) &&
+           ((raw>=0x08000002u && raw<=0x0A000000u) ||
+            (raw>=0x02000002u && raw<=0x02040000u) ||
+            (raw>=0x03000002u && raw<=0x03008000u));
+}
+
 /* Event kind never claims the candidate address is gBattleOutcome. */
 static void sg_edge_append(void *core, uint32_t (*read8)(void *,uint32_t,int),
                            uint32_t (*read32)(void *,uint32_t,int),
@@ -44,6 +54,7 @@ static void sg_edge_append(void *core, uint32_t (*read8)(void *,uint32_t,int),
                            uint32_t slot, const uint32_t r[5])
 {
     SG_OutcomeEdge *e;
+    if (!sg_original_thumb_pc(pc)) {out->status=6;return;}
     if (out->event_count >= capacity) {out->status=3;return;}
     e=&events[out->event_count++];
     *e=(SG_OutcomeEdge){
@@ -69,7 +80,8 @@ void sg_trace_exact_outcome_pp_edges(void *core, uint32_t *regs,
     uint32_t (*read32)(void *,uint32_t,int);
     if (!out)return;
     memset(out,0,sizeof *out);
-    if (!core || !regs || !events || !cap || !frames || !maxsteps || maxsteps>0xFFFFFFFFu) {
+    if (!core || !regs || !events || !cap || cap>2048u ||
+        !frames || frames>10000u || !maxsteps || maxsteps>0xFFFFFFFFu) {
         out->status=4;return;
     }
     if (candidate_outcome_byte_addr &&
@@ -80,10 +92,13 @@ void sg_trace_exact_outcome_pp_edges(void *core, uint32_t *regs,
          (candidate_outcome_byte_addr>=SG_PENDING && candidate_outcome_byte_addr<SG_PENDING+4u))) {
         out->status=4;return;
     }
-    step=*(void (**)(void *))((char *)core+0x13e8);
-    frame=*(uint32_t (**)(void *))((char *)core+0x1428);
-    read8=*(uint32_t (**)(void *,uint32_t,int))((char *)core+0x1488);
-    read32=*(uint32_t (**)(void *,uint32_t,int))((char *)core+0x1498);
+    /* ABI slots may not satisfy host function-pointer alignment.
+     * memcpy is well-defined, and a missing method fails closed. */
+    memcpy(&step,(char *)core+0x13e8,sizeof step);
+    memcpy(&frame,(char *)core+0x1428,sizeof frame);
+    memcpy(&read8,(char *)core+0x1488,sizeof read8);
+    memcpy(&read32,(char *)core+0x1498,sizeof read32);
+    if (!step || !frame || !read8 || !read32) {out->status=4;return;}
     if (candidate_outcome_byte_addr)
         watch[n++]=(SG_Watch){candidate_outcome_byte_addr,1,SG_OUTCOME_CANDIDATE,255,0};
     watch[n++]=(SG_Watch){SG_MAIN+0x439u,1,SG_INBATTLE,255,0};
@@ -99,9 +114,15 @@ void sg_trace_exact_outcome_pp_edges(void *core, uint32_t *regs,
                            read8(core,watch[j].address,0) :
                            read32(core,watch[j].address,0));
     out->start_frame=frame(core);
+    uint32_t last_frame=out->start_frame;
     for (uint64_t step_index=0;step_index<maxsteps;step_index++) {
         uint32_t f=frame(core), pc=regs[15],r[5],kind=0;
+        /* Unsigned subtraction alone turns a clock rollback into a fake
+         * completed frame window. Reject even an in-window time rollback. */
+        if (f<out->start_frame || f<last_frame) {out->status=5;break;}
         if (f-out->start_frame>=frames) {out->status=1;break;}
+        if (!sg_original_thumb_pc(pc)) {out->status=6;break;}
+        last_frame=f;
         for (uint32_t j=0;j<5;j++)r[j]=regs[j];
         if (pc==0x0806BD82u && r[0]==0 && r[2]==10)kind=SG_PLAYER_EMIT;
         else if (pc==0x0806B372u && r[0]==0 && r[1]==1 && r[3]==6)
@@ -132,5 +153,7 @@ void sg_trace_exact_outcome_pp_edges(void *core, uint32_t *regs,
         if(out->status==3)break;
     }
     out->end_frame=frame(core);
+    if (out->end_frame<out->start_frame || out->end_frame<last_frame)
+        out->status=5;
     if(!out->status)out->status=2; /* Instruction budget, NOT a terminal. */
 }
