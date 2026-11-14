@@ -5,6 +5,7 @@ on:
     branches:
       - research/original-player0-request-44-byte-poststore-20261113
       - research/player0-request-44-byte-proof-audit-20261113
+      - research/player0-request-changed-store-v2-20261114
     paths:
       - .github/workflows/public-player0-request-copy-proof.yml
       - tools/test_player0_request_copy_json_fixture.c
