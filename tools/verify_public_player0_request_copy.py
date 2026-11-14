@@ -8,13 +8,14 @@ or movement. No private file loading or attestation entry point exists.
 """
 import json
 
-BRIDGE_SCHEMA = "sg-public-synthetic-request-copy-v2"
+BRIDGE_SCHEMA = "sg-public-synthetic-request-copy-v3"
 PROOF_FIELDS = frozenset((
     "state", "error", "begin_frame", "end_frame", "entry_frame", "post_frame",
     "source", "dest", "actor", "direction", "length", "entry_sp", "entry_lr",
     "post_sp", "post_lr", "stores", "pending_entry", "pending_post",
     "opcode_post", "total_steps", "tag", "source_before", "source_after",
     "dest_after", "store_values", "store_indices", "dest_before",
+    "entry_insn", "store_insn", "post_insn",
 ))
 ARRAYS = ("source_before", "source_after", "dest_after", "store_values",
           "dest_before")
@@ -57,6 +58,9 @@ def audit_proof(proof):
             "wrong original player0 copy identity")
     require(proof["opcode_post"] == 19 and proof["source_before"][0] == 19,
             "not original 44-byte opcode19 request")
+    require(all(0 < proof[name] <= 0xFFFF for name in
+                ("entry_insn", "store_insn", "post_insn")),
+            "missing or non-Thumb halfword CPU opcode")
     require(proof["stores"] == COUNT and indices == list(range(COUNT)),
             "missing, duplicated or unordered observed store")
     require(proof["source_before"] == proof["source_after"]
@@ -88,6 +92,7 @@ def audit_proof(proof):
         "scope": "PUBLIC SYNTHETIC C-proof INTERNAL consistency only",
         "internally_consistent_44_byte_player0_copy_candidate": True,
         "all_44_poststep_destination_changes_witnessed_in_fixture": True,
+        "public_fake_cpu_opcode_triplet_recorded": True,
         "original_modified_rom_instruction_pc_attested": False,
         "engine_owned_one_use_request_epoch_certified": False,
         "effective_move_target_legality_certified": False,
@@ -99,6 +104,29 @@ def audit_proof(proof):
     }
 
 
+# Fixed marker PC positions, not data read from a user-supplied transcript.
+ORIGINAL_ENTRY_PC = 0x0806B372
+ORIGINAL_STORE_PC = 0x0806B3C0
+ORIGINAL_POST_PC = 0x0806B3C8
+
+
+def verify_public_opcode_triplet_against_image(proof, image):
+    """Compare three synthetic/public halfwords; caller must authenticate ROM.
+
+    No private file IO, hash assertion, or native acceptance here. A match to
+    an arbitrary fake image does NOT prove the guest executed an instruction.
+    """
+    require(type(image) in (bytes, bytearray), "CPU opcode image must be bytes")
+    for key, pc in (("entry_insn", ORIGINAL_ENTRY_PC),
+                    ("store_insn", ORIGINAL_STORE_PC),
+                    ("post_insn", ORIGINAL_POST_PC)):
+        offset = pc - 0x08000000
+        require(offset + 2 <= len(image), "image missing public opcode PC")
+        require(int.from_bytes(image[offset:offset+2], "little") == proof[key],
+                "public CPU opcode triplet differs from supplied bytes")
+    return True
+
+
 def audit_public_fixture(raw):
     """Accept only the explicitly labeled in-memory fake C fixture schema."""
     require(type(raw) is dict and set(raw) == {
@@ -107,7 +135,7 @@ def audit_public_fixture(raw):
             and raw["mode"] in {
                 "valid", "skipped_store", "bad_opcode", "wrapped_buffer",
                 "wrong_register", "frame_rollback", "short_budget",
-                "missing_callback", "preexisting_equal"},
+                "missing_callback", "preexisting_equal", "opcode_drift"},
             "unknown request-copy fixture mode/schema")
     return audit_proof(raw["proof"])
 
