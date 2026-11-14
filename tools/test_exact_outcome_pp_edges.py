@@ -241,6 +241,72 @@ class ExactOutcomePpEdgeTests(unittest.TestCase):
         self.assertFalse(z["previous_two_pp_unmatched_submissions_classified"])
         self.assertFalse(z["one_use_request_ownership_certified"])
 
+    @staticmethod
+    def outcome_candidate_fixture(opcode=0x703E, **registers):
+        # Public FAKE original EWRAM outcome candidate, NOT an authenticated
+        # gBattleOutcome address or actual original ROM guest CPU result.
+        d=fixture()
+        candidate=0x02002345
+        d["candidate_outcome_byte_address"]=candidate
+        cpu={"r7":candidate,"r6":1,"opcode":opcode}
+        cpu.update(registers)
+        d["events"].insert(3,row(1,18,0x08012340,candidate,0,1,**cpu))
+        return d
+
+    def test_exact_thumb_strb_explains_only_candidate_byte_store(self):
+        d=self.outcome_candidate_fixture()
+        report=v.audit(d)
+        self.assertEqual(report["candidate_outcome_byte_transitions"],1)
+        self.assertEqual(report["candidate_outcome_strb_writer_matches_unverified"],1)
+        self.assertEqual(report["candidate_outcome_unattributed_byte_transitions"],0)
+        self.assertEqual(report["candidate_outcome_writer_pc_candidates_unverified"],
+                         [0x08012340])
+        # A genuine source-level byte STORE is NOT evidence the candidate
+        # address is the real gBattleOutcome or that overworld returned.
+        self.assertTrue(report["candidate_outcome_address_unverified"])
+        self.assertFalse(report["original_battle_outcome_decision_pc_certified"])
+        self.assertFalse(report["full_native_terminal_certified"])
+        self.assertFalse(report["production_promotion_authorized"])
+
+    def test_nonstore_wrong_source_target_or_overflow_is_unattributed(self):
+        for op, regs in (
+            (0x783E,{}),                   # LDRB not a STORE
+            (0x603E,{}),                   # STR word not byte
+            (0x703E,{"r6":2}),            # wrong Rt byte
+            (0x703E,{"r7":0x02002346}),   # wrong effective address
+            (0x55EE,{"r5":0xFFFFFFFF,
+                      "r7":1,"r6":1}),    # register offset overflow
+            (0x7000,{}),                   # zero base, not candidate
+        ):
+            with self.subTest(op=hex(op),regs=regs):
+                report=v.audit(self.outcome_candidate_fixture(op,**regs))
+                self.assertEqual(report["candidate_outcome_byte_transitions"],1)
+                self.assertEqual(report["candidate_outcome_strb_writer_matches_unverified"],0)
+                self.assertEqual(report["candidate_outcome_unattributed_byte_transitions"],1)
+                self.assertEqual(report["candidate_outcome_writer_pc_candidates_unverified"],[])
+                self.assertFalse(report["original_battle_outcome_decision_pc_certified"])
+
+    def test_outcome_candidate_writer_pc_list_is_unique_and_chronological(self):
+        d=self.outcome_candidate_fixture()
+        d["events"].insert(4,row(
+            1,19,0x08012340,d["candidate_outcome_byte_address"],1,2,
+            opcode=0x703E,r7=d["candidate_outcome_byte_address"],r6=2))
+        report=v.audit(d)
+        self.assertEqual(report["candidate_outcome_byte_transitions"],2)
+        self.assertEqual(report["candidate_outcome_strb_writer_matches_unverified"],2)
+        self.assertEqual(report["candidate_outcome_unattributed_byte_transitions"],0)
+        self.assertEqual(report["candidate_outcome_writer_pc_candidates_unverified"],
+                         [0x08012340])
+        self.assertFalse(report["full_native_terminal_certified"])
+
+    def test_outcome_candidate_alone_does_not_invent_writer_or_terminal(self):
+        report=v.audit(fixture())
+        self.assertEqual(report["candidate_outcome_byte_transitions"],0)
+        self.assertEqual(report["candidate_outcome_strb_writer_matches_unverified"],0)
+        self.assertEqual(report["candidate_outcome_unattributed_byte_transitions"],0)
+        self.assertEqual(report["candidate_outcome_writer_pc_candidates_unverified"],[])
+        self.assertFalse(report["original_battle_outcome_decision_pc_certified"])
+
     def test_original_store_source_byte_from_full_cpu_r0_to_r7(self):
         registers=(0,v.PP,0,19,0,99,19,255)
         self.assertEqual(v.observed_thumb_strb_source_byte(0x700E,registers),19)
