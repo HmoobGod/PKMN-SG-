@@ -483,7 +483,7 @@
 +        else
 +        {
 +            if (gBattleResources == NULL ||
-+                gBattleResources->bufferA[battler][0] != CONTROLLER_CHOOSEMOVE ||
++                !(gBattleResources->bufferA[battler][0] == CONTROLLER_CHOOSEMOVE) ||
 +                moveInfo != (struct ChooseMoveStruct *)&gBattleResources->bufferA[battler][4])
 +                return FALSE;
 +            for (poolSlot = 0; poolSlot < MAX_MON_MOVES; poolSlot++)
