@@ -28,7 +28,7 @@ static void emit_u32(const uint32_t *words, size_t n)
 }
 static void emit(const Proof *p, const char *mode)
 {
-    printf("{\"bridge_schema\":\"sg-public-synthetic-request-copy-v2\",");
+    printf("{\"bridge_schema\":\"sg-public-synthetic-request-copy-v3\",");
     printf("\"mode\":\"%s\",\"proof\":{",mode);
 #define FIELD(name) printf("\"" #name "\":%" PRIu32 ",",p->name)
     FIELD(state);FIELD(error);FIELD(begin_frame);FIELD(end_frame);
@@ -37,6 +37,7 @@ static void emit(const Proof *p, const char *mode)
     FIELD(entry_lr);FIELD(post_sp);FIELD(post_lr);FIELD(stores);
     FIELD(pending_entry);FIELD(pending_post);FIELD(opcode_post);
     FIELD(total_steps);FIELD(tag);
+    FIELD(entry_insn);FIELD(store_insn);FIELD(post_insn);
 #undef FIELD
     printf("\"source_before\":");emit_u8(p->source_before,SRC_N);
     printf(",\"source_after\":");emit_u8(p->source_after,SRC_N);
@@ -62,6 +63,7 @@ int main(int argc,char **argv)
     else if(strcmp(name,"short_budget")==0)mode=6;
     else if(strcmp(name,"missing_callback")==0)mode=7;
     else if(strcmp(name,"preexisting_equal")==0)mode=8;
+    else if(strcmp(name,"opcode_drift")==0)mode=9;
     else return 2;
     install(&m,mode);
     if(mode==2)m.ram[m.source-EWRAM_BASE]=18;
