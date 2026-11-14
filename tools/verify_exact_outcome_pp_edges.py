@@ -144,10 +144,13 @@ def audit(data):
             if expected_context_field is not None:
                 require(e[expected_context_field] == e["after"],
                         "poststep watcher and live RAM snapshot disagree")
-            if kind in prior_watched_after:
-                require(prior_watched_after[kind] == e["before"],
+            # Each PP slot is its own watcher; never link one slot's
+            # previous byte to a different party move slot.
+            watch_key = (kind, e["slot"]) if kind == 5 else kind
+            if watch_key in prior_watched_after:
+                require(prior_watched_after[watch_key] == e["before"],
                         "watcher chronology skips a changed RAM value")
-            prior_watched_after[kind] = e["after"]
+            prior_watched_after[watch_key] = e["after"]
             context = tuple(e[k] for k in
                 ("flags", "battlers", "pending", "inbattle", "callback1", "callback2"))
             if last_poststep_step == step:
