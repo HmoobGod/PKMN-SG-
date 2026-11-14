@@ -71,6 +71,9 @@ int main(int argc,char **argv)
     else if(strcmp(name,"wrong_thumb_target")==0)mode=12;
     else if(strcmp(name,"wrong_thumb_source")==0)mode=13;
     else if(strcmp(name,"not_thumb_byte_store")==0)mode=14;
+    else if(strcmp(name,"transient_buffer_pointer")==0)mode=15;
+    else if(strcmp(name,"transient_pending_word")==0)mode=16;
+    else if(strcmp(name,"entry_pending_drift")==0)mode=17;
     else return 2;
     install(&m,mode);
     if(mode==2)m.ram[m.source-EWRAM_BASE]=18;

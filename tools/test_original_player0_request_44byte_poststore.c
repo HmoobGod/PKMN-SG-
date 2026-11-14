@@ -13,7 +13,7 @@
 typedef struct {
     uint8_t abi[0x1600];
     uint8_t ram[0x40000];
-    uint32_t regs[16], frame, buffer, source, dest, count, mode;
+    uint32_t regs[16], frame, buffer, source, dest, count, mode, pending;
 } FakeCore;
 static uint32_t fr(void *v){return ((FakeCore *)v)->frame;}
 static uint32_t rb(void *v,uint32_t addr,int unused)
@@ -45,6 +45,7 @@ static uint32_t rw(void *v,uint32_t addr,int unused)
 {
     FakeCore *m=v;(void)unused;
     if(addr==0x02001C6Cu)return m->buffer;
+    if(addr==0x02001D2Cu)return m->pending;
     return 0u;
 }
 static void arm_store(FakeCore *m,uint32_t index)
@@ -64,6 +65,7 @@ static void st(void *v)
     if(pc==ENTRY_PC){
         arm_store(m,0u);
         if(m->mode==5u)m->frame=49u; /* 50 -> 49 must fail closed */
+        if(m->mode==17u)m->pending=0x10u; /* drift after ENTRY CPU step */
     }else if(pc==STORE_PC){
         uint32_t k=m->count++;
         assert(k<44u);
@@ -76,6 +78,13 @@ static void st(void *v)
             m->ram[m->dest-EWRAM_BASE]=m->ram[m->source-EWRAM_BASE];
         if(k==7u&&m->mode==11u)m->ram[m->source-EWRAM_BASE]=0xFFu;
         if(k==8u&&m->mode==11u)m->ram[m->source-EWRAM_BASE]=19u;
+        /* Fake original guest changes and later restores its own request
+         * pointer or pending word. The passive recorder must stop at the
+         * FIRST drift, never allow the later restoration to launder it. */
+        if(k==7u&&m->mode==15u)m->buffer+=64u;
+        if(k==8u&&m->mode==15u)m->buffer-=64u;
+        if(k==7u&&m->mode==16u)m->pending=0x20u;
+        if(k==8u&&m->mode==16u)m->pending=0u;
         if(k+1u<44u)arm_store(m,k+1u);
         else {
             m->regs[15]=POST_PC;
@@ -167,6 +176,14 @@ int main(void)
     assert(p.error==12u&&p.state==1u&&p.stores==7u);
     install(&m,11u);run(&m,&p,2u,1000u);
     assert(p.error==13u&&p.state==1u&&p.stores==7u);
+
+    /* A single-step changed original request pointer/pending context
+     * invalidates a candidate 44-byte copy before later fake restore. */
+    for(uint32_t mode=15u;mode<=17u;mode++){
+        install(&m,mode);run(&m,&p,2u,1000u);
+        assert(p.error==15u&&p.state==1u);
+        assert(p.stores==(mode==17u?0u:7u));
+    }
 
     install(&m,2u);m.ram[m.source-EWRAM_BASE]=18u;
     run(&m,&p,2u,1000u);

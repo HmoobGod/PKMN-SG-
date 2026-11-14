@@ -91,6 +91,14 @@ void sg_capture_player_request(void* core,uint32_t* regs,uint32_t frames,uint32_
    if(!proof->entry_insn){proof->error=11;break;}
    for(uint32_t k=0;k<SRC_N;k++)proof->source_before[k]=(uint8_t)read8(core,s+k,0);
   }
+  /* A candidate request is not continuous if its original engine-owned
+   * buffer pointer or pending word changes before any of the 44 stores,
+   * even if a later CPU step restores the entry value. No write or retry. */
+  if(proof->state==1 &&
+     (read32(core,0x02001C6Cu,0)!=proof->dest-0x10u ||
+      read32(core,0x02001D2Cu,0)!=proof->pending_entry)){
+    proof->error=15;break;
+  }
   if(proof->state==1 && pc==STORE_PC){
     uint32_t k=regs[1];
     if(k!=proof->stores||k>=SRC_N||regs[0]!=proof->dest||regs[4]!=proof->source ||
@@ -144,6 +152,14 @@ void sg_capture_player_request(void* core,uint32_t* regs,uint32_t frames,uint32_
    proof->state=2;proof->total_steps=i;break;
   }
   step(core);proof->total_steps=i+1;
+  /* Check immediately after EACH original instruction so a one-step
+   * pointer/pending drift cannot be laundered by a later restoration.
+   * Still only public read-only continuity, not an engine epoch. */
+  if(proof->state==1 &&
+     (read32(core,0x02001C6Cu,0)!=proof->dest-0x10u ||
+      read32(core,0x02001D2Cu,0)!=proof->pending_entry)){
+    proof->error=15;break;
+  }
   if(verify_store){
     uint32_t observed_after=read8(core,proof->dest+verify_index,0)&255u;
     if(observed_after!=verify_value||observed_after==verify_before){
