@@ -19,19 +19,37 @@ static int ewram(uint32_t p, uint32_t n){return p>=EWRAM_BASE&&p<=EWRAM_END-n;}
 void sg_capture_player_request(void* core,uint32_t* regs,uint32_t frames,uint32_t maxsteps,Proof*proof){
  if(!core||!regs||!proof)return;
  memset(proof,0,sizeof(*proof));
- void(*step)(void*)=*(void(**)(void*))((char*)core+0x13e8);
- uint32_t(*frame)(void*)=*(uint32_t(**)(void*))((char*)core+0x1428);
- uint32_t(*read8)(void*,uint32_t,int)=*(uint32_t(**)(void*,uint32_t,int))((char*)core+0x1488);
- uint32_t(*read32)(void*,uint32_t,int)=*(uint32_t(**)(void*,uint32_t,int))((char*)core+0x1498);
+ void(*step)(void*)=0;
+ uint32_t(*frame)(void*)=0;
+ uint32_t(*read8)(void*,uint32_t,int)=0;
+ uint32_t(*read32)(void*,uint32_t,int)=0;
+ /* Host ABI offsets are not necessarily pointer-aligned. Never dereference
+  * an unaligned function-pointer slot or call a missing core callback. */
+ memcpy(&step,(char*)core+0x13e8,sizeof step);
+ memcpy(&frame,(char*)core+0x1428,sizeof frame);
+ memcpy(&read8,(char*)core+0x1488,sizeof read8);
+ memcpy(&read32,(char*)core+0x1498,sizeof read32);
  proof->tag=0x16266007;
+ if(!step||!frame||!read8||!read32||!frames||frames>10000u||
+    !maxsteps||maxsteps>10000000u){proof->error=8;return;}
  proof->begin_frame=frame(core);
+ uint32_t last_frame=proof->begin_frame;
  for(uint32_t i=0;i<maxsteps;i++) {
   uint32_t fr=frame(core);
+  if(fr<proof->begin_frame||fr<last_frame){proof->error=9;break;}
   if(fr-proof->begin_frame>=frames)break;
+  last_frame=fr;
   uint32_t pc=regs[15];
+  uint32_t verify_store=0,verify_index=0,verify_value=0;
   if(pc==ENTRY_PC && regs[0]==0 && regs[1]==0 && regs[3]==SRC_N){
    if(proof->state){proof->error=1;break;}
-   uint32_t s=regs[2],buffer=read32(core,0x02001C6C,0),d=buffer+0x10;
+   uint32_t s=regs[2],buffer=read32(core,0x02001C6C,0),d;
+   /* Reject pointer arithmetic wraparound *before* computing buffer+16.
+    * A forged buffer 0x01FFFFF0 must never alias valid EWRAM. */
+   if(buffer<EWRAM_BASE||buffer>EWRAM_END-(0x10u+SRC_N)){
+       proof->error=2;break;
+   }
+   d=buffer+0x10u;
    if(!ewram(s,SRC_N)||!ewram(d,SRC_N)||!((s+SRC_N<=d)||(d+SRC_N<=s))){proof->error=2;break;}
    if(read8(core,s,0)!=19u){proof->error=3;break;}
    proof->state=1;proof->actor=0;proof->direction=0;proof->length=44;
@@ -44,7 +62,12 @@ void sg_capture_player_request(void* core,uint32_t* regs,uint32_t frames,uint32_
     if(k!=proof->stores||k>=SRC_N||regs[0]!=proof->dest||regs[4]!=proof->source ||
        (regs[3]&255u)!=proof->source_before[k]||regs[13]!=proof->entry_sp-8||
        regs[14]!=proof->entry_lr) {proof->error=4;break;}
-    proof->store_indices[k]=k;proof->store_values[k]=(uint8_t)(regs[3]&255u);proof->stores++;
+    /* The STORE_PC marker is pre-instruction. Only count the store
+     * AFTER the real CPU step and after checking the actual destination
+     * byte, not merely the pre-step register values. This still does not
+     * authenticate a private ROM opcode and cannot prove a store when the
+     * old byte already equaled the new one. */
+    verify_store=1;verify_index=k;verify_value=regs[3]&255u;
   }
   if(proof->state==1 && pc==POST_PC){
    proof->post_frame=fr;proof->post_sp=regs[13];proof->post_lr=regs[14];
@@ -62,6 +85,17 @@ void sg_capture_player_request(void* core,uint32_t* regs,uint32_t frames,uint32_
    proof->state=2;proof->total_steps=i+1;break;
   }
   step(core);proof->total_steps=i+1;
+  if(verify_store){
+    if((read8(core,proof->dest+verify_index,0)&255u)!=verify_value){
+      proof->error=7;break;
+    }
+    proof->store_indices[verify_index]=verify_index;
+    proof->store_values[verify_index]=(uint8_t)verify_value;
+    proof->stores++;
+  }
  }
  proof->end_frame=frame(core);
+ if(proof->end_frame<proof->begin_frame||proof->end_frame<last_frame){
+    proof->error=9;proof->state=0;
+ }
 }
