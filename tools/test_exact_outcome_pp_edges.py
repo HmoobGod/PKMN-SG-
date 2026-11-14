@@ -84,7 +84,7 @@ class ExactOutcomePpEdgeTests(unittest.TestCase):
         # Marker is PRE-step; FLAGS watcher fires POST-step. Same C CPU
         # snapshot, but changed RAM/context fields need not be identical.
         d["events"].insert(1,row(9,1,0x0806BD80,0x02001AB4,4,5,
-                                 r0=0,r2=10))
+                                 r0=0,r2=10,flags=5))
         return d
 
     def test_original_marker_and_memory_change_share_one_cpu_step(self):
