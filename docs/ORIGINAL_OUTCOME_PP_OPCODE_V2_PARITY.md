@@ -131,3 +131,32 @@ Claude exact-head review); PR65, PR63, protected main/source-first,
 approved original heads and Current ROM/save remain unmodified.
 Native modified-game acceptance 0/20 (0%), production 0%; historical
 two PP-unmatched causes classified 0/2. DRAFT, not promotion-ready.
+
+
+## Isolated candidate outcome watch-address alias exclusion
+
+The original outcome watch address is **unknown**. The read-only C
+observer and strict Python v2 audit already reject candidate result
+bytes colliding with the known player own PP, battle Flags, and pending
+word. Two further EWRAM locations are already known **not** to be an
+independent authenticated battle-outcome result byte: the original
+wild battler count byte `0x02001AB8` (adjacent to flags), and the
+original actor0 44-byte request copy buffer pointer word
+`0x02001C6C..0x02001C6F`. The previous guards allowed both. A natural
+battler-count change or pointer update could then be mislabelled as
+an "outcome candidate byte transition", despite no outcome semantics.
+
+Both C and Python now reject these aliases before counting any CPU
+observations. C fake-core tests validate denial at boundary bytes and
+permitted nearby addresses; Python synthetic tests mirror the exact
+reserved ranges. Adjacent unknown RAM addresses remain candidates
+ONLY, with `original_battle_outcome_decision_pc_certified=False`.
+This is a conservative evidence-consistency gate, not an outcome map,
+proof that a valid outcome address exists at any tested point, or
+permission for original-game execution.
+
+No private modified-ROM, Current ROM/save or emulator accessed, no
+new native game hook or player inputs, no foe/NPC AI or fallback edits.
+All previously independently approved exact heads and protected
+main/source-first stay unchanged. Native original-game formal
+acceptance 0/20, production 0%, historical PP causes 0/2.

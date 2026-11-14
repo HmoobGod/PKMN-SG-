@@ -191,6 +191,22 @@ class ExactOutcomePpEdgeTests(unittest.TestCase):
     def test_candidate_not_pp_alias(self):self.denied(lambda d:d.update(candidate_outcome_byte_address=v.PP))
     def test_candidate_not_flags_alias(self):self.denied(lambda d:d.update(candidate_outcome_byte_address=0x02001AB5))
     def test_candidate_not_pending_alias(self):self.denied(lambda d:d.update(candidate_outcome_byte_address=0x02001D2D))
+    def test_candidate_not_battlers_alias(self):
+        self.denied(lambda d:d.update(candidate_outcome_byte_address=0x02001AB8))
+    def test_candidate_not_request_buffer_pointer_alias(self):
+        for addr in range(0x02001C6C,0x02001C70):
+            with self.subTest(addr=hex(addr)):
+                self.denied(lambda d,addr=addr:
+                            d.update(candidate_outcome_byte_address=addr))
+    def test_known_reserved_alias_boundaries_agree_with_c(self):
+        for addr in (0x02001AB9,0x02001C70,v.PP+4,0x02001D30,
+                     0x02002345):
+            with self.subTest(addr=hex(addr)):
+                d=fixture()
+                d["candidate_outcome_byte_address"]=addr
+                report=v.audit(d)
+                self.assertTrue(report["candidate_outcome_address_unverified"])
+                self.assertFalse(report["original_battle_outcome_decision_pc_certified"])
     def test_candidate_unproven(self):
         d=fixture();d.update(candidate_outcome_byte_address=0x02002345)
         d["events"].insert(2,row(1,5,0x08012340,0x02002345,0,1))

@@ -133,6 +133,30 @@ int main(void)
                                     events,64u,&run);
     assert(run.status==4u&&run.guest_steps==0u);
 
+    /* Reject candidate result bytes that actually belong to existing
+     * wild battle flags/battlers, one-use request pointer, PP or pending. */
+    const uint32_t reserved_outcome[]={
+        SG_FLAGS,SG_FLAGS+3u,SG_BATTLERS,
+        SG_PLAYER0_BUFFER_PTR,SG_PLAYER0_BUFFER_PTR+3u,
+        SG_PP,SG_PP+3u,SG_PENDING,SG_PENDING+3u
+    };
+    for(size_t j=0;j<sizeof(reserved_outcome)/sizeof(reserved_outcome[0]);j++){
+        install(&m,0u);
+        sg_trace_exact_outcome_pp_edges(&m,m.regs,2u,100u,
+            reserved_outcome[j],events,64u,&run);
+        assert(run.status==4u&&run.guest_steps==0u);
+    }
+    const uint32_t allowed_boundary[]={
+        SG_BATTLERS+1u,SG_PLAYER0_BUFFER_PTR+4u,SG_PP+4u,
+        SG_PENDING+4u,0x02002345u
+    };
+    for(size_t j=0;j<sizeof(allowed_boundary)/sizeof(allowed_boundary[0]);j++){
+        install(&m,0u);
+        sg_trace_exact_outcome_pp_edges(&m,m.regs,2u,100u,
+            allowed_boundary[j],events,64u,&run);
+        assert(run.status==1u&&run.guest_steps==3u);
+    }
+
     assert(sg_original_thumb_pc(0x08000002u));
     assert(sg_original_thumb_pc(0x02000002u));
     assert(sg_original_thumb_pc(0x03008000u));
