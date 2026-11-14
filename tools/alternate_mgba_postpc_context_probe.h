@@ -11,8 +11,25 @@ typedef struct {
  uint32_t pc_before,pc_after,opcode_before,frame_before,frame_after;
  uint32_t pointer_before,pointer_after,pending_before,pending_after;
  uint32_t context_changed_unclassified;
+ uint32_t bx_operand_register, bx_expected_successor_pc;
  uint32_t engine_one_use_certified,native_pp_cause_certified,production_authorized;
 } SgPostPcProbe;
+/* Decode only Thumb BX Rm, not BLX, MOV PC, load, or arbitrary opcode.
+ * GBA CPU state/provenance is NOT proved by these public fake registers.
+ * Refuse ARM-state, RAM-origin or bad/wrapped successors; no inference. */
+static int sg_public_thumb_bx_successor(uint32_t halfword,const uint32_t *regs,
+                                        uint32_t *source_reg,uint32_t *next_pc){
+ if(!regs||!source_reg||!next_pc)return 0;
+ if((halfword&0xFF87u)!=0x4700u)return 0;
+ uint32_t rm=(halfword>>3)&15u;
+ if(rm==15u)return 0;
+ uint32_t encoded=regs[rm];
+ if((encoded&1u)==0u||encoded<0x08000001u||
+    encoded>0x09FFFFFFu)return 0;
+ *source_reg=rm;
+ *next_pc=encoded&~1u;
+ return 1;
+}
 static int sg_probe_postpc_once(void *core,uint32_t *regs,
                                 const Proof *copy,SgPostPcProbe *out){
  void (*guest_step)(void *)=0;
@@ -51,6 +68,13 @@ static int sg_probe_postpc_once(void *core,uint32_t *regs,
     regs[13]!=copy->post_sp||regs[14]!=copy->post_lr){
   out->error=3;return 0;
  }
+ /* The original PR81 fake POST instruction is 0x4718 (BX r3), but
+  * its old fake step ignored r3 and invented POST_PC+2. Deny such
+  * impossible instruction/PC evidence BEFORE advancing. */
+ if(!sg_public_thumb_bx_successor(out->opcode_before,regs,
+     &out->bx_operand_register,&out->bx_expected_successor_pc)){
+  out->error=7;return 0;
+ }
  for(uint32_t i=0;i<SRC_N;i++){
   if((read8(core,copy->source+i,0)&255u)!=copy->source_before[i]||
      (read8(core,copy->dest+i,0)&255u)!=copy->dest_after[i]||
@@ -63,6 +87,7 @@ static int sg_probe_postpc_once(void *core,uint32_t *regs,
   * UNKNOWN rather than inventing an engine-owned one-use request. */
  guest_step(core);
  out->pc_after=regs[15];
+ if(out->pc_after!=out->bx_expected_successor_pc){out->error=8;return 0;}
  out->frame_after=frame(core);
  out->pointer_after=read32(core,0x02001C6Cu,0);
  out->pending_after=read32(core,0x02001D2Cu,0);
