@@ -18,7 +18,7 @@
          if (gBattleResources->bufferA[battler][0] < ARRAY_COUNT(sPlayerBufferCommands))
              sPlayerBufferCommands[gBattleResources->bufferA[battler][0]](battler);
          else
-@@ -2191,9 +2198,484 @@
+@@ -2191,9 +2198,531 @@
      }
  }
  
@@ -255,6 +255,10 @@
 +    u8 preTargetPP[MAX_MON_MOVES];
 +    enum BattlerId foe;
 +    struct ChooseMoveStruct *moveInfo = NULL;
++    u8 preActionHeader[4];
++    const u8 *originalActionBuffer = NULL;
++    u16 preMoveMenuMoves[MAX_MON_MOVES];
++    u8 preMoveMenuPp[MAX_MON_MOVES];
 +
 +    if (!SourceFirstWildSingleOwner(battler))
 +        return FALSE;
@@ -268,6 +272,22 @@
 +    foe = GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT);
 +    if (verifyReply)
 +        moveInfo = (struct ChooseMoveStruct *)&gBattleResources->bufferA[battler][4];
++    /* Freeze the ORIGINAL engine-owned command payload before any
++     * move-limit or targeting helper; command byte alone is not an epoch. */
++    if (verifyReply)
++    {
++        for (poolSlot = 0; poolSlot < MAX_MON_MOVES; poolSlot++)
++        {
++            preMoveMenuMoves[poolSlot] = moveInfo->moves[poolSlot];
++            preMoveMenuPp[poolSlot] = moveInfo->currentPp[poolSlot];
++        }
++    }
++    else
++    {
++        originalActionBuffer = gBattleResources->bufferA[battler];
++        for (poolSlot = 0; poolSlot < ARRAY_COUNT(preActionHeader); poolSlot++)
++            preActionHeader[poolSlot] = originalActionBuffer[poolSlot];
++    }
 +    unusable = verifyReply ? CheckMoveLimitations(battler, 0, MOVE_LIMITATIONS_ALL) : 0;
 +    /* Restrictions may trigger engine side effects. Recheck ownership and
 +     * command after that call, before producing any automatic reply. */
@@ -446,6 +466,33 @@
 +            gBattleMons[battler].moves[slot] != move ||
 +            gBattleMons[battler].pp[slot] == 0))
 +            return FALSE;
++        /* A stale command buffer can retain its first byte while its
++         * engine-owned payload or another move-menu slot has changed.
++         * Deny before skipping an ineligible slot or committing a reply. */
++        if (!verifyReply)
++        {
++            if (gBattleResources == NULL ||
++                gBattleResources->bufferA[battler] != originalActionBuffer)
++                return FALSE;
++            for (poolSlot = 0; poolSlot < ARRAY_COUNT(preActionHeader); poolSlot++)
++            {
++                if (originalActionBuffer[poolSlot] != preActionHeader[poolSlot])
++                    return FALSE;
++            }
++        }
++        else
++        {
++            if (gBattleResources == NULL ||
++                !(gBattleResources->bufferA[battler][0] == CONTROLLER_CHOOSEMOVE) ||
++                moveInfo != (struct ChooseMoveStruct *)&gBattleResources->bufferA[battler][4])
++                return FALSE;
++            for (poolSlot = 0; poolSlot < MAX_MON_MOVES; poolSlot++)
++            {
++                if (moveInfo->moves[poolSlot] != preMoveMenuMoves[poolSlot] ||
++                    moveInfo->currentPp[poolSlot] != preMoveMenuPp[poolSlot])
++                    return FALSE;
++            }
++        }
 +        /* Reject drift even when a helper marks this candidate ineligible.
 +         * Otherwise the next slot would run on a stale ChooseAction request. */
 +        if (!canTarget)
@@ -503,7 +550,7 @@
  
      gBattlerControllerFuncs[battler] = HandleChooseActionAfterDma3;
      BattleTv_ClearExplosionFaintCause();
-@@ -2291,6 +2773,19 @@
+@@ -2291,6 +2820,19 @@
  
  void PlayerHandleChooseMove(enum BattlerId battler)
  {

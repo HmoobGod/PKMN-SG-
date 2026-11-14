@@ -75,7 +75,9 @@ def guarded_pool(patch):
         if len(checks) != 1 or not (second_helper < checks[0].start() <
                                     checks[0].end() < identity_gate):
             return False
-        if any(text.count(line) != 2 for line in (POOL_LOOP,)):
+        # Two original move-pool scans plus two newly pinned original
+        # ChooseMove menu scans must remain present (capture and recheck).
+        if any(text.count(line) != 4 for line in (POOL_LOOP,)):
             return False
         if any(text.count(line) != 1 for line in (*CAPTURE, *COMPARE)):
             return False
