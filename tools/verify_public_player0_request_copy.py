@@ -8,7 +8,7 @@ or movement. No private file loading or attestation entry point exists.
 """
 import json
 
-BRIDGE_SCHEMA = "sg-public-synthetic-request-copy-v3"
+BRIDGE_SCHEMA = "sg-public-synthetic-request-copy-v4"
 PROOF_FIELDS = frozenset((
     "state", "error", "begin_frame", "end_frame", "entry_frame", "post_frame",
     "source", "dest", "actor", "direction", "length", "entry_sp", "entry_lr",
@@ -16,9 +16,11 @@ PROOF_FIELDS = frozenset((
     "opcode_post", "total_steps", "tag", "source_before", "source_after",
     "dest_after", "store_values", "store_indices", "dest_before",
     "entry_insn", "store_insn", "post_insn",
+    "store_effective_addresses", "store_encoded_source_bytes",
 ))
 ARRAYS = ("source_before", "source_after", "dest_after", "store_values",
           "dest_before")
+WORD_ARRAYS = ("store_effective_addresses", "store_encoded_source_bytes")
 BASE = 0x02000000
 END = 0x02040000
 COUNT = 44
@@ -44,9 +46,15 @@ def audit_proof(proof):
     require(type(proof) is dict and set(proof) == PROOF_FIELDS,
             "unexpected original player request proof field set")
     require(all(u32(proof[k]) for k in PROOF_FIELDS if k not in ARRAYS
-                and k != "store_indices"), "invalid proof scalar field")
+                and k not in WORD_ARRAYS and k != "store_indices"),
+            "invalid proof scalar field")
     require(all(byte_seq(proof[k]) for k in ARRAYS),
             "invalid or incomplete 44-byte proof array")
+    require(all(type(proof[name]) is list
+                and len(proof[name]) == COUNT
+                and all(u32(value) for value in proof[name])
+                for name in WORD_ARRAYS),
+            "missing malformed or incomplete Thumb store decoder arrays")
     indices = proof["store_indices"]
     require(type(indices) is list and len(indices) == COUNT and
             all(u32(v) for v in indices),
@@ -61,6 +69,13 @@ def audit_proof(proof):
     require(all(0 < proof[name] <= 0xFFFF for name in
                 ("entry_insn", "store_insn", "post_insn")),
             "missing or non-Thumb halfword CPU opcode")
+    # This is a Thumb-1 byte store, not LDRB/STR word or arbitrary nonzero
+    # halfword. The read-only C recorder checked all 44 PRE-step operands.
+    # Python validates internal proof consistency only, not real ROM origin.
+    store_opcode = proof["store_insn"]
+    require((store_opcode & 0xF800) == 0x7000 or
+            (store_opcode & 0xFE00) == 0x5400,
+            "request copy instruction is not a Thumb byte STORE")
     require(proof["stores"] == COUNT and indices == list(range(COUNT)),
             "missing, duplicated or unordered observed store")
     require(proof["source_before"] == proof["source_after"]
@@ -74,6 +89,11 @@ def audit_proof(proof):
             BASE + 0x10 <= dest <= END - COUNT and
             (source + COUNT <= dest or dest + COUNT <= source),
             "original player0 copy out of bounds or overlapping")
+    require(proof["store_effective_addresses"] ==
+            list(range(dest, dest + COUNT)),
+            "decoded Thumb instruction did not address each copied byte")
+    require(proof["store_encoded_source_bytes"] == proof["store_values"],
+            "decoded Thumb Rt source does not match observed stores")
     require(proof["entry_frame"] == proof["post_frame"] and
             proof["begin_frame"] <= proof["entry_frame"] <= proof["end_frame"]
             and proof["end_frame"] - proof["begin_frame"] <= 10000,
@@ -93,6 +113,7 @@ def audit_proof(proof):
         "internally_consistent_44_byte_player0_copy_candidate": True,
         "all_44_poststep_destination_changes_witnessed_in_fixture": True,
         "public_fake_cpu_opcode_triplet_recorded": True,
+        "all_44_public_thumb_strb_operand_addresses_and_bytes_checked": True,
         "original_modified_rom_instruction_pc_attested": False,
         "engine_owned_one_use_request_epoch_certified": False,
         "effective_move_target_legality_certified": False,
@@ -136,7 +157,9 @@ def audit_public_fixture(raw):
                 "valid", "skipped_store", "bad_opcode", "wrapped_buffer",
                 "wrong_register", "frame_rollback", "short_budget",
                 "missing_callback", "preexisting_equal", "opcode_drift",
-                "transient_dest", "transient_source"},
+                "transient_dest", "transient_source",
+                "wrong_thumb_target", "wrong_thumb_source",
+                "not_thumb_byte_store"},
             "unknown request-copy fixture mode/schema")
     return audit_proof(raw["proof"])
 
