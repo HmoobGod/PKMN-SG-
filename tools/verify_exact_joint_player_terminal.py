@@ -90,9 +90,13 @@ def audit(d):
                 (e["step"]==last_step and e["stage"]>=last_stage and
                  (last_stage==1 or e["stage"]==1)),
                 "reordered event step or pre/post stage")
-        require(e["pc"]==0 and e["opcode"]==0 or
-                (0x08000000<=e["pc"]<=0x09FFFFFE and e["pc"]%2==0
-                 and e["opcode"]<=0xFFFF),"unknown original ROM PC or opcode")
+        # Every recorded original CPU event must have a byte-pinned
+        # executable ROM instruction. Zero is not a safe "unknown PC":
+        # the old attest() skipped such events, allowing callback/PP/Main
+        # records to bypass original opcode provenance altogether.
+        require(0x08000000<=e["pc"]<=0x09FFFFFE and e["pc"]%2==0
+                and e["opcode"]<=0xFFFF,
+                "missing or non-original ROM CPU PC/opcode provenance")
         require(e["flags"] in (0,4) and e["battlers"] in (0,2)
                 and e["inbattle"]<=255,"non-wild/native context mismatch")
         kind=e["kind"]
@@ -222,7 +226,8 @@ def attest(raw,current,modified,save):
     data=json.loads(raw.decode("utf-8"))
     result=audit(data)
     for e in data["events"]:
-        if not e["pc"]:continue
+        # audit() has already forbidden PC=0 and non-ROM CPU origins:
+        # no event may opt out of exact original modified-ROM opcode parity.
         off=e["pc"]-0x08000000
         require(int.from_bytes(modified[off:off+2],"little")==e["opcode"],
                 "original modified-ROM opcode mismatch")
