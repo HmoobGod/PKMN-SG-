@@ -41,30 +41,52 @@ def triage(raw):
     source=audit(raw) # Reuse full exact-schema and same-step CPU assertions.
     result_address=raw["candidate_outcome_byte_address"]
     result_writes=[]
+    result_transitions=[]
     exits=[]
     active=None
+    # PRE-step marker and POST-step watcher entries may appear in either order
+    # at the SAME original CPU step. Refuse a stale automatic terminal after
+    # a manual-menu marker even when the JSON lists another watcher first.
+    manual_steps={e["step"] for e in raw["events"] if e["kind"]==8}
+    manual_steps_seen=set()
     for e in raw["events"]:
         kind=e["kind"]
-        if kind==1 and candidate_result_writer(e,result_address):
-            result_writes.append(e["step"])
+        step=e["step"]
+        if step in manual_steps:
+            if active is not None:
+                active["closed_by"]="manual_menu_step_boundary"
+                active=None
+            result_writes=[]
+            result_transitions=[]
+            manual_steps_seen.add(step)
+            if kind in (1,3,4,8):
+                continue
+        if kind==1:
+            if active is not None:
+                active["closed_by"]="new_result_transition_after_main_clear"
+                active=None
+            result_transitions.append(step)
+            if candidate_result_writer(e,result_address):
+                result_writes.append(step)
         if kind==2:
             if e["after"]==0 and e["before"]!=0:
                 if active:
                     active["closed_by"]="later_main_transition"
                 prior=[s for s in result_writes if s<e["step"]]
+                prior_changes=[s for s in result_transitions if s<e["step"]]
                 active={"main_clear_step":e["step"],"prior_result_steps":prior,
+                        "prior_result_transition_steps":prior_changes,
                         "callback1":[],"callback2":[],
                         "closed_by":"end_of_observation"}
                 exits.append(active)
                 result_writes=[]
+                result_transitions=[]
             elif e["after"]!=0:
                 if active:
                     active["closed_by"]="battle_resumed"
                     active=None
                 result_writes=[]
-        elif kind==8 and active is not None:
-            active["closed_by"]="manual_menu"
-            active=None
+                result_transitions=[]
         elif kind in (3,4) and active is not None:
             key="callback1" if kind==3 else "callback2"
             active[key].append({
@@ -76,6 +98,8 @@ def triage(raw):
         c1,c2=seg["callback1"],seg["callback2"]
         valid=(seg["closed_by"]=="end_of_observation" and
                len(seg["prior_result_steps"])==1 and
+               len(seg["prior_result_transition_steps"])==1 and
+               seg["prior_result_steps"]==seg["prior_result_transition_steps"] and
                len(c1)==len(c2)==1 and
                c1[0]["word_writer_candidate_unverified"] and
                c2[0]["word_writer_candidate_unverified"] and
@@ -86,6 +110,7 @@ def triage(raw):
     return {
         "schema":"sg-public-original-terminal-return-order-v1",
         "main_inbattle_clear_segments_unverified":len(exits),
+        "manual_cpu_barrier_steps_seen":len(manual_steps_seen),
         "ordered_result_main_callback1_callback2_sequences_unverified":ordered,
         "missing_ambiguous_or_out_of_order_segments":len(exits)-ordered,
         "prior_result_byte_writers_are_unverified":source[
