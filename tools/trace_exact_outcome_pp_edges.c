@@ -62,23 +62,21 @@ static void sg_edge_append(void *core, uint32_t (*read8)(void *,uint32_t,int),
                            uint32_t (*read32)(void *,uint32_t,int),
                            SG_OutcomeEdge *events, uint32_t capacity,
                            SG_OutcomeEdgeRun *out, uint32_t frame,
-                           uint32_t step, uint32_t pc, uint32_t kind,
+                           uint32_t step, uint32_t pc, uint32_t pre_opcode,
+                           uint32_t kind,
                            uint32_t addr, uint32_t old, uint32_t now,
                            uint32_t slot, const uint32_t r[8])
 {
     SG_OutcomeEdge *e;
-    uint32_t opcode;
     if (!sg_original_thumb_pc(pc)) {out->status=6;return;}
     if (out->event_count >= capacity) {out->status=3;return;}
-    /* Original ROM opcode is captured at PRE-instruction raw r15-2.
-     * RAM-origin instructions are NOT byte-attested by this version.
-     * The strict offline v3 verifier denies them rather than guessing. */
-    opcode=(pc>=0x08000002u && pc<=0x0A000000u)?
-           ((read8(core,pc-2u,0)&255u) |
-            ((read8(core,pc-1u,0)&255u)<<8)):0u;
+    /* This pre_opcode was frozen by the caller BEFORE step(core).
+     * Re-reading the instruction here would make post-step PP/outcome
+     * watchers claim a potentially changed halfword was the executed
+     * instruction. For original RAM instruction origins 0 = UNATTESTED. */
     e=&events[out->event_count++];
     *e=(SG_OutcomeEdge){
-        frame,step,pc-2u,opcode,kind,addr,old,now,slot,
+        frame,step,pc-2u,pre_opcode,kind,addr,old,now,slot,
         r[0],r[1],r[2],r[3],r[4],r[5],r[6],r[7],
         read32(core,SG_FLAGS,0),read8(core,0x02001AB8u,0),
         read32(core,SG_PENDING,0),read8(core,SG_MAIN+0x439u,0),
@@ -135,6 +133,7 @@ void sg_trace_exact_outcome_pp_edges(void *core, uint32_t *regs,
     uint32_t last_frame=out->start_frame;
     for (uint64_t step_index=0;step_index<maxsteps;step_index++) {
         uint32_t f=frame(core), pc=regs[15],r[8],kind=0;
+        uint32_t pre_opcode=0u;
         /* Unsigned subtraction alone turns a clock rollback into a fake
          * completed frame window. Reject even an in-window time rollback. */
         if (f<out->start_frame || f<last_frame) {out->status=5;break;}
@@ -142,6 +141,12 @@ void sg_trace_exact_outcome_pp_edges(void *core, uint32_t *regs,
         if (!sg_original_thumb_pc(pc)) {out->status=6;break;}
         last_frame=f;
         for (uint32_t j=0;j<8;j++)r[j]=regs[j];
+        /* Capture the actual ORIGINAL pre-step Thumb instruction ONCE,
+         * at raw PC-2, before any memory watcher, marker or CPU step.
+         * Never infer the opcode from post-step RAM/ROM bus contents. */
+        if (pc>=0x08000002u && pc<=0x0A000000u)
+            pre_opcode=(read8(core,pc-2u,0)&255u) |
+                       ((read8(core,pc-1u,0)&255u)<<8);
         if (pc==0x0806BD82u && r[0]==0 && r[2]==10)kind=SG_PLAYER_EMIT;
         else if (pc==0x0806B372u && r[0]==0 && r[1]==1 && r[3]==6)
             kind=SG_PLAYER_REPLY;
@@ -153,7 +158,8 @@ void sg_trace_exact_outcome_pp_edges(void *core, uint32_t *regs,
         else if (pc==0x08094382u)kind=SG_NATIVE_TARGET;
         if (kind)
             sg_edge_append(core,read8,read32,events,cap,out,f,
-                           (uint32_t)step_index,pc,kind,0,0,0,255,r);
+                           (uint32_t)step_index,pc,pre_opcode,
+                           kind,0,0,0,255,r);
         if (out->status==3)break;
         step(core);out->guest_steps++;
         for (uint32_t j=0;j<n;j++) {
@@ -162,7 +168,8 @@ void sg_trace_exact_outcome_pp_edges(void *core, uint32_t *regs,
                           read32(core,w->address,0));
             if (w->previous!=now) {
                 sg_edge_append(core,read8,read32,events,cap,out,f,
-                               (uint32_t)step_index,pc,w->kind,w->address,
+                               (uint32_t)step_index,pc,pre_opcode,
+                               w->kind,w->address,
                                w->previous,now,w->slot,r);
                 w->previous=now;
                 if(out->status==3)break;
