@@ -82,7 +82,9 @@ void sg_capture_player_request(void* core,uint32_t* regs,uint32_t frames,uint32_
      if(proof->source_before[k]!=proof->source_after[k]||proof->dest_after[k]!=proof->source_after[k]){proof->error=6;break;}
    }
    if(proof->error)break;
-   /* POST_PC was observed before a CPU step: report the exact number\n    * of instructions actually stepped, not an extra imaginary step. */\n   proof->state=2;proof->total_steps=i;break;
+   /* POST_PC was observed before a CPU step: report the exact number
+    * of instructions actually stepped, not an extra imaginary step. */
+   proof->state=2;proof->total_steps=i;break;
   }
   step(core);proof->total_steps=i+1;
   if(verify_store){
