@@ -12,7 +12,7 @@ from pathlib import Path
 CURRENT = "7b9ac66d38f38dcddc1cc907822615fcf56689600fdccaffa9df9a836fb9ee32"
 MODIFIED = "4b2585e10265805da12016819c880a4acd50eda2aa24ce977d1dbcc705d3ee44"
 SAVE = "8c6cb520de6dc475e5fde31cb78ddd49ceb6add89f5c208598977886fa5579a4"
-SCHEMA = "sg-original-outcome-pp-instruction-edges-v1"
+SCHEMA = "sg-original-outcome-pp-instruction-edges-v2"
 PP = 0x02001EF1
 MAIN = 0x030055D4
 CALLBACK_WINDOWS = {
@@ -20,7 +20,7 @@ CALLBACK_WINDOWS = {
     0x081AED58: "87a078714223450057d306b127deea90d6d8ef37173973216c103f72f95dc333",
     0x0809E6BA: "84ffa68c024412568ce64fdac3719cd460c40a55caf07a5549bd150a7fe50923",
 }
-FIELDS = {"frame", "step", "pc", "kind", "address", "before", "after", "slot",
+FIELDS = {"frame", "step", "pc", "opcode", "kind", "address", "before", "after", "slot",
           "r0", "r1", "r2", "r3", "r4", "flags", "battlers", "pending",
           "inbattle", "callback1", "callback2"}
 # Events 1..16 match C observer; markers 6..8 and 12..16.
@@ -65,11 +65,13 @@ def audit(data):
                 all(type(e[k]) is int and 0 <= e[k] <= 0xFFFFFFFF for k in FIELDS),
                 "unexpected original CPU event fields or types")
         f, step, pc, kind = e["frame"],e["step"],e["pc"],e["kind"]
+        # CPU events outside the original ROM cannot be opcode-attested
+        # against the protected modified-ROM image. No empty sentinel and
+        # no RAM/BIOS instruction receives inferred provenance.
         require(1 <= kind <= 16 and pc % 2 == 0 and
-                (0x08000000 <= pc < 0x0A000000 or
-                 0x02000000 <= pc <= 0x0203FFFF or
-                 0x03000000 <= pc <= 0x03007FFE),
-                "invalid original Thumb PC/event type")
+                0x08000000 <= pc <= 0x09FFFFFE and
+                e["opcode"] <= 0xFFFF,
+                "missing original modified-ROM CPU PC/opcode provenance")
         require(step < data["steps"] and
                 (step > prev_step or (step == prev_step and pc == prev_pc)) and
                 f >= prev_frame, "reordered, duplicated or post-budget guest instructions")
@@ -166,6 +168,16 @@ def audit(data):
     }
 
 
+def verify_original_event_opcodes(rows, modified):
+    """Byte-check EVERY recorded original CPU event; testable on fake bytes."""
+    for event in rows:
+        off = event["pc"] - 0x08000000
+        require(0 <= off and off + 2 <= len(modified),
+                "original event PC outside byte-pinned ROM range")
+        require(int.from_bytes(modified[off:off+2], "little") ==
+                event["opcode"], "original outcome PP CPU opcode parity failed")
+
+
 def attest(raw, current, modified, save):
     require(len(current) == len(modified) == 33554432 and len(save) == 131072,
             "private source ROM/save sizes differ")
@@ -176,7 +188,11 @@ def attest(raw, current, modified, save):
         a,b = current[off-16:off+48],modified[off-16:off+48]
         require(a == b and sha(a) == expected,
                 "known original callback/PP writer Thumb parity failed")
-    result = audit(json.loads(raw.decode("utf-8")))
+    record = json.loads(raw.decode("utf-8"))
+    result = audit(record)
+    # An unchanged 64-byte PP writer/callback neighborhood alone cannot
+    # authenticate the OTHER original instruction PCs in this trace.
+    verify_original_event_opcodes(record["events"], modified)
     result["private_trace_sha256"] = sha(raw)
     result["exact_protected_rom_and_save_verified"] = True
     # The selected candidate RAM byte still requires independently established
