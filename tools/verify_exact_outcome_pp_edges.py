@@ -55,8 +55,13 @@ def audit(data):
             and data.get("new_hook_installed") is False,
             "active input/guest writes or installed hook not allowed")
     addr = data.get("candidate_outcome_byte_address")
-    reserved = set(range(PP, PP+4)) | set(range(0x02001AB4, 0x02001AB8)) \
-               | set(range(0x02001D2C, 0x02001D30))
+    # Outcome candidates cannot alias already known wild-battle metadata:
+    # flags, battler-count byte, request-copy buffer pointer, PP, pending.
+    # These exclusions match the passive C observer's early guard.
+    reserved = (set(range(PP, PP+4)) |
+                set(range(0x02001AB4, 0x02001AB9)) |
+                set(range(0x02001C6C, 0x02001C70)) |
+                set(range(0x02001D2C, 0x02001D30)))
     require(type(addr) is int and (addr == 0 or
             (0x02000000 <= addr <= 0x0203FFFF and addr not in reserved)),
             "outcome address must be absent or a non-overlapping EWRAM candidate")
