@@ -14,6 +14,10 @@ typedef struct {
  uint32_t total_steps,tag;
  uint8_t source_before[44],source_after[44],dest_after[44],store_values[44];
  uint32_t store_indices[44];
+ /* Public v4: decoded PRE-step instruction effective address and STRB Rt
+  * source byte for EACH changed destination byte. These are untrusted
+  * witness candidates, never original ROM attestation or one-use proof. */
+ uint32_t store_effective_addresses[44],store_encoded_source_bytes[44];
  /* v2 evidence: observed destination byte before EACH stepped store. */
  uint8_t dest_before[44];
  /* v3 public observer: PRE-step Thumb halfwords, NOT private attestation. */
@@ -23,6 +27,25 @@ static int ewram(uint32_t p, uint32_t n){return p>=EWRAM_BASE&&p<=EWRAM_END-n;}
 static uint32_t sg_thumb_halfword(void *core,
     uint32_t (*read8)(void *,uint32_t,int), uint32_t pc){
  return (read8(core,pc,0)&255u)|((read8(core,pc+1u,0)&255u)<<8);
+}
+/* Interpret ONLY original Thumb-1 STRB immediate/register-offset.
+ * A fake CPU that writes dest[k] without an instruction that COULD do
+ * exactly that is not evidence of a real original CPU byte store.
+ * All operands must be captured PRE-step; never infer from POST memory. */
+static int sg_decode_thumb_strb(uint32_t insn,const uint32_t *r,
+                                uint32_t *effective,uint32_t *source_byte){
+ uint32_t base,offset,rt;
+ if(!r||!effective||!source_byte)return 0;
+ if((insn&0xF800u)==0x7000u){
+  base=(insn>>3)&7u;offset=(insn>>6)&31u;
+ }else if((insn&0xFE00u)==0x5400u){
+  base=(insn>>3)&7u;offset=r[(insn>>6)&7u];
+ }else return 0;
+ rt=insn&7u;
+ if(r[base]>UINT32_MAX-offset)return 0;
+ *effective=r[base]+offset;
+ *source_byte=r[rt]&255u;
+ return 1;
 }
 void sg_capture_player_request(void* core,uint32_t* regs,uint32_t frames,uint32_t maxsteps,Proof*proof){
  if(!core||!regs||!proof)return;
@@ -49,6 +72,7 @@ void sg_capture_player_request(void* core,uint32_t* regs,uint32_t frames,uint32_
   last_frame=fr;
   uint32_t pc=regs[15];
   uint32_t verify_store=0,verify_index=0,verify_value=0,verify_before=0;
+  uint32_t decoded_store_addr=0,decoded_source_byte=0;
   if(pc==ENTRY_PC && regs[0]==0 && regs[1]==0 && regs[3]==SRC_N){
    if(proof->state){proof->error=1;break;}
    uint32_t s=regs[2],buffer=read32(core,0x02001C6C,0),d;
@@ -75,6 +99,16 @@ void sg_capture_player_request(void* core,uint32_t* regs,uint32_t frames,uint32_
     uint32_t insn=sg_thumb_halfword(core,read8,STORE_PC);
     if(!insn || (proof->stores && insn!=proof->store_insn)){
       proof->error=11;break;
+    }
+    /* Validate actual Thumb byte-store addressing from ORIGINAL
+     * pre-step r0-r7 BEFORE counting a watched poststep byte change.
+     * Invalid/nonstore opcodes or incorrect dest+index / Rt data
+     * must never be reported as an observed original byte store. */
+    if(!sg_decode_thumb_strb(insn,regs,&decoded_store_addr,
+                             &decoded_source_byte) ||
+       decoded_store_addr!=proof->dest+k ||
+       decoded_source_byte!=proof->source_before[k]){
+      proof->error=14;break;
     }
     proof->store_insn=insn;
     /* The STORE_PC marker is pre-instruction. Only count the store
@@ -135,6 +169,8 @@ void sg_capture_player_request(void* core,uint32_t* regs,uint32_t frames,uint32_
     proof->dest_before[verify_index]=(uint8_t)verify_before;
     proof->store_indices[verify_index]=verify_index;
     proof->store_values[verify_index]=(uint8_t)verify_value;
+    proof->store_effective_addresses[verify_index]=decoded_store_addr;
+    proof->store_encoded_source_bytes[verify_index]=decoded_source_byte;
     proof->stores++;
   }
  }
