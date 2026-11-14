@@ -14,6 +14,8 @@ typedef struct {
  uint32_t total_steps,tag;
  uint8_t source_before[44],source_after[44],dest_after[44],store_values[44];
  uint32_t store_indices[44];
+ /* v2 evidence: observed destination byte before EACH stepped store. */
+ uint8_t dest_before[44];
 } Proof;
 static int ewram(uint32_t p, uint32_t n){return p>=EWRAM_BASE&&p<=EWRAM_END-n;}
 void sg_capture_player_request(void* core,uint32_t* regs,uint32_t frames,uint32_t maxsteps,Proof*proof){
@@ -40,7 +42,7 @@ void sg_capture_player_request(void* core,uint32_t* regs,uint32_t frames,uint32_
   if(fr-proof->begin_frame>=frames)break;
   last_frame=fr;
   uint32_t pc=regs[15];
-  uint32_t verify_store=0,verify_index=0,verify_value=0;
+  uint32_t verify_store=0,verify_index=0,verify_value=0,verify_before=0;
   if(pc==ENTRY_PC && regs[0]==0 && regs[1]==0 && regs[3]==SRC_N){
    if(proof->state){proof->error=1;break;}
    uint32_t s=regs[2],buffer=read32(core,0x02001C6C,0),d;
@@ -68,6 +70,10 @@ void sg_capture_player_request(void* core,uint32_t* regs,uint32_t frames,uint32_
      * authenticate a private ROM opcode and cannot prove a store when the
      * old byte already equaled the new one. */
     verify_store=1;verify_index=k;verify_value=regs[3]&255u;
+    verify_before=read8(core,proof->dest+k,0)&255u;
+    /* A same-value poststep read cannot demonstrate that this CPU step
+     * changed memory: fail closed rather than assert a witnessed store. */
+    if(verify_before==verify_value){proof->error=10;break;}
   }
   if(proof->state==1 && pc==POST_PC){
    proof->post_frame=fr;proof->post_sp=regs[13];proof->post_lr=regs[14];
@@ -88,9 +94,11 @@ void sg_capture_player_request(void* core,uint32_t* regs,uint32_t frames,uint32_
   }
   step(core);proof->total_steps=i+1;
   if(verify_store){
-    if((read8(core,proof->dest+verify_index,0)&255u)!=verify_value){
+    uint32_t observed_after=read8(core,proof->dest+verify_index,0)&255u;
+    if(observed_after!=verify_value||observed_after==verify_before){
       proof->error=7;break;
     }
+    proof->dest_before[verify_index]=(uint8_t)verify_before;
     proof->store_indices[verify_index]=verify_index;
     proof->store_values[verify_index]=(uint8_t)verify_value;
     proof->stores++;
