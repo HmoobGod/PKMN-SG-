@@ -18,7 +18,8 @@ C_FIXTURE = TOOLS / "test_player0_request_copy_json_fixture.c"
 MODES = ("valid", "skipped_store", "bad_opcode", "wrapped_buffer",
          "wrong_register", "frame_rollback", "short_budget", "missing_callback",
          "preexisting_equal", "opcode_drift", "transient_dest",
-         "transient_source")
+         "transient_source", "wrong_thumb_target", "wrong_thumb_source",
+         "not_thumb_byte_store")
 
 
 class OriginalCopyProofRoundTrip(unittest.TestCase):
@@ -57,8 +58,12 @@ class OriginalCopyProofRoundTrip(unittest.TestCase):
         self.assertEqual(p["source_before"][0], 19)
         self.assertTrue(result["all_44_poststep_destination_changes_witnessed_in_fixture"])
         self.assertTrue(result["public_fake_cpu_opcode_triplet_recorded"])
+        self.assertTrue(result["all_44_public_thumb_strb_operand_addresses_and_bytes_checked"])
         self.assertEqual((p["entry_insn"],p["store_insn"],p["post_insn"]),
-                         (0x2101,0x7003,0x4718))
+                         (0x2101,0x5443,0x4718))
+        self.assertEqual(p["store_effective_addresses"],
+                         list(range(p["dest"],p["dest"]+44)))
+        self.assertEqual(p["store_encoded_source_bytes"],p["store_values"])
         self.assertTrue(all(before != after for before, after in
                             zip(p["dest_before"], p["store_values"])))
 
@@ -70,6 +75,17 @@ class OriginalCopyProofRoundTrip(unittest.TestCase):
                                     (2, 0))
                 with self.assertRaises(ValueError):
                     v.audit_public_fixture(rec)
+
+    def test_nonmatching_original_thumb_strb_operands_fail_before_guest_store(self):
+        for mode in ("wrong_thumb_target", "wrong_thumb_source",
+                     "not_thumb_byte_store"):
+            with self.subTest(mode=mode):
+                proof = self.records[mode]["proof"]
+                self.assertEqual(proof["state"],1)
+                self.assertEqual(proof["error"],14)
+                self.assertEqual(proof["stores"],7)
+                with self.assertRaises(ValueError):
+                    v.audit_public_fixture(self.records[mode])
 
     def test_intermediate_corruption_detected_before_postloop(self):
         for mode, code in (("transient_dest",12),("transient_source",13)):
@@ -114,6 +130,13 @@ class OriginalCopyProofRoundTrip(unittest.TestCase):
             lambda p: p.update(tag=0),
             lambda p: p.update(entry_insn=0),
             lambda p: p.update(store_insn=65536),
+            lambda p: p.update(store_insn=0x5C43), # LDRB, not STRB
+            lambda p: p["store_effective_addresses"].__setitem__(13,p["dest"]+12),
+            lambda p: p["store_encoded_source_bytes"].__setitem__(17,255),
+            lambda p: p["store_effective_addresses"].pop(),
+            lambda p: p["store_encoded_source_bytes"].pop(),
+            lambda p: p.update(store_effective_addresses=[True]*44),
+            lambda p: p.update(store_encoded_source_bytes=[-1]*44),
             lambda p: p.update(post_insn=True),
             lambda p: p.update(actor=True),
             lambda p: p["source_before"].__setitem__(0, 18),
