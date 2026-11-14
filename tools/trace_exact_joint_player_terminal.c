@@ -79,6 +79,7 @@ void sg_trace_exact_joint_player_terminal(void *core,const uint32_t *regs,
     memcpy(&o.read32,(char*)core+0x1498,sizeof o.read32);
     if(!o.step||!o.frame||!o.read8||!o.read32){out->status=4;return;}
     out->start_frame=o.frame(core);
+    uint32_t last_frame=out->start_frame;
     for(uint32_t j=0;j<8;j++)
         state[j]=j==1||j==2?o.read32(core,addresses[j],0):
                  (o.read8(core,addresses[j],0)&255u);
@@ -88,14 +89,22 @@ void sg_trace_exact_joint_player_terminal(void *core,const uint32_t *regs,
     for(uint64_t i=0;i<maxsteps;i++){
         uint32_t f=o.frame(core),raw=regs[15],pc=0,opcode=0,kind=0;
         uint32_t r[5];
-        if(f<out->start_frame){out->status=5;break;}
+        /* A rollback inside the legal frame window cannot be washed out
+         * by subsequently returning to the starting frame. */
+        if(f<out->start_frame || f<last_frame){out->status=5;break;}
         if(f-out->start_frame>=frames){out->status=1;break;}
-        for(uint32_t j=0;j<5;j++)r[j]=regs[j];
-        if(raw>=0x08000002u&&raw<0x0A000002u&&!(raw&1u)){
-            pc=raw-2u;
-            opcode=(o.read8(core,pc,0)&255u)|
-                   ((o.read8(core,pc+1u,0)&255u)<<8);
+        /* Unattributable raw PC must never be converted to (pc=0,opcode=0)
+         * or allowed to contribute an apparent full original CPU trace.
+         * Current exact-ROM attestation covers ONLY ROM opcodes; execution
+         * from RAM/BIOS would require separately approved provenance. */
+        if(raw<0x08000002u || raw>=0x0A000002u || (raw&1u)){
+            out->status=6;break;
         }
+        last_frame=f;
+        for(uint32_t j=0;j<5;j++)r[j]=regs[j];
+        pc=raw-2u;
+        opcode=(o.read8(core,pc,0)&255u)|
+               ((o.read8(core,pc+1u,0)&255u)<<8);
         if(raw==0x0806BD82u&&r[0]==0&&r[2]==10u)kind=SG_JOIN_EMIT;
         else if(raw==0x0806B372u&&r[0]==0&&r[1]==1u&&r[3]==6u)
             kind=SG_JOIN_REPLY;
@@ -130,6 +139,8 @@ void sg_trace_exact_joint_player_terminal(void *core,const uint32_t *regs,
         if(out->status==3)break;
     }
     out->end_frame=o.frame(core);
+    if(out->end_frame<out->start_frame || out->end_frame<last_frame)
+        out->status=5;
     out->final_main=o.read8(core,MAIN_BATTLE,0)&255u;
     out->final_cb1=o.read32(core,MAIN_BASE,0);
     out->final_cb2=o.read32(core,MAIN_BASE+4u,0);
