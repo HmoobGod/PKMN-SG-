@@ -74,6 +74,8 @@ jobs:
           python3 -m py_compile tools/verify_exact_actor_epoch.py
           python3 -m py_compile tools/verify_exact_outcome_pp_edges.py
           cc -std=c11 -Wall -Wextra -Werror -pedantic -fsyntax-only tools/trace_exact_outcome_pp_edges.c
+          cc -std=c11 -Wall -Wextra -Werror -pedantic -O2 -o /tmp/sg-outcome-capture-safety tools/test_exact_outcome_pp_capture_safety.c
+          /tmp/sg-outcome-capture-safety
           python3 -m py_compile tools/verify_exact_main_callback.py
           cc -std=c11 -Wall -Wextra -Werror -pedantic -fsyntax-only tools/trace_exact_main_callback.c
           python3 -m py_compile tools/verify_exact_next_wild.py
