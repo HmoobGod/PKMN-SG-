@@ -38,6 +38,7 @@ jobs:
           cc -std=c11 -Wall -Wextra -Werror -pedantic -fsyntax-only tools/alternate_mgba_trace_frames.c tools/alternate_mgba_capture_player_copy.c
           cc -std=c11 -Wall -Wextra -Werror -pedantic -O2 -o /tmp/sg-original-request-44-poststore tools/test_original_player0_request_44byte_poststore.c
           /tmp/sg-original-request-44-poststore
+          python3 tools/test_player0_request_copy_json_audit.py
           python3 -m py_compile tools/probe_alternate_mgba_copy.py tools/verify_alternate_mgba_copy.py
           python3 -m py_compile tools/probe_completed_copy.py tools/verify_native_copy_pairs.py
           python3 tools/check_source.py
