@@ -57,6 +57,7 @@ jobs:
           python3 tools/test_exact_outcome_pp_edges.py
           python3 tools/test_original_pp_marker_windows.py
           python3 tools/test_original_actor0_marker_chain.py
+          python3 tools/test_original_actor0_terminal_joint.py
           python3 tools/test_exact_actor_epoch.py
           python3 tools/test_exact_thumb_byte_stores.py
           python3 tools/test_exact_main_battle_edge.py

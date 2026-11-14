@@ -77,6 +77,14 @@ def evaluate(data):
             "completion_after_reply_unverified": bool(completion_possible),
             "one_post_target_thumb_pp_byte_debit_candidate_unverified":
                 bool(pp_possible),
+            "candidate_reply_step_unverified":
+                group["original_reply"][0]["step"] if len(group["original_reply"])==1 else None,
+            "candidate_target_step_unverified":
+                group["target"][0]["step"] if len(group["target"])==1 else None,
+            "candidate_pp_step_unverified":
+                pp_candidates[0]["step"] if len(pp_changes)==len(pp_candidates)==1 else None,
+            "candidate_completion_step_unverified":
+                completion[0]["step"] if len(completion)==1 else None,
             "overlap_ambiguous": bool(win["ambiguous_overlap"]),
             "full_marker_chain_candidate_UNVERIFIED": bool(syntactic_candidate),
             "original_marker_counts": {k: len(group[k]) for k in stage_names},
