@@ -155,24 +155,71 @@ class ExactOutcomePpEdgeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"outside byte-pinned"):
             v.verify_original_event_opcodes(d["events"],bytearray(1024))
     def test_thumb_strb_immediate_effective_address(self):
-        regs=(0,v.PP,0,0,0)
+        regs=(0,v.PP,0,0,0,0,v.PP+1,v.PP)
         self.assertEqual(v.observed_thumb_strb_address(0x700E,regs),v.PP)
         self.assertEqual(v.observed_thumb_strb_address(0x704E,regs),v.PP+1)
+        # Newly recorded r5..r7 are legitimate original Thumb-1 low regs.
+        self.assertEqual(v.observed_thumb_strb_address(0x703E,regs),v.PP)
+        self.assertEqual(v.observed_thumb_strb_address(0x7036,regs),v.PP+1)
         self.assertIsNone(v.observed_thumb_strb_address(0x780E,regs)) # LDRB
         self.assertIsNone(v.observed_thumb_strb_address(0x600E,regs)) # STR word
-        self.assertIsNone(v.observed_thumb_strb_address(0x702E,regs)) # unrecorded Rb
-        self.assertIsNone(v.observed_thumb_strb_address(0x704E,
-                                                       (0,0xFFFFFFFF,0,0,0)))
+        # STRB r6,[r7,#1] cannot wrap a 32-bit effective address.
+        self.assertIsNone(v.observed_thumb_strb_address(0x707E,
+                          (0,0,0,0,0,0,0,0xFFFFFFFF)))
+        with self.assertRaisesRegex(ValueError,"r0-r7"):
+            v.observed_thumb_strb_address(0x700E,regs[:5])
+        with self.assertRaisesRegex(ValueError,"r0-r7"):
+            v.observed_thumb_strb_address(0x700E,
+                (0,0,0,0,0,0,True,v.PP))
 
     def test_thumb_strb_register_offset_address(self):
-        # Thumb STRB r3,[r0,r1] = 0x5443, address from the *two*
-        # recorded pre-step CPU registers, not inferred from PP slot.
-        regs=(v.PP-1,1,0,0,0)
+        # Thumb STRB r3,[r0,r1] = 0x5443, address from the two
+        # independently recorded PRE-step original CPU registers.
+        regs=(v.PP-1,1,0,0,0,0,0,0)
         self.assertEqual(v.observed_thumb_strb_address(0x5443,regs),v.PP)
         self.assertIsNone(v.observed_thumb_strb_address(0x5C43,regs))
         self.assertEqual(v.observed_thumb_strb_address(0x54C3,regs),v.PP-1)
         self.assertIsNone(v.observed_thumb_strb_address(0x5443,
-                                                        (0xFFFFFFFF,1,0,0,0)))
+                         (0xFFFFFFFF,1,0,0,0,0,0,0)))
+        # STRB r6,[r5,r7]: Rb=5, Rm=7, Rt=6 -> 0x55EE.
+        high=(0,0,0,0,0,v.PP-1,19,1)
+        self.assertEqual(v.observed_thumb_strb_address(0x55EE,high),v.PP)
+        self.assertIsNone(v.observed_thumb_strb_address(0x55EE,
+                               (0,0,0,0,0,0xFFFFFFFF,19,1)))
+
+    def test_pp_writer_full_low_register_address_is_only_candidate(self):
+        for opcode, regs in (
+            (0x703E,{"r7":v.PP,"r6":19}),
+            (0x55EE,{"r5":v.PP-1,"r7":1,"r6":19}),
+        ):
+            with self.subTest(opcode=hex(opcode)):
+                d=fixture()
+                d["events"][2].update(opcode=opcode,**regs)
+                result=v.audit(d)
+                self.assertEqual(result["original_pp_writer_single_byte_debits_seen"],1)
+                self.assertFalse(result["one_use_request_ownership_certified"])
+                self.assertFalse(result["previous_two_pp_unmatched_submissions_classified"])
+                self.assertFalse(result["full_native_terminal_certified"])
+                self.assertFalse(result["production_promotion_authorized"])
+
+    def test_pp_writer_delta_two_and_bad_high_register_deny(self):
+        for opcode, vals in (
+            (0x703E,{"r7":v.PP+1,"r6":19}),
+            (0x703E,{"r7":v.PP,"r6":20}),
+            (0x55EE,{"r5":0xFFFFFFFF,"r7":1,"r6":19}),
+            (0x55EE,{"r5":v.PP-1,"r7":1,"r6":18}),
+        ):
+            with self.subTest(opcode=hex(opcode),registers=vals):
+                d=fixture()
+                d["events"][2].update(opcode=opcode,**vals)
+                result=v.audit(d)
+                self.assertEqual(result["original_pp_writer_single_byte_debits_seen"],0)
+                self.assertEqual(result["other_player_pp_byte_changes_not_certified"],1)
+        d=fixture()
+        d["events"][2].update(before=21,after=19) # -2 is not -1
+        result=v.audit(d)
+        self.assertEqual(result["original_pp_writer_single_byte_debits_seen"],0)
+        self.assertFalse(result["production_promotion_authorized"])
 
     def test_pp_writer_requires_strb_and_matching_effective_address(self):
         for opcode,regchange in ((0x0000,{}),(0x780E,{}),(0x704E,{}),
