@@ -22,7 +22,7 @@ def fixture():
     data["events"]=[
         row(6,1,0x0806BD80,r0=0,r2=10),
         row(7,3,0x0806B370,r0=0,r1=1,r3=6),
-        row(5,12,0x0809E6BA,v.PP,20,19,0,r1=v.PP),
+        row(5,12,0x0809E6BA,v.PP,20,19,0,r1=v.PP,opcode=0x700E),
         row(2,20,0x081C1234, v.MAIN+0x439,2,0,inbattle=0),
         row(3,24,0x0808E33C,v.MAIN,0x0808CBDD,0x081C7589,
             r4=v.MAIN,callback1=0x081C7589),
@@ -148,6 +148,46 @@ class ExactOutcomePpEdgeTests(unittest.TestCase):
                 image[e["pc"]-0x08000000]=0
         with self.assertRaisesRegex(ValueError,"outside byte-pinned"):
             v.verify_original_event_opcodes(d["events"],bytearray(1024))
+    def test_thumb_strb_immediate_effective_address(self):
+        regs=(0,v.PP,0,0,0)
+        self.assertEqual(v.observed_thumb_strb_address(0x700E,regs),v.PP)
+        self.assertEqual(v.observed_thumb_strb_address(0x704E,regs),v.PP+1)
+        self.assertIsNone(v.observed_thumb_strb_address(0x780E,regs)) # LDRB
+        self.assertIsNone(v.observed_thumb_strb_address(0x600E,regs)) # STR word
+        self.assertIsNone(v.observed_thumb_strb_address(0x702E,regs)) # unrecorded Rb
+        self.assertIsNone(v.observed_thumb_strb_address(0x704E,
+                                                       (0,0xFFFFFFFF,0,0,0)))
+
+    def test_thumb_strb_register_offset_address(self):
+        # Thumb STRB r3,[r0,r1] = 0x5443, address from the *two*
+        # recorded pre-step CPU registers, not inferred from PP slot.
+        regs=(v.PP-1,1,0,0,0)
+        self.assertEqual(v.observed_thumb_strb_address(0x5443,regs),v.PP)
+        self.assertIsNone(v.observed_thumb_strb_address(0x5C43,regs))
+        self.assertIsNone(v.observed_thumb_strb_address(0x54C3,regs))
+        self.assertIsNone(v.observed_thumb_strb_address(0x5443,
+                                                        (0xFFFFFFFF,1,0,0,0)))
+
+    def test_pp_writer_requires_strb_and_matching_effective_address(self):
+        for opcode,regchange in ((0x0000,{}),(0x780E,{}),(0x704E,{}),
+                                  (0x700E,{"r1":v.PP+1}),
+                                  (0x7006,{}),(0x54C3,{})):
+            with self.subTest(opcode=hex(opcode),registers=regchange):
+                d=fixture()
+                d["events"][2].update(opcode=opcode,**regchange)
+                z=v.audit(d)
+                self.assertEqual(z["original_pp_writer_single_byte_debits_seen"],0)
+                self.assertEqual(z["other_player_pp_byte_changes_not_certified"],1)
+                self.assertFalse(z["production_promotion_authorized"])
+
+    def test_pp_writer_register_offset_is_only_candidate(self):
+        d=fixture()
+        d["events"][2].update(opcode=0x5443,r0=v.PP-1,r1=1)
+        z=v.audit(d)
+        self.assertEqual(z["original_pp_writer_single_byte_debits_seen"],1)
+        self.assertFalse(z["previous_two_pp_unmatched_submissions_classified"])
+        self.assertFalse(z["one_use_request_ownership_certified"])
+
     def test_original_writer_pc_alone_never_certifies_real_outcome(self):
         d=fixture()
         d["events"][2]["opcode"]=0x700E
