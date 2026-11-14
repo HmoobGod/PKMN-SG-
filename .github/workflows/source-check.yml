@@ -59,6 +59,7 @@ jobs:
           python3 tools/test_exact_thumb_byte_stores.py
           python3 tools/test_exact_main_battle_edge.py
           python3 tools/test_exact_joint_player_terminal.py
+          python3 tools/test_exact_joint_c_to_python_bridge.py
           python3 -m py_compile tools/verify_exact_joint_player_terminal.py
           cc -std=c11 -Wall -Wextra -Werror -pedantic -fsyntax-only tools/trace_exact_joint_player_terminal.c
           cc -std=c11 -Wall -Wextra -Werror -pedantic -O2 -o /tmp/sg-original-joint tools/test_exact_joint_player_terminal.c

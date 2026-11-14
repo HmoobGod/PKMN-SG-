@@ -5,9 +5,14 @@ on:
     branches:
       - research/original-main-clear-player0-proof-gate-20261113
       - research/original-joint-c-observer-negative-20261113
+      - research/original-joint-c-slot-delta-guard-20261113
     paths:
       - .github/workflows/original-joint-c-observer-context.yml
       - tools/test_exact_joint_player_terminal_context_c.c
+      - tools/test_exact_joint_c_to_python_bridge.c
+      - tools/test_exact_joint_c_to_python_bridge.py
+      - tools/verify_exact_joint_player_terminal.py
+      - tools/test_exact_joint_player_terminal.py
       - tools/test_exact_joint_player_terminal.c
       - tools/trace_exact_joint_player_terminal.c
   workflow_dispatch:
@@ -38,4 +43,5 @@ jobs:
           cc -std=c11 -Wall -Wextra -Werror -pedantic -O2 -o /tmp/sg-original-joint-context tools/test_exact_joint_player_terminal_context_c.c
           /tmp/sg-original-joint-context
           python3 tools/test_exact_joint_player_terminal.py
+          python3 tools/test_exact_joint_c_to_python_bridge.py
           echo "FAKE_C_OBSERVER_CONTEXT: PASS; not original ROM or native gameplay evidence"

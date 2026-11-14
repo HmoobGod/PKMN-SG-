@@ -125,7 +125,10 @@ static void assert_main_bit0_change_does_not_forge_exit(void)
     assert(run.initial_main==2u && run.final_main==3u);
 }
 
-int main(void)
+#ifndef SG_CONTEXT_MAIN
+#define SG_CONTEXT_MAIN main
+#endif
+int SG_CONTEXT_MAIN(void)
 {
     assert(original_joint_baseline_fixture_main()==0);
     for(unsigned mode=0;mode<=4;mode++)
