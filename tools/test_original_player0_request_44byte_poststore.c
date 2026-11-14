@@ -23,8 +23,19 @@ static uint32_t rb(void *v,uint32_t addr,int unused)
      * original protected ROM halfwords or real emulator traces. */
     if(addr==ENTRY_PC)return 0x01u;
     if(addr==ENTRY_PC+1u)return 0x21u;
-    if(addr==STORE_PC)return (m->mode==9u&&m->count>=7u)?0x05u:0x03u;
-    if(addr==STORE_PC+1u)return 0x70u;
+    /* Valid public fake opcode 0x5443: STRB r3,[r0,r1].
+     * PRE-step r0=destination base, r1=index, r3=source[index].
+     * The old 0x7003 fake opcode instead addressed ONLY destination[0]
+     * even as the fixture wrote destination[index]; that could not
+     * demonstrate the claimed source CPU STORE_PC semantics. */
+    if(addr==STORE_PC) {
+        if(m->count>=7u&&m->mode==9u)return 0x44u; /* changed opcode */
+        if(m->count>=7u&&m->mode==12u)return 0x03u; /* WRONG address */
+        if(m->count>=7u&&m->mode==13u)return 0x42u; /* WRONG Rt */
+        return 0x43u;
+    }
+    if(addr==STORE_PC+1u)return (m->count>=7u&&m->mode==12u)?0x70u:
+                                 (m->count>=7u&&m->mode==14u)?0x5Cu:0x54u;
     if(addr==POST_PC)return 0x18u;
     if(addr==POST_PC+1u)return 0x47u;
     return (addr>=EWRAM_BASE&&addr<EWRAM_END)?
@@ -108,12 +119,14 @@ int main(void)
     assert(p.total_steps==SRC_N+1u&&p.entry_frame==p.post_frame);
     assert(p.opcode_post==19u&&p.actor==0u&&p.length==44u);
     assert(p.source==m.source&&p.dest==m.dest);
-    assert(p.entry_insn==0x2101u&&p.store_insn==0x7003u&&
+    assert(p.entry_insn==0x2101u&&p.store_insn==0x5443u&&
            p.post_insn==0x4718u);
     for(uint32_t i=0;i<SRC_N;i++){
         assert(p.store_indices[i]==i);
         assert(p.store_values[i]==p.source_before[i]);
         assert(p.dest_before[i]!=p.store_values[i]);
+        assert(p.store_effective_addresses[i]==m.dest+i);
+        assert(p.store_encoded_source_bytes[i]==p.store_values[i]);
         assert(p.dest_after[i]==p.source_before[i]);
         assert(p.source_after[i]==p.source_before[i]);
     }
@@ -129,6 +142,24 @@ int main(void)
     /* Changing a CPU halfword mid-copy invalidates its provenance. */
     install(&m,9u);run(&m,&p,2u,1000u);
     assert(p.error==11u&&p.state==1u&&p.stores==7u);
+
+    /* The fake CPU may physically write dest+k while its claimed
+     * instruction points elsewhere, uses the wrong source register,
+     * or is not even a byte STORE. None may count as original CPU proof. */
+    for(uint32_t mode=12u;mode<=14u;mode++){
+        install(&m,mode);run(&m,&p,2u,1000u);
+        assert(p.error==14u&&p.state==1u&&p.stores==7u);
+    }
+
+    uint32_t test_regs[16]={0},a=0,b=0;
+    test_regs[0]=m.dest;test_regs[1]=17u;test_regs[3]=55u;
+    assert(sg_decode_thumb_strb(0x5443u,test_regs,&a,&b));
+    assert(a==m.dest+17u && b==55u);
+    assert(!sg_decode_thumb_strb(0x5C43u,test_regs,&a,&b)); /* LDRB */
+    assert(sg_decode_thumb_strb(0x7003u,test_regs,&a,&b));
+    assert(a==m.dest); /* cannot explain destination[index>0] */
+    test_regs[0]=UINT32_MAX;
+    assert(!sg_decode_thumb_strb(0x5443u,test_regs,&a,&b));
 
     install(&m,10u);run(&m,&p,2u,1000u);
     assert(p.error==12u&&p.state==1u&&p.stores==7u);
