@@ -19,7 +19,8 @@ MODES = ("valid", "skipped_store", "bad_opcode", "wrapped_buffer",
          "wrong_register", "frame_rollback", "short_budget", "missing_callback",
          "preexisting_equal", "opcode_drift", "transient_dest",
          "transient_source", "wrong_thumb_target", "wrong_thumb_source",
-         "not_thumb_byte_store")
+         "not_thumb_byte_store", "transient_buffer_pointer",
+         "transient_pending_word", "entry_pending_drift")
 
 
 class OriginalCopyProofRoundTrip(unittest.TestCase):
@@ -59,6 +60,8 @@ class OriginalCopyProofRoundTrip(unittest.TestCase):
         self.assertTrue(result["all_44_poststep_destination_changes_witnessed_in_fixture"])
         self.assertTrue(result["public_fake_cpu_opcode_triplet_recorded"])
         self.assertTrue(result["all_44_public_thumb_strb_operand_addresses_and_bytes_checked"])
+        self.assertTrue(result["public_original_request_pointer_and_pending_continuity_checked"])
+        self.assertEqual(p["pending_entry"],p["pending_post"])
         self.assertEqual((p["entry_insn"],p["store_insn"],p["post_insn"]),
                          (0x2101,0x5443,0x4718))
         self.assertEqual(p["store_effective_addresses"],
@@ -85,6 +88,18 @@ class OriginalCopyProofRoundTrip(unittest.TestCase):
                 self.assertEqual(proof["error"],14)
                 self.assertEqual(proof["stores"],
                                  1 if mode=="wrong_thumb_target" else 0)
+                with self.assertRaises(ValueError):
+                    v.audit_public_fixture(self.records[mode])
+
+    def test_original_request_pointer_and_pending_transient_drifts_denied(self):
+        for mode in ("transient_buffer_pointer", "transient_pending_word",
+                     "entry_pending_drift"):
+            with self.subTest(mode=mode):
+                proof=self.records[mode]["proof"]
+                self.assertEqual(proof["state"],1)
+                self.assertEqual(proof["error"],15)
+                self.assertEqual(proof["stores"],
+                                 0 if mode=="entry_pending_drift" else 7)
                 with self.assertRaises(ValueError):
                     v.audit_public_fixture(self.records[mode])
 
@@ -131,6 +146,7 @@ class OriginalCopyProofRoundTrip(unittest.TestCase):
             lambda p: p.update(tag=0),
             lambda p: p.update(entry_insn=0),
             lambda p: p.update(store_insn=65536),
+            lambda p: p.update(pending_post=p["pending_entry"]^1),
             lambda p: p.update(store_insn=0x5C43), # LDRB, not STRB
             lambda p: p["store_effective_addresses"].__setitem__(13,p["dest"]+12),
             lambda p: p["store_encoded_source_bytes"].__setitem__(17,255),
