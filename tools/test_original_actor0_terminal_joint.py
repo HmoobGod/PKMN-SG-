@@ -21,10 +21,77 @@ def complete_fixture():
     d["events"].sort(key=lambda x:x["step"])
     return d
 
+def same_step_stmia_fixture():
+    d=complete_fixture()
+    cb1=next(e for e in d["events"] if e["kind"]==3)
+    cb2=next(e for e in d["events"] if e["kind"]==4)
+    cb2["step"]=cb1["step"]
+    cb2["frame"]=cb1["frame"]
+    # STMIA r0!, {r1,r2}: r0=Main, r1=callback1, r2=callback2.
+    # Two poststep watchers must share exact PRE CPU registers/opcode,
+    # while both poststep context snapshots must show BOTH new pointers.
+    common=dict(pc=0x0808E33C,opcode=0xC006,
+                r0=MAIN,r1=cb1["after"],r2=cb2["after"],r3=0,r4=MAIN,
+                callback1=cb1["after"],callback2=cb2["after"])
+    cb1.update(common)
+    cb2.update(common)
+    d["events"].sort(key=lambda e:e["step"])
+    return d
+
 def witness(d):
     return joint.evaluate(d)["joined_actor0_pp_result_main_callback_candidate_UNVERIFIED"]
 
 class JointWitnessTests(unittest.TestCase):
+    def test_original_stmia_same_cpu_step_callback_pair_unverified(self):
+        d=same_step_stmia_fixture()
+        z=joint.evaluate(d)
+        self.assertTrue(z["same_original_cpu_step_stmia_callback_pair_UNVERIFIED"])
+        self.assertTrue(z["exactly_one_ordered_full32_callback_wordstore_pair_UNVERIFIED"])
+        self.assertTrue(witness(d))
+        self.assertFalse(z["original_overworld_callback_execution_certified"])
+        self.assertEqual(z["original_native_acceptance_scenarios"],0)
+
+    def test_stmia_pair_rejects_wrong_word_source(self):
+        d=same_step_stmia_fixture()
+        for row_to_mutate in (3,4):
+            with self.subTest(kind=row_to_mutate):
+                x=copy.deepcopy(d)
+                rows=[e for e in x["events"] if e["kind"] in (3,4)]
+                for e in rows:
+                    e["r2"] ^= 4
+                self.assertFalse(witness(x))
+
+    def test_stmia_pair_rejects_ldmia_base_in_list_or_empty_registers(self):
+        for opcode in (0xC806,0xC007,0xC000):
+            with self.subTest(opcode=hex(opcode)):
+                d=same_step_stmia_fixture()
+                for e in d["events"]:
+                    if e["kind"] in (3,4):
+                        e["opcode"]=opcode
+                self.assertFalse(witness(d))
+
+    def test_stmia_pair_rejects_misalignment_and_32bit_wrap(self):
+        for base in (MAIN+1,0xFFFFFFFC):
+            with self.subTest(base=base):
+                d=same_step_stmia_fixture()
+                for e in d["events"]:
+                    if e["kind"] in (3,4):
+                        e["r0"]=base
+                self.assertFalse(witness(d))
+
+    def test_same_cpu_step_two_str_writes_cannot_be_accepted(self):
+        d=same_step_stmia_fixture()
+        for e in d["events"]:
+            if e["kind"] in (3,4):
+                e["opcode"]=0x6001
+        self.assertFalse(witness(d))
+
+    def test_stmia_pair_requires_identical_pre_cpu_opcode_registers(self):
+        d=same_step_stmia_fixture()
+        next(e for e in d["events"] if e["kind"]==4)["r3"]=123
+        with self.assertRaisesRegex(ValueError,"split or forged"):
+            joint.evaluate(d)
+
     def test_generated_full_chain_never_certifies_native(self):
         z=joint.evaluate(complete_fixture())
         self.assertTrue(z["joined_actor0_pp_result_main_callback_candidate_UNVERIFIED"])
