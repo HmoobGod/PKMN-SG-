@@ -14,6 +14,7 @@ from verify_exact_outcome_pp_edges import (
     MAIN, observed_thumb_strb_address, observed_thumb_strb_source_byte,
     observed_thumb_str_word_store,
 )
+from decode_original_stmia_callback_word import original_thumb_stmia_word_at
 
 def registers(event):
     return tuple(event["r"+str(i)] for i in range(8))
@@ -34,8 +35,11 @@ def callback_str(e, kind):
         0x08000001 <= ptr <= 0x09FFFFFF and ptr&1
     ):
         return False
-    return observed_thumb_str_word_store(
-        e["opcode"],registers(e))==(address,ptr)
+    snapshot=registers(e)
+    # The inherited PR92 STR witness is preserved; PR82 public STMIA
+    # decoder can explain either callback word of one multiword store.
+    return (observed_thumb_str_word_store(e["opcode"],snapshot)==(address,ptr)
+            or original_thumb_stmia_word_at(e["opcode"],snapshot,address)==ptr)
 
 def evaluate(data):
     actor=actor_chain(data)  # inherits strict original CPU schema audit
@@ -59,24 +63,43 @@ def evaluate(data):
     no_callback_ambiguity=(len(callback1)==len(callback2)==1 and
                            callback_str(callback1[0],3) and
                            callback_str(callback2[0],4))
+    same_step_stmia_pair = (
+        no_callback_ambiguity and
+        callback1[0]["step"] == callback2[0]["step"] and
+        original_thumb_stmia_word_at(callback1[0]["opcode"],
+            registers(callback1[0]),MAIN)==callback1[0]["after"] and
+        original_thumb_stmia_word_at(callback2[0]["opcode"],
+            registers(callback2[0]),MAIN+4)==callback2[0]["after"]
+    )
+    # Both same-step watchers must be attributable to ONE Thumb STMIA.
+    # Inherited original CPU audit checks identical PC/opcode/registers
+    # for same-step watcher records; STR cannot write two callback words.
+    callbacks_ordered = (
+        no_callback_ambiguity and
+        (callback1[0]["step"]<callback2[0]["step"] or
+         bool(same_step_stmia_pair))
+    )
     admissible=(len(complete)==1 and len(actor["windows"])==1 and
                 actor["denied_original_emitters_not_promoted"]==0 and
                 len(emitters)==1 and not manual and
                 no_result_transition_ambiguity and
-                no_main_transition_ambiguity and no_callback_ambiguity)
+                no_main_transition_ambiguity and callbacks_ordered)
     if admissible:
         w=complete[0]
-        # A separate original CPU step is mandatory for each edge.
-        # Completion can happen before OR after PP debit.
+        # STR callbacks require separate CPU steps. One STMIA may write
+        # both callback words during SAME original CPU step, and the
+        # post-step watcher logs report two rows for that instruction.
+        # All prior actor/result/Main transitions must remain distinct.
         order=[
             w["emitter_step"],w["candidate_reply_step_unverified"],
             w["candidate_target_step_unverified"],
             w["candidate_pp_step_unverified"],
             results[0]["step"],inbattle[0]["step"],
-            callback1[0]["step"],callback2[0]["step"],
+            callback1[0]["step"],
         ]
-        admissible=all(type(v) is int for v in order) and all(
-            earlier<later for earlier,later in zip(order,order[1:]))
+        admissible=(all(type(v) is int for v in order) and
+                    all(earlier<later for earlier,later in zip(order,order[1:]))
+                    and callbacks_ordered)
     return {
         "schema":"sg-public-original-actor0-terminal-joint-v1",
         "actor0_marker_chain_candidates_unverified":
@@ -89,6 +112,10 @@ def evaluate(data):
             bool(no_callback_ambiguity and len(callback1)==1 and
                  len(callback2)==1 and
                  callback1[0]["step"] < callback2[0]["step"]),
+        "exactly_one_ordered_full32_callback_wordstore_pair_UNVERIFIED":
+            bool(callbacks_ordered),
+        "same_original_cpu_step_stmia_callback_pair_UNVERIFIED":
+            bool(same_step_stmia_pair),
         "joined_actor0_pp_result_main_callback_candidate_UNVERIFIED":
             bool(admissible),
         "missing_or_ambiguous_joint_witness":not admissible,
