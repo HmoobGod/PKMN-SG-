@@ -31,7 +31,7 @@ def same_step_stmia_fixture():
     # Two poststep watchers must share exact PRE CPU registers/opcode,
     # while both poststep context snapshots must show BOTH new pointers.
     common=dict(pc=0x0808E33C,opcode=0xC006,
-                r0=MAIN,r1=cb1["after"],r2=cb2["after"],r4=MAIN,
+                r0=MAIN,r1=cb1["after"],r2=cb2["after"],r3=0,r4=MAIN,
                 callback1=cb1["after"],callback2=cb2["after"])
     cb1.update(common)
     cb2.update(common)
