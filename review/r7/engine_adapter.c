@@ -6,10 +6,26 @@ static R7Plan fail(R7Reason why) {
   return p;
 }
 static int exact_bool(uint8_t x) {return x==0u || x==1u;}
+/* Source-layout check for CONTROLLER_CHOOSEMOVE: header[4], then
+ * ChooseMoveStruct.moves[4] (little-endian u16), currentPp[4] (u8).
+ * These offsets are a SOURCE-ONLY ABI hypothesis until independently
+ * authenticated in the exact original ROM. Reject, never guess, on drift. */
+static int payload_matches_move_data(const R7Original *s) {
+  unsigned i;
+  if (s->command!=19u) return 1;
+  if (s->payload_length<16u) return 0;
+  for (i=0u;i<4u;i++) {
+    unsigned offset=4u+2u*i;
+    uint16_t move=(uint16_t)((uint16_t)s->original_payload[offset] |
+       ((uint16_t)s->original_payload[offset+1u]<<8));
+    if (move!=s->moves[i] || s->original_payload[12u+i]!=s->pp[i])
+      return 0;
+  }
+  return 1;
+}
 static int valid_original(const R7Original *s) {
   if (!s || !s->request_id || !s->original_epoch || !s->resources ||
-      s->payload_length<4u || s->payload_length>R7_PAYLOAD_CAP ||
-      (s->command==19u && s->payload_length<16u)) return 0;
+      s->payload_length<4u || s->payload_length>R7_PAYLOAD_CAP) return 0;
   if (s->battler!=0u || (s->command!=17u && s->command!=19u)) return 0;
   if (!exact_bool(s->player_owned) || !exact_bool(s->wild_single) ||
       !exact_bool(s->doubles) || !exact_bool(s->partner) ||
@@ -17,7 +33,8 @@ static int valid_original(const R7Original *s) {
   if (s->player_owned!=1u || s->wild_single!=1u || s->doubles!=0u ||
       s->partner!=0u || s->auto_enabled!=1u || s->foe_live!=1u) return 0;
   if (s->original_header[0]!=(uint8_t)s->command ||
-      memcmp(s->original_header,s->original_payload,4)!=0) return 0;
+      memcmp(s->original_header,s->original_payload,4)!=0 ||
+      !payload_matches_move_data(s)) return 0;
   return 1;
 }
 static int equal_original(const R7Original *a,const R7Original *b) {

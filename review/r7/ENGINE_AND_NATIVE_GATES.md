@@ -30,6 +30,17 @@ source seams* rather than certified address equivalences.
    response and PP byte-store candidates. Their addresses are kept in the
    private checkpoint, not declared as an exact source link here.
 
+## R7 R2 source-only payload layout assumption
+
+Original source `BtlController_EmitChooseMove` writes the four controller header
+bytes followed by `ChooseMoveStruct`. The proposed 16-byte minimum is the
+header plus four 16-bit move IDs and four 8-bit `currentPp` fields. The adapter
+now cross-checks payload bytes 4–11 and 12–15 against the independent move and
+PP fields supplied by the host, before using those fields for move selection.
+The exact uploaded ROM's compiled enum/structure ABI is **not certified** by
+this public source-level correlation. Missing or disagreeing bytes fail closed.
+The returned `manual_defer_requested` still does not open any native menu.
+
 ## Remaining exact integration requirements
 
 - **Engine-owned request**: hook the original controller only when the engine
