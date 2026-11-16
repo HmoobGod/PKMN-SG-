@@ -32,6 +32,35 @@ consumed only on a successful source-only proposal; overlapping Fight stages
 are rejected. The only output actions are 0 (Fight) and 10 (Move). No API can
 request or emit Switch, items, capture, forced-switch acceptance or a guest write.
 
+### R7 R3 — full source-side ChooseMove buffer and header scope (Claude PR121 advisories)
+
+Claude APPROVED PR121's R2 source-only model at exact
+`a6ec963f6467108a4df7509f3d5d43e184f85ce0`, with two
+pre-native-integration advisories. This independently reviewable R3 proposal
+addresses only A1/A2, not the parked request-lease or ticket-expiry design.
+
+The user-supplied source's `BtlController_EmitChooseMove` transfers a four-byte
+header followed by `ChooseMoveStruct`. The source-side working ABI indicates
+`sizeof(ChooseMoveStruct)==36`, hence **40 total bytes**. R3 raises the
+snapshot capacity from 32 to 40 and **fails closed for all non-40 command-19
+lengths**, including formerly accepted truncated 16- and 32-byte prefixes.
+The original 16-byte move/current-PP prefix is still independently checked
+against host-supplied `moves` and `pp`; bytes 16–39 are treated as opaque and
+bound by exact equality across both snapshots. Their contents are NOT decoded
+or independently authenticated by the R7 mock.
+
+For command 19, the adapter requires controller header byte 1 (isDoubleBattle)
+to match the host `doubles` field and both to be zero. It also requires
+header byte 2 (`NoPpNumber`) and byte 3 (reserved zero) to be zero. This is a
+**conservative auto-eligibility restriction**, not a claim that other header
+values are illegal in the original engine; such requests defer to manual.
+Both independent header copies must still match the original payload.
+
+All size and layout assertions are **source-only hypotheses** until the exact
+uploaded ROM is independently ABI-mapped. A dishonest host can fabricate a
+consistent 40-byte request; R7 does not establish native authenticity.
+No original game files are read or modified by this library.
+
 ### R7 R2 — original ChooseMove move/PP binding (review pending)
 
 For command 19, `r7_plan` now requires at least 16 original payload bytes,

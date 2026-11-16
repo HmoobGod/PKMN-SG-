@@ -5,7 +5,11 @@
 #include <stdint.h>
 #include "../r5/source-first/player0_fail_closed_guard.h"
 
-#define R7_PAYLOAD_CAP 32u
+/* BtlController_EmitChooseMove: 4-byte header + sizeof(ChooseMoveStruct).
+ * A source-side working hypothesis (36-byte struct) pending exact-ROM ABI
+ * authentication; NEVER claim native evidence from this constant alone. */
+#define R7_CHOOSEMOVE_TOTAL_BYTES 40u
+#define R7_PAYLOAD_CAP R7_CHOOSEMOVE_TOTAL_BYTES
 #define R7_NO_ACTION UINT32_MAX
 #define R7_NO_SLOT UINT32_MAX
 

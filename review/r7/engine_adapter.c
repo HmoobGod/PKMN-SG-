@@ -13,7 +13,16 @@ static int exact_bool(uint8_t x) {return x==0u || x==1u;}
 static int payload_matches_move_data(const R7Original *s) {
   unsigned i;
   if (s->command!=19u) return 1;
-  if (s->payload_length<16u) return 0;
+  /* No truncated ChooseMove prefix may authorize a move. Requiring the
+   * complete source-side command length binds the entire buffer snapshot,
+   * including its opaque trailing fields, through the legality callback. */
+  if (s->payload_length!=R7_CHOOSEMOVE_TOTAL_BYTES) return 0;
+  /* Original header: command, isDoubleBattle, NoPpNumber, reserved zero.
+   * Only the conservative single/no-PP-suppression form is auto eligible;
+   * other forms must defer to the ORIGINAL manual controller. */
+  if (s->original_header[1]!=(uint8_t)s->doubles ||
+      s->original_header[1]!=0u || s->original_header[2]!=0u ||
+      s->original_header[3]!=0u) return 0;
   for (i=0u;i<4u;i++) {
     unsigned offset=4u+2u*i;
     uint16_t move=(uint16_t)((uint16_t)s->original_payload[offset] |

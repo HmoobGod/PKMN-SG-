@@ -41,6 +41,25 @@ The exact uploaded ROM's compiled enum/structure ABI is **not certified** by
 this public source-level correlation. Missing or disagreeing bytes fail closed.
 The returned `manual_defer_requested` still does not open any native menu.
 
+## R7 R3 strict complete-buffer / scope-header gate
+
+R3 uses `R7_CHOOSEMOVE_TOTAL_BYTES == 40` as a *source-derived* ABI hypothesis
+(4 controller header bytes plus the 36-byte `ChooseMoveStruct` reported by
+independent source inspection). It rejects any shorter or longer command-19
+buffer, rather than planning from a 16- or 32-byte prefix. On command 19,
+bytes 4–15 must match four host move IDs and four PP values, and the
+full 40 bytes must remain unchanged across original-read / legality / read.
+Bytes 16–39 are still opaque: equality is **not** independent original-engine
+authentication. Header bytes 1–3 must represent conservative eligible
+single-battle/normal-PP/reserved-zero form (`0,0,0`), with header byte 1 also
+cross-checked against the host doubles flag. More complex legitimate original
+requests **defer** instead of being auto-selected. The source archive alone
+does not certify this exact ROM's compiled buffer size or ABI.
+
+The R7 mock still cannot open the original menu, consume native leases,
+block the existing ROM switch branch, prove original target legality or
+establish actual PP causality. No engine- or native-acceptance flags change.
+
 ## Remaining exact integration requirements
 
 - **Engine-owned request**: hook the original controller only when the engine
