@@ -1,0 +1,13 @@
+name: SoulGold R8-05 ChooseAction-to-ChooseMove pending ticket source-only
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  fake-only-05:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Run isolated mock regressions
+        run: |
+          PYTHONPATH=review/r8/05_ticket_continuity python3 -m unittest discover -s review/r8/05_ticket_continuity -p 'test_*.py' -v
+          python3 -m py_compile review/r8/05_ticket_continuity/patch05_ticket_continuity.py review/r8/05_ticket_continuity/test_patch05_ticket_continuity.py
