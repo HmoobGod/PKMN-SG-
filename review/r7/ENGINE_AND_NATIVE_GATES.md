@@ -60,6 +60,25 @@ The R7 mock still cannot open the original menu, consume native leases,
 block the existing ROM switch branch, prove original target legality or
 establish actual PP causality. No engine- or native-acceptance flags change.
 
+## R7 R4 source-only command-length / PP-capacity consistency
+
+Source `BtlController_EmitChooseAction` transfers exactly 4 bytes. R4
+rejects any command17 length other than 4, even when the snapshots are equal;
+no automatic guest response is issued. Source `ChooseMoveStruct` orders
+`moves[4]`, `currentPp[4]`, `maxPp[4]` before `species`, type and Z-move
+fields. Subject to the **unverified packed enum / exact-ROM ABI**, R4 checks
+`maxPp[4]` at original buffer bytes 16–19. Every `maxPp` byte must be at
+least `currentPp` for that slot, and a populated move with a zero maximum PP
+is ineligible. This does not imply the move is legal, usable, nonredundant or
+properly targeted; the original-engine helper remains mandatory.
+
+R4 synthetic regressions sweep command17 lengths 0..41, verify rejection
+of out-of-range max/current PP for each slot even when both host snapshots
+agree, allow populated moves with zero current PP and positive maximum PP,
+exercise the source-only positive ChooseAction and staged ChooseMove paths,
+and preserve R7 R3's full-payload snapshot drift checks. No ROM was patched,
+no original menu was opened, and no CPU-level PP witness was gathered.
+
 ## Remaining exact integration requirements
 
 - **Engine-owned request**: hook the original controller only when the engine

@@ -49,6 +49,13 @@ static void choose_move(Fake *f){
   for (unsigned i=1u;i<4u;i++)
     f->before.original_payload[i]=f->after.original_payload[i]=0u;
   f->before.payload_length=f->after.payload_length=R7_CHOOSEMOVE_TOTAL_BYTES;
+  encode_move_payload(&f->before);
+  encode_move_payload(&f->after);
+  for(unsigned i=0u;i<4u;i++){
+    /* Host fixtures model the source maxPp[4] immediately after currentPp. */
+    f->before.original_payload[16u+i]=f->before.pp[i];
+    f->after.original_payload[16u+i]=f->after.pp[i];
+  }
 }
 static void setup(Fake *f){
   memset(f,0,sizeof *f);
@@ -59,12 +66,10 @@ static void setup(Fake *f){
   o->player_owned=1;o->wild_single=1;o->doubles=0;o->partner=0;
   o->auto_enabled=1;o->foe_live=1;
   o->original_header[0]=17;o->original_header[1]=2;
-  o->payload_length=20;
-  for(unsigned i=0;i<20;i++)o->original_payload[i]=(uint8_t)(i+5);
+  o->payload_length=4u;
   memcpy(o->original_payload,o->original_header,4);
   o->moves[0]=247;o->moves[1]=157;o->moves[2]=92;o->moves[3]=269;
   o->pp[0]=20;o->pp[1]=10;o->pp[2]=10;o->pp[3]=20;
-  encode_move_payload(o);
   f->after=*o;
   f->legal.original_epoch=o->original_epoch;f->legal.request_id=o->request_id;
   f->legal.turn=o->turn;f->legal.move_limitations_verified=1;
@@ -202,7 +207,7 @@ static void test_original_data_drift(void){
     setup(&f);++f.after.moves[i];expect_defer(&f,R7_ORIGINAL_REQUEST_CHANGED);
     setup(&f);++f.after.pp[i];expect_defer(&f,R7_ORIGINAL_REQUEST_CHANGED);
   }
-  for(unsigned i=0;i<20;i++){
+  for(unsigned i=0;i<4;i++){
     setup(&f);++f.after.original_payload[i];expect_defer(&f,R7_ORIGINAL_REQUEST_CHANGED);
   }
 }
@@ -350,6 +355,86 @@ static void test_full_length_move_proposal(void){
   CHECK(lease.consumed==1u && ticket.pending==0u);
   expect_source_only_success(p);
 }
+/* R7 R4: original ChooseAction is exactly four bytes, never a menu-like
+ * 20/40-byte buffer. A structurally invalid request cannot earn Fight. */
+static void test_choose_action_exact_four_bytes(void){
+  Fake f;
+  for(unsigned n=0u;n<=R7_PAYLOAD_CAP+1u;n++){
+    setup(&f);
+    f.before.payload_length=f.after.payload_length=(uint8_t)n;
+    R7Lease lease={72,101,0};R7FightTicket ticket={0};
+    R7Plan p=perform(&f,&lease,&ticket);
+    if(n==4u){
+      CHECK(p.outcome==R7_FIGHT && p.action==0u && p.slot==1u);
+      CHECK(lease.consumed==1u && ticket.pending==1u);
+      expect_source_only_success(p);
+    }else{
+      CHECK(p.outcome==R7_DEFER && p.reason==R7_UNSUPPORTED_SCOPE);
+      CHECK(p.action==R7_NO_ACTION && p.slot==R7_NO_SLOT);
+      CHECK(p.manual_defer_requested==1u && lease.consumed==0u && ticket.pending==0u);
+      CHECK(p.native_move_accepted==0u && p.native_manual_fallback_accepted==0u);
+      CHECK(p.no_forced_switch_certified==0u && p.production_authorized==0u);
+    }
+  }
+  /* All three item/action bytes remain part of the immutable original
+   * ChooseAction header. Their actual values are not guest-authenticated. */
+  for(unsigned i=1u;i<4u;i++){
+    setup(&f);
+    f.before.original_header[i]=f.after.original_header[i]=(uint8_t)(i+20u);
+    f.before.original_payload[i]=f.after.original_payload[i]=(uint8_t)(i+20u);
+    R7Lease lease={72,101,0};R7FightTicket ticket={0};
+    R7Plan p=perform(&f,&lease,&ticket);
+    CHECK(p.outcome==R7_FIGHT && lease.consumed==1u);
+    expect_source_only_success(p);
+    /* But a change of that byte during legality evaluation always defers. */
+    setup(&f);f.after.original_payload[i]^=0x01u;
+    expect_defer(&f,R7_ORIGINAL_REQUEST_CHANGED);
+  }
+}
+
+/* Bytes 16..19 are maxPp[4], immediately following original currentPp[4].
+ * Equality alone is insufficient if both snapshots contain contradictory
+ * host PP / maximum PP values. The check must be performed pre-legality. */
+static void test_choose_move_max_pp_consistency(void){
+  Fake f;
+  for(unsigned i=0u;i<4u;i++){
+    setup(&f);choose_move(&f);
+    CHECK(f.before.original_payload[16u+i]==f.before.pp[i]);
+    f.before.original_payload[16u+i]=(uint8_t)(f.before.pp[i]-1u);
+    f.after.original_payload[16u+i]=f.before.original_payload[16u+i];
+    expect_defer(&f,R7_UNSUPPORTED_SCOPE);
+
+    setup(&f);choose_move(&f);
+    f.before.original_payload[16u+i]=f.after.original_payload[16u+i]=0u;
+    expect_defer(&f,R7_UNSUPPORTED_SCOPE);
+
+    setup(&f);choose_move(&f);
+    f.before.original_payload[16u+i]=(uint8_t)(f.before.pp[i]+1u);
+    f.after.original_payload[16u+i]=f.before.original_payload[16u+i];
+    /* Valid contents but no original player Fight ticket. */
+    expect_defer(&f,R7_STAGE_CONTINUITY_FAILED);
+
+    setup(&f);choose_move(&f);
+    f.before.pp[i]=f.after.pp[i]=0u;
+    f.before.original_payload[12u+i]=f.after.original_payload[12u+i]=0u;
+    f.before.original_payload[16u+i]=f.after.original_payload[16u+i]=1u;
+    expect_defer(&f,R7_STAGE_CONTINUITY_FAILED);
+    /* A populated slot with zero current and zero max PP has no
+     * trustworthy source-side PP capacity; do not automate from it. */
+    f.before.original_payload[16u+i]=f.after.original_payload[16u+i]=0u;
+    expect_defer(&f,R7_UNSUPPORTED_SCOPE);
+  }
+  /* The R7 R3 tail snapshot equality is still mandatory for maxPp. */
+  for(unsigned i=16u;i<20u;i++){
+    setup(&f);choose_move(&f);
+    f.after.original_payload[i]^=0x01u;
+    R7Lease lease={72,101,0};R7FightTicket ticket={0};
+    R7Plan p=perform(&f,&lease,&ticket);
+    CHECK(p.outcome==R7_DEFER && p.reason==R7_ORIGINAL_REQUEST_CHANGED);
+    CHECK(lease.consumed==0u && ticket.pending==0u);
+  }
+}
+
 int main(void){
   test_two_stage_and_replay();test_owner_and_scope();test_lease_and_host_failures();
   test_engine_legality_binding();test_original_data_drift();test_stage_continuity();
@@ -360,6 +445,8 @@ int main(void){
   test_choose_move_header_is_engine_scope_bound();
   test_command19_full_tail_snapshot_continuity();
   test_full_length_move_proposal();
+  test_choose_action_exact_four_bytes();
+  test_choose_move_max_pp_consistency();
   printf("R7 source-only host adapter: %u assertions, %u failures\n",checks,failures);
   return failures?1:0;
 }
