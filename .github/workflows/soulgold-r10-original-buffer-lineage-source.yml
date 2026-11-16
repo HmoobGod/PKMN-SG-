@@ -1,0 +1,20 @@
+name: SoulGold R10 original-buffer lineage public fake-only source checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  source-only:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Synthetic-only original CPU-store lineage tests
+        run: |
+          PYTHONPATH=review/r10 python3 -m unittest discover -s review/r10 -p 'test_*.py' -v
+      - name: Source/test/doc scope only
+        shell: bash
+        run: |
+          if find review/r10 -type f | grep -Ei '\.(gba|sav|state|so|dll|elf|bin|dmp|trace|log|png|jpe?g|jsonl)$'; then
+            echo 'Disallowed game/private artifact in R10 review directory' >&2
+            exit 1
+          fi
+          echo 'R10 source-only review tree contains no game artifacts'
