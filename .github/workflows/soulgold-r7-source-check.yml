@@ -1,0 +1,22 @@
+name: SoulGold R7 public source-only adapter check
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  adapter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Compile and exercise public R7 mock engine adapter
+        run: |
+          cc -std=c11 -O2 -Wall -Wextra -Werror -pedantic \
+            review/r7/engine_adapter.c review/r7/test_engine_adapter.c \
+            review/r5/source-first/player0_fail_closed_guard.c \
+            -o /tmp/soulgold-r7-source-only-check
+          /tmp/soulgold-r7-source-only-check
+      - name: Refuse raw game artifacts and snapshots in new R7 files
+        run: |
+          if find review/r7 -type f | grep -Ei '\.(gba|sav|state|so|dll|elf|bin|dmp|trace|log|png|jpe?g|jsonl)$'; then
+            echo 'Private game artifact forbidden in R7 source review' >&2
+            exit 1
+          fi
