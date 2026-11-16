@@ -1,0 +1,36 @@
+name: SoulGold R5 and R6 public source review
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  source-only:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: R5 fake-only audit suite
+        run: |
+          PYTHONPATH=review/r5/tools python3 -m unittest discover -s review/r5/tools -p 'test_private*.py' -q
+      - name: R5 pure C guard and syntax-only probes
+        run: |
+          cc -std=gnu11 -Wall -Wextra -Werror review/r5/source-first/player0_fail_closed_guard.c review/r5/tests/test_player0_fail_closed_guard.c -o /tmp/soulgold_r5_guard
+          /tmp/soulgold_r5_guard
+          cc -std=gnu11 -Wall -Wextra -Werror -fsyntax-only review/r5/source-first/player0_fail_closed_guard.c
+          cc -std=gnu11 -Wall -Wextra -Werror -fsyntax-only review/r5/sg_frame_probe_pptrace.c
+          cc -std=gnu11 -Wall -Wextra -Werror -fsyntax-only review/r5/sg_frame_probe_ownertrace.c
+          cc -std=gnu11 -Wall -Wextra -Werror -fsyntax-only review/r5/sg_frame_probe_cursortrace.c
+      - name: R6 sibling fake-only tests when present
+        shell: bash
+        run: |
+          shopt -s nullglob
+          tests=(review/r5/r6/test_patch*.py)
+          for f in "${tests[@]}"; do
+            PYTHONPATH=review/r5/r6 python3 "$f"
+          done
+      - name: Enforce no game artifacts in review tree
+        shell: bash
+        run: |
+          if find review/r5 -type f | grep -Ei '\.(gba|sav|state|so|dll|elf|bin|dmp|trace|log|png|jpe?g|jsonl)$'; then
+            echo 'Rejected game/private artifact in public source review tree' >&2
+            exit 1
+          fi
+          echo 'Review tree contains source-only files'

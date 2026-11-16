@@ -1,0 +1,5 @@
+# R5 source-only selector witness — limits of evidence
+
+A private authorized run yielded an original CPU move-slot STRB at address `0x0801862E` writing value **3** to battler0 cursor `live_pointer+0x106`, then later 1 and 1. The exact-ROM Thumb BL at `0x08018620` targets `0x080183F0`. The actual CPU return value is consumed as the move-slot source register. This shows a real original selector value **3**, not merely a historical snapshot. It does **not** establish repeated slot3 recomputation, whether the target was already Taunted, or any certified legality, one-use owner request, manual fallback or release readiness. Private traces/ROM and exact-memory dumps are excluded.
+
+The pure source-first guard and its fake tests are *reference implementations of fail-closed policy*, not a compiled or installed original-game patch. The eventual engine adapter must pass original request ownership, live target and move validity, state continuity, and a verified manual controller. The R5 pixel UI classifier rejects title-screen false positives unless original CPU action/move stores and cursor CPU stores corroborate an observed fight.

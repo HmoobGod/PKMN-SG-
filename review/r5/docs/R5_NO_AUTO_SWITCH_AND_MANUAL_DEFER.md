@@ -1,0 +1,9 @@
+# R5 player0-only legal candidate / original-manual-defer contract (source-only)
+
+Research prototype **not wired to the ROM**. It cannot, by itself, display a manual controller menu or certify native fallback. A production adapter MUST first demonstrate that the original manual controller exists, is callable, displays its menu, accepts human input, and has its lease re-armed correctly.
+
+The pure C guard proposes only action 0 (Fight) or action 10 (Move). **It has no code path returning action 2 (Switch), item/capture, Run, or partner/enemy input.** Every ineligible state returns `SG_DEFER_TO_ORIGINAL_MANUAL`, a request to the future caller — *not* proof that the current direct-auto ROM has a working menu.
+
+Required input evidence comes from the original engine before and after helper calls: player-owned wild-single identity, unchanged request ID / battle turn / party indexes / resources pointer / full controller flags, command bytes and complete menu payload, unconsumed request lease, engine `CheckMoveLimitations` and actual target helper results. No made-up flags should be passed as if authenticated. Move candidate eligibility requires an actual move ID, PP > 0, a verified legal mask and verified foe-target mask. If the engine can *positively* recognize a move as redundant (e.g. Taunt on an already-Taunted target), mask that move; **never assert that redundancy from repeated slot snapshots alone**.
+
+The helper chooses the highest adapter-supplied priority with deterministic lowest-index tie-break, and does not authorize an actual engine reply, a one-use lease, or any native acceptance. Runtime tests must separately prove fail-closed menu fallback and disabled forced switches against a modified disposable game before integration is accepted. No original data is contained in this package.
