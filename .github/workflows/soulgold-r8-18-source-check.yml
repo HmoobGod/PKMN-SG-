@@ -1,0 +1,13 @@
+name: SoulGold R8-18 No opponent or NPC partner automatic actor source-only
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  fake-only-18:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Run isolated mock regressions
+        run: |
+          PYTHONPATH=review/r8/18_npc_separation python3 -m unittest discover -s review/r8/18_npc_separation -p 'test_*.py' -v
+          python3 -m py_compile review/r8/18_npc_separation/patch18_npc_separation.py review/r8/18_npc_separation/test_patch18_npc_separation.py
