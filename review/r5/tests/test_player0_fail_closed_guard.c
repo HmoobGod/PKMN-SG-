@@ -58,6 +58,7 @@ int main(void){
  a=good();a.owner_party_after=2;expect_defer(a,SG_GUARD_STALE_REQUEST);
  a=good();a.foe_party_after=3;expect_defer(a,SG_GUARD_STALE_REQUEST);
  a=good();a.resources_after=0;expect_defer(a,SG_GUARD_STALE_REQUEST);
+ a=good();a.resources_before=0;a.resources_after=0;expect_defer(a,SG_GUARD_STALE_REQUEST);
  a=good();a.controller_flags_after=2;expect_defer(a,SG_GUARD_STALE_REQUEST);
  a=good();a.current_buffer_matches_original=0;expect_defer(a,SG_GUARD_STALE_REQUEST);
  a=good();a.original_menu_payload_matches=0;expect_defer(a,SG_GUARD_STALE_REQUEST);
