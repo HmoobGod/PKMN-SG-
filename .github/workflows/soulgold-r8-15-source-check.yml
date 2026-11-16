@@ -1,0 +1,13 @@
+name: SoulGold R8-15 Original move cursor CPU store provenance source-only
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  fake-only-15:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Run isolated mock regressions
+        run: |
+          PYTHONPATH=review/r8/15_move_cursor_writer python3 -m unittest discover -s review/r8/15_move_cursor_writer -p 'test_*.py' -v
+          python3 -m py_compile review/r8/15_move_cursor_writer/patch15_move_cursor_writer.py review/r8/15_move_cursor_writer/test_patch15_move_cursor_writer.py
