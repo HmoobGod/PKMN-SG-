@@ -16,7 +16,8 @@ typedef struct {
   uint32_t count;
   R7ConsumedId consumed[R7_SESSION_REPLAY_CAP];
   R7FightTicket ticket;
-  uint8_t initialized, manual_locked, busy;
+  uint32_t pending_fight_request_id;
+  uint8_t initialized, manual_locked, busy, reentrant;
 } R7Session;
 
 typedef struct {
@@ -43,7 +44,10 @@ typedef struct {
  * recycled request ID may be presented as native authorization. */
 int r7_session_init(R7Session *session, uint32_t first_epoch);
 /* Wraps and re-checks the existing approved R7 adapter, maintaining a
- * bounded consumed-identity ledger. A full ledger defers, never evicts. */
+ * bounded consumed-identity ledger. A full ledger defers, never evicts.
+ * Interrupted Fight tickets lock the rest of the epoch. A mock request ID
+ * must increase by exactly one between auto Fight and auto Move; this strict
+ * ordering has NOT been authenticated in the uploaded exact ROM. */
 R7Plan r7_session_plan(const R7Host *host, R7Lease *lease, R7Session *session);
 /* On a verified manual takeover, retire a stuck ticket but LOCK the
  * remaining epoch against auto action, to prevent false resumed auto. */

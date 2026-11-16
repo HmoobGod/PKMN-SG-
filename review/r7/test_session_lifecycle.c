@@ -49,33 +49,28 @@ static void test_fresh_lease_replay_and_two_stage(void){
   R7Plan p=session_perform(&f,&l,&s);
   CHECK(p.outcome==R7_FIGHT && p.action==0u);
   CHECK(s.count==1u && s.ticket.pending==1u && l.consumed==1u);
+  CHECK(s.pending_fight_request_id==101u);
   CHECK(s.consumed[0].epoch==72u && s.consumed[0].request_id==101u);
-  /* Initializer cannot be reused to clear the accepted-request ledger. */
-  CHECK(r7_session_init(&s,72u)==0);
-  CHECK(r7_session_init(&s,73u)==0);
-  CHECK(s.count==1u && s.ticket.pending==1u && s.epoch==72u);
-  R7Lease fresh={72,101,0};R7FightTicket old=s.ticket;
-  p=session_perform(&f,&fresh,&s);
-  check_session_defer(p,R7_BAD_LEASE);
-  CHECK(fresh.consumed==0u && s.count==1u);
-  CHECK(s.ticket.pending==old.pending && s.ticket.planned_move==old.planned_move);
-  CHECK(f.law_reads==0u);
+  CHECK(r7_session_init(&s,72u)==0 && r7_session_init(&s,73u)==0);
+  /* Genuine uninterrupted next request is allowed by the SOURCE model. */
   choose_move(&f);f.before.request_id=f.after.request_id=f.legal.request_id=102u;
   l=(R7Lease){72,102,0};
   p=session_perform(&f,&l,&s);
   CHECK(p.outcome==R7_MOVE && p.action==10u && p.slot==1u);
   CHECK(l.consumed==1u && s.count==2u && s.ticket.pending==0u);
+  CHECK(s.pending_fight_request_id==0u);
   expect_source_only_success(p);
-  fresh=(R7Lease){72,102,0};
-  p=session_perform(&f,&fresh,&s);
+  /* Replayed request from a new, unconsumed caller lease is rejected,
+   * then quarantines auto for the rest of this epoch. */
+  setup(&f);R7Lease replay={72,101,0};
+  p=session_perform(&f,&replay,&s);
   check_session_defer(p,R7_BAD_LEASE);
-  CHECK(fresh.consumed==0u && s.count==2u);
-  /* A distinct new ChooseAction request may proceed after Move completed. */
+  CHECK(replay.consumed==0u && s.count==2u && s.manual_locked==1u);
+  CHECK(s.ticket.pending==0u && f.law_reads==0u);
   setup(&f);f.before.request_id=f.after.request_id=f.legal.request_id=103u;
-  l=(R7Lease){72,103,0};
-  p=session_perform(&f,&l,&s);
-  CHECK(p.outcome==R7_FIGHT && s.count==3u && s.ticket.pending==1u);
-  expect_source_only_success(p);
+  l=(R7Lease){72,103,0};p=session_perform(&f,&l,&s);
+  check_session_defer(p,R7_STAGE_CONTINUITY_FAILED);
+  CHECK(s.count==2u && l.consumed==0u && f.reads==0u);
 }
 static void test_failed_proposals_never_record_requests(void){
   Fake f;setup(&f);R7Session s={0};
@@ -84,44 +79,48 @@ static void test_failed_proposals_never_record_requests(void){
   R7Plan p=session_perform(&f,&l,&s);
   check_session_defer(p,R7_NO_VALID_MOVE);
   CHECK(s.count==0u && s.ticket.pending==0u && l.consumed==0u);
-  setup(&f);f.fail_second=1;
+  CHECK(s.manual_locked==0u); /* allowed only with no pending Fight */
+  setup(&f);p=session_perform(&f,&l,&s);
+  CHECK(p.outcome==R7_FIGHT && s.count==1u && l.consumed==1u);
+  /* A missing original response read after a successful Fight is NOT a
+   * benign defer. Do not accept a later manual ChooseMove. */
+  choose_move(&f);f.before.request_id=f.after.request_id=f.legal.request_id=102u;
+  l=(R7Lease){72,102,0};f.fail_second=1;
   p=session_perform(&f,&l,&s);
   check_session_defer(p,R7_ORIGINAL_REQUEST_CHANGED);
-  CHECK(s.count==0u && s.ticket.pending==0u && l.consumed==0u);
-  setup(&f);
+  CHECK(s.count==1u && s.ticket.pending==0u && s.manual_locked==1u);
+  CHECK(l.consumed==0u);
+  f.fail_second=0;
   p=session_perform(&f,&l,&s);
-  CHECK(p.outcome==R7_FIGHT && s.count==1u && l.consumed==1u);
+  check_session_defer(p,R7_STAGE_CONTINUITY_FAILED);
+  CHECK(f.reads==0u && l.consumed==0u);
 }
 static void test_stale_and_invalid_epoch_boundary(void){
   Fake f;setup(&f);R7Session s={0};R7Lease l={72,101,0};
   CHECK(r7_session_init(&s,72u)==1);
   CHECK(session_perform(&f,&l,&s).outcome==R7_FIGHT);
-  R7FightTicket t=s.ticket;
-  /* A new epoch's original request cannot silently wipe a stuck ticket. */
-  setup(&f);
-  f.before.original_epoch=f.after.original_epoch=f.legal.original_epoch=73u;
+  /* A new epoch cannot silently wipe an outstanding Fight ticket. The
+   * violation permanently quarantines this epoch and retires the ticket. */
+  setup(&f);f.before.original_epoch=f.after.original_epoch=f.legal.original_epoch=73u;
   l=(R7Lease){73,101,0};
   R7Plan p=session_perform(&f,&l,&s);
   check_session_defer(p,R7_STAGE_CONTINUITY_FAILED);
-  CHECK(s.epoch==72u && s.ticket.pending==1u && l.consumed==0u);
-  CHECK(s.ticket.planned_move==t.planned_move);
+  CHECK(s.epoch==72u && s.manual_locked==1u);
+  CHECK(s.ticket.pending==0u && s.pending_fight_request_id==0u);
+  CHECK(l.consumed==0u && s.count==1u);
   BoundaryFake b={{72u,73u,1u,1u},0,0u};
   R7BoundaryHost h={&b,check_boundary};
   CHECK(r7_session_advance_epoch(&s,&h)==0);
-  CHECK(s.epoch==72u && s.ticket.pending==1u);
-  b.result=2;
-  CHECK(r7_session_advance_epoch(&s,&h)==0);
-  b.result=1;b.boundary.to_epoch=72u;
-  CHECK(r7_session_advance_epoch(&s,&h)==0);
-  b.boundary.to_epoch=71u;
-  CHECK(r7_session_advance_epoch(&s,&h)==0);
+  b.result=2;CHECK(r7_session_advance_epoch(&s,&h)==0);
+  b.result=1;b.boundary.to_epoch=72u;CHECK(r7_session_advance_epoch(&s,&h)==0);
+  b.boundary.to_epoch=71u;CHECK(r7_session_advance_epoch(&s,&h)==0);
   b.boundary.to_epoch=73u;b.boundary.from_epoch=71u;
   CHECK(r7_session_advance_epoch(&s,&h)==0);
   b.boundary.from_epoch=72u;b.boundary.observed_battle_closed=0u;
   CHECK(r7_session_advance_epoch(&s,&h)==0);
   b.boundary.observed_battle_closed=1u;b.boundary.observed_controller_idle=0u;
   CHECK(r7_session_advance_epoch(&s,&h)==0);
-  CHECK(s.epoch==72u && s.ticket.pending==1u && s.count==1u);
+  CHECK(s.epoch==72u && s.manual_locked==1u && s.count==1u);
   b.boundary.observed_controller_idle=1u;
   CHECK(r7_session_advance_epoch(&s,&h)==1);
   CHECK(s.epoch==73u && s.count==0u && s.ticket.pending==0u);
@@ -133,7 +132,7 @@ static void test_stale_and_invalid_epoch_boundary(void){
   setup(&f);l=(R7Lease){72,101,0};
   p=session_perform(&f,&l,&s);
   check_session_defer(p,R7_STAGE_CONTINUITY_FAILED);
-  CHECK(s.count==1u && l.consumed==0u);
+  CHECK(s.count==1u && l.consumed==0u && s.manual_locked==1u);
 }
 static void test_manual_takes_over_and_locks_epoch(void){
   Fake f;setup(&f);R7Session s={0};R7Lease l={72,101,0};
@@ -188,7 +187,7 @@ static void test_ledger_capacity_is_hard_fail_closed(void){
   f.before.original_epoch=f.after.original_epoch=f.legal.original_epoch=73u;
   extra=(R7Lease){73,999,0};
   p=session_perform(&f,&extra,&s);
-  check_session_defer(p,R7_BAD_LEASE);
+  check_session_defer(p,R7_STAGE_CONTINUITY_FAILED);
   CHECK(s.epoch==72u && s.count==R7_SESSION_REPLAY_CAP);
 }
 static void test_bad_api_and_uninitialized(void){
@@ -209,6 +208,171 @@ static void test_bad_api_and_uninitialized(void){
   check_session_defer(r7_session_plan(&host,&l,&s),R7_STAGE_CONTINUITY_FAILED);
   s.busy=0u;
 }
+
+/* Claude B1: interrupted auto Fight must NEVER be usable by an original
+ * human-driven ChooseMove request, even when every R7 ticket field matches. */
+static void test_interrupted_fight_17_17_19_never_resumes(void){
+  Fake f;setup(&f);R7Session s={0};R7Lease lease={72,101,0};
+  CHECK(r7_session_init(&s,72u)==1);
+  R7Plan plan=session_perform(&f,&lease,&s);
+  CHECK(plan.outcome==R7_FIGHT && s.ticket.pending==1u);
+  CHECK(s.pending_fight_request_id==101u && s.count==1u);
+  /* Player cancelled the move menu; engine reissues ChooseAction. */
+  setup(&f);f.before.request_id=f.after.request_id=f.legal.request_id=102u;
+  lease=(R7Lease){72,102,0};
+  plan=session_perform(&f,&lease,&s);
+  check_session_defer(plan,R7_STAGE_CONTINUITY_FAILED);
+  CHECK(s.manual_locked==1u && s.ticket.pending==0u);
+  CHECK(s.pending_fight_request_id==0u && s.count==1u && lease.consumed==0u);
+  CHECK(f.law_reads==0u);
+  /* Human next picks Fight manually and enters ChooseMove. Even a matching
+   * slot, party, epoch and turn cannot reactivate the old auto-Fight. */
+  choose_move(&f);f.before.request_id=f.after.request_id=f.legal.request_id=103u;
+  lease=(R7Lease){72,103,0};
+  plan=session_perform(&f,&lease,&s);
+  check_session_defer(plan,R7_STAGE_CONTINUITY_FAILED);
+  CHECK(s.manual_locked==1u && s.ticket.pending==0u);
+  CHECK(s.count==1u && lease.consumed==0u);
+  CHECK(f.reads==0u && f.law_reads==0u);
+}
+
+/* A missing immediate successor may be a controller/menu interruption, even
+ * without a visible intervening planner call. Fail closed, not auto-continue. */
+static void test_fight_requires_immediate_successor_request(void){
+  Fake f;setup(&f);R7Session s={0};R7Lease l={72,101,0};
+  CHECK(r7_session_init(&s,72u)==1);
+  CHECK(session_perform(&f,&l,&s).outcome==R7_FIGHT);
+  choose_move(&f);f.before.request_id=f.after.request_id=f.legal.request_id=103u;
+  l=(R7Lease){72,103,0};
+  R7Plan p=session_perform(&f,&l,&s);
+  check_session_defer(p,R7_STAGE_CONTINUITY_FAILED);
+  CHECK(s.manual_locked==1u && s.ticket.pending==0u && s.count==1u);
+  CHECK(f.law_reads==0u && l.consumed==0u);
+}
+
+/* Claude B2: a mismatch must be caught even WITHOUT an existing pending
+ * ticket (otherwise a missing epoch guard could issue an auto Fight). */
+static void test_first_request_epoch_binding_is_independent(void){
+  Fake f;setup(&f);R7Session s={0};
+  CHECK(r7_session_init(&s,72u)==1);
+  f.before.original_epoch=f.after.original_epoch=f.legal.original_epoch=73u;
+  R7Lease l={73,101,0};
+  R7Plan p=session_perform(&f,&l,&s);
+  check_session_defer(p,R7_STAGE_CONTINUITY_FAILED);
+  CHECK(l.consumed==0u && s.count==0u && s.manual_locked==1u);
+  CHECK(f.law_reads==0u);
+}
+
+typedef struct {
+  Fake outer,inner;
+  R7Session *session;
+  R7Lease inner_lease;
+  R7Plan inner_plan;
+  unsigned attempts;
+} ReentryPlanFake;
+static int read_outer(void *ctx,R7Original *out){
+  ReentryPlanFake *c=ctx;
+  return rd(&c->outer,out);
+}
+static int legal_with_reentry(void *ctx,const R7Original *orig,R7Legal *out){
+  ReentryPlanFake *c=ctx;
+  c->attempts++;
+  if(c->attempts==1u){
+    R7Host inner_host={&c->inner,rd,law};
+    c->inner_plan=r7_session_plan(&inner_host,&c->inner_lease,c->session);
+  }
+  return law(&c->outer,orig,out);
+}
+static void test_plan_legal_callback_cannot_reenter(void){
+  ReentryPlanFake c={0};setup(&c.outer);setup(&c.inner);
+  c.inner.before.request_id=c.inner.after.request_id=
+    c.inner.legal.request_id=102u;
+  R7Session s={0};CHECK(r7_session_init(&s,72u)==1);
+  c.session=&s;c.inner_lease=(R7Lease){72,102,0};
+  R7Lease outer_lease={72,101,0};
+  R7Host host={&c,read_outer,legal_with_reentry};
+  R7Plan p=r7_session_plan(&host,&outer_lease,&s);
+  check_session_defer(c.inner_plan,R7_STAGE_CONTINUITY_FAILED);
+  check_session_defer(p,R7_STAGE_CONTINUITY_FAILED);
+  CHECK(c.attempts==1u && c.inner_lease.consumed==0u);
+  CHECK(outer_lease.consumed==0u && s.count==0u);
+  CHECK(s.busy==0u && s.manual_locked==1u && s.reentrant==1u);
+  CHECK(s.ticket.pending==0u);
+}
+
+typedef struct {
+  R7Session *session;
+  int nested_return;
+  unsigned calls;
+} ReentryManualFake;
+static int manual_reenter(void *ctx,const R7FightTicket *ticket){
+  ReentryManualFake *c=ctx;
+  (void)ticket;
+  c->calls++;
+  if(c->calls==1u){
+    R7ManualHost h={c,manual_reenter};
+    c->nested_return=r7_session_manual_takeover(c->session,&h);
+  }
+  return 1;
+}
+static void test_manual_takeover_callback_cannot_reenter(void){
+  Fake f;setup(&f);R7Session s={0};R7Lease l={72,101,0};
+  CHECK(r7_session_init(&s,72u)==1);
+  CHECK(session_perform(&f,&l,&s).outcome==R7_FIGHT);
+  ReentryManualFake c={&s,-9,0u};R7ManualHost h={&c,manual_reenter};
+  CHECK(r7_session_manual_takeover(&s,&h)==0);
+  CHECK(c.calls==1u && c.nested_return==0);
+  CHECK(s.busy==0u && s.reentrant==1u);
+  CHECK(s.manual_locked==1u && s.ticket.pending==0u);
+  CHECK(s.count==1u);
+}
+
+typedef struct {
+  R7Session *session;
+  int nested_return;
+  unsigned calls;
+} ReentryBoundaryFake;
+static int boundary_reenter(void *ctx,R7EpochBoundary *out){
+  ReentryBoundaryFake *c=ctx;
+  c->calls++;
+  if(c->calls==1u){
+    R7BoundaryHost h={c,boundary_reenter};
+    c->nested_return=r7_session_advance_epoch(c->session,&h);
+  }
+  *out=(R7EpochBoundary){72u,73u,1u,1u};
+  return 1;
+}
+static void test_epoch_boundary_callback_cannot_reenter(void){
+  R7Session s={0};CHECK(r7_session_init(&s,72u)==1);
+  ReentryBoundaryFake c={&s,-9,0u};R7BoundaryHost h={&c,boundary_reenter};
+  CHECK(r7_session_advance_epoch(&s,&h)==0);
+  CHECK(c.calls==1u && c.nested_return==0);
+  CHECK(s.epoch==72u && s.busy==0u && s.reentrant==1u);
+  CHECK(s.manual_locked==1u && s.initialized==1u);
+  /* Legitimate verified subsequent epoch transition may still recover. */
+  BoundaryFake b={{72u,73u,1u,1u},1,0u};
+  R7BoundaryHost valid={&b,check_boundary};
+  CHECK(r7_session_advance_epoch(&s,&valid)==1);
+  CHECK(s.epoch==73u && s.reentrant==0u && s.manual_locked==0u);
+}
+static void test_takeover_prerequisites_and_uint32_epoch_bound(void){
+  Fake f;setup(&f);R7Session s={0};R7Lease l={72,101,0};
+  CHECK(r7_session_init(&s,72u)==1);
+  ManualFake m={1,0u,0u,0u};R7ManualHost h={&m,check_manual};
+  CHECK(r7_session_manual_takeover(&s,&h)==0);
+  CHECK(m.calls==0u && s.manual_locked==0u);
+  CHECK(session_perform(&f,&l,&s).outcome==R7_FIGHT);
+  s.ticket.epoch=73u;
+  CHECK(r7_session_manual_takeover(&s,&h)==0);
+  CHECK(m.calls==0u && s.ticket.pending==1u);
+  s.ticket.epoch=72u;
+  BoundaryFake b={{72u,UINT32_MAX,1u,1u},1,0u};
+  R7BoundaryHost boundary={&b,check_boundary};
+  CHECK(r7_session_advance_epoch(&s,&boundary)==0);
+  CHECK(s.epoch==72u && s.ticket.pending==1u);
+  R7Session new_session={0};CHECK(r7_session_init(&new_session,UINT32_MAX)==0);
+}
+
 int main(void){
   int baseline_result=r7_r4_original_test_main();
   CHECK(baseline_result==0);
@@ -218,6 +382,13 @@ int main(void){
   test_manual_takes_over_and_locks_epoch();
   test_ledger_capacity_is_hard_fail_closed();
   test_bad_api_and_uninitialized();
+  test_interrupted_fight_17_17_19_never_resumes();
+  test_fight_requires_immediate_successor_request();
+  test_first_request_epoch_binding_is_independent();
+  test_plan_legal_callback_cannot_reenter();
+  test_manual_takeover_callback_cannot_reenter();
+  test_epoch_boundary_callback_cannot_reenter();
+  test_takeover_prerequisites_and_uint32_epoch_bound();
   printf("R7 R5 source-only lifecycle suite: %u cumulative assertions, %u failures\n",checks,failures);
   return failures?1:0;
 }
