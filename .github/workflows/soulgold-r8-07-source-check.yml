@@ -1,0 +1,13 @@
+name: SoulGold R8-07 Dynamic move legality and PP scope source-only
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  fake-only-07:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Run isolated mock regressions
+        run: |
+          PYTHONPATH=review/r8/07_move_legality python3 -m unittest discover -s review/r8/07_move_legality -p 'test_*.py' -v
+          python3 -m py_compile review/r8/07_move_legality/patch07_move_legality.py review/r8/07_move_legality/test_patch07_move_legality.py
