@@ -1,0 +1,13 @@
+name: SoulGold R8-20 20-evidence native acceptance gate (never self-certifies) source-only
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  fake-only-20:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Run isolated mock regressions
+        run: |
+          PYTHONPATH=review/r8/20_acceptance_gate python3 -m unittest discover -s review/r8/20_acceptance_gate -p 'test_*.py' -v
+          python3 -m py_compile review/r8/20_acceptance_gate/patch20_acceptance_gate.py review/r8/20_acceptance_gate/test_patch20_acceptance_gate.py
