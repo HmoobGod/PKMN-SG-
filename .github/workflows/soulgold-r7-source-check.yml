@@ -14,6 +14,14 @@ jobs:
             review/r5/source-first/player0_fail_closed_guard.c \
             -o /tmp/soulgold-r7-source-only-check
           /tmp/soulgold-r7-source-only-check
+      - name: Compile and exercise source-only R7 one-use lifecycle wrapper
+        run: |
+          cc -std=c11 -O2 -Wall -Wextra -Werror -pedantic \
+            review/r5/source-first/player0_fail_closed_guard.c \
+            review/r7/engine_adapter.c review/r7/lifecycle_adapter.c \
+            review/r7/test_lifecycle_adapter.c \
+            -o /tmp/soulgold-r7-lifecycle-fake-only
+          /tmp/soulgold-r7-lifecycle-fake-only
       - name: Refuse raw game artifacts and snapshots in new R7 files
         run: |
           if find review/r7 -type f | grep -Ei '\.(gba|sav|state|so|dll|elf|bin|dmp|trace|log|png|jpe?g|jsonl)$'; then

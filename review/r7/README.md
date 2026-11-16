@@ -133,3 +133,15 @@ points and *explicit evidence required* before any formal acceptance.
 
 No ROM, save, EWRAM dump, CPU trace, screenshot, emulator binary, or private
 execution log belongs in this PR or its CI.
+
+## R7 R6 isolated lifecycle candidate (not native integration)
+
+See `LIFECYCLE_R6.md` for a **new optional source-only stateful wrapper**
+`r7_lifecycle_plan`. It records previously consumed mock request IDs and
+quarantines stale Fight tickets and any deferred or repeated request rather
+than trusting fresh caller-created leases. Resume after a newer epoch requires
+independently host-asserted battle/outcome/controller/queue evidence and a
+fresh original request. This is **not** a verified original-engine reset or a
+working manual menu, and the original `r7_plan` is unchanged. Future native
+integration must use a proven entry point, persist the ledger across calls,
+and authenticate each host callback against the actual game.
