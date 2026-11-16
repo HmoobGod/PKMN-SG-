@@ -1,0 +1,13 @@
+name: SoulGold R8-06 Manual-takeover and new-epoch rearm contract source-only
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  fake-only-06:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Run isolated mock regressions
+        run: |
+          PYTHONPATH=review/r8/06_epoch_rearm python3 -m unittest discover -s review/r8/06_epoch_rearm -p 'test_*.py' -v
+          python3 -m py_compile review/r8/06_epoch_rearm/patch06_epoch_rearm.py review/r8/06_epoch_rearm/test_patch06_epoch_rearm.py
