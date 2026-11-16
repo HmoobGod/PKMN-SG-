@@ -1,0 +1,13 @@
+name: SoulGold R8-03 Engine request identity continuity source-only
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  fake-only-03:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Run isolated mock regressions
+        run: |
+          PYTHONPATH=review/r8/03_snapshot_identity python3 -m unittest discover -s review/r8/03_snapshot_identity -p 'test_*.py' -v
+          python3 -m py_compile review/r8/03_snapshot_identity/patch03_snapshot_identity.py review/r8/03_snapshot_identity/test_patch03_snapshot_identity.py
