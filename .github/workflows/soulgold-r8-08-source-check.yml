@@ -1,0 +1,13 @@
+name: SoulGold R8-08 Taunt redundancy evidence gate source-only
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  fake-only-08:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Run isolated mock regressions
+        run: |
+          PYTHONPATH=review/r8/08_taunt_state python3 -m unittest discover -s review/r8/08_taunt_state -p 'test_*.py' -v
+          python3 -m py_compile review/r8/08_taunt_state/patch08_taunt_state.py review/r8/08_taunt_state/test_patch08_taunt_state.py
