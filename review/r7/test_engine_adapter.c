@@ -43,6 +43,12 @@ static void choose_move(Fake *f){
   f->before.command=f->after.command=19u;
   f->before.original_header[0]=f->after.original_header[0]=19u;
   f->before.original_payload[0]=f->after.original_payload[0]=19u;
+  f->before.original_header[1]=f->after.original_header[1]=0u;
+  f->before.original_header[2]=f->after.original_header[2]=0u;
+  f->before.original_header[3]=f->after.original_header[3]=0u;
+  for (unsigned i=1u;i<4u;i++)
+    f->before.original_payload[i]=f->after.original_payload[i]=0u;
+  f->before.payload_length=f->after.payload_length=R7_CHOOSEMOVE_TOTAL_BYTES;
 }
 static void setup(Fake *f){
   memset(f,0,sizeof *f);
@@ -112,9 +118,7 @@ static void test_two_stage_and_replay(void){
   CHECK(p.outcome==R7_DEFER && p.reason==R7_BAD_LEASE);
   CHECK(ticket.pending==1u);
   /* ChooseMove must be a distinct, engine-owned request in the same battle. */
-  f.before.command=f.after.command=19;
-  f.before.original_header[0]=f.after.original_header[0]=19;
-  f.before.original_payload[0]=f.after.original_payload[0]=19;
+  choose_move(&f);
   f.before.request_id=f.after.request_id=f.legal.request_id=102;
   lease=(R7Lease){72,102,0};
   p=perform(&f,&lease,&ticket);
@@ -139,7 +143,7 @@ static void test_owner_and_scope(void){
   REJECT_SCOPE(command,20);REJECT_SCOPE(original_epoch,0);
   REJECT_SCOPE(request_id,0);REJECT_SCOPE(resources,0);
   REJECT_SCOPE(payload_length,0);REJECT_SCOPE(payload_length,3);
-  REJECT_SCOPE(payload_length,33);
+  REJECT_SCOPE(payload_length,41);
   setup(&f);f.before.original_header[0]=f.after.original_header[0]=12;
   expect_defer(&f,R7_UNSUPPORTED_SCOPE);
   setup(&f);f.before.original_payload[1]=f.after.original_payload[1]=88;
@@ -205,9 +209,7 @@ static void test_original_data_drift(void){
 static void test_stage_continuity(void){
   Fake f;setup(&f);R7Lease l={72,101,0};R7FightTicket t={0};
   CHECK(perform(&f,&l,&t).outcome==R7_FIGHT);
-  f.before.command=f.after.command=f.before.original_header[0]=f.after.original_header[0]=19;
-  f.before.original_payload[0]=f.after.original_payload[0]=19;
-  f.before.original_payload[0]=f.after.original_payload[0]=19;
+  choose_move(&f);
   f.before.request_id=f.after.request_id=f.legal.request_id=102;
   l=(R7Lease){72,102,0};
   R7FightTicket bad=t;bad.epoch=71;
@@ -224,21 +226,21 @@ static void test_stage_continuity(void){
   p=perform(&f,&l,&t);CHECK(p.reason==R7_STAGE_CONTINUITY_FAILED);
   CHECK(l.consumed==0u && t.pending==1u);
 }
-/* Every length 4..15 must reject command 19; 16 is the first possible
- * 4+8+4 move/PP payload size, though full native ABI is still unproven. */
+/* Full source-side ChooseMove size is 40 including the four-byte header.
+ * A shorter prefix is NOT an authenticated command even if moves+PP match. */
 static void test_command19_length_boundary(void){
   Fake f;
-  for(unsigned n=4u;n<16u;n++){
+  for(unsigned n=4u;n<R7_CHOOSEMOVE_TOTAL_BYTES;n++){
     setup(&f);choose_move(&f);
     f.before.payload_length=f.after.payload_length=(uint8_t)n;
     expect_defer(&f,R7_UNSUPPORTED_SCOPE);
   }
   setup(&f);choose_move(&f);
-  f.before.payload_length=f.after.payload_length=16u;
+  CHECK(f.before.payload_length==40u);
   expect_defer(&f,R7_STAGE_CONTINUITY_FAILED); /* valid, but no Fight ticket */
   setup(&f);choose_move(&f);
-  f.before.payload_length=f.after.payload_length=17u;
-  expect_defer(&f,R7_STAGE_CONTINUITY_FAILED);
+  f.before.payload_length=f.after.payload_length=41u;
+  expect_defer(&f,R7_UNSUPPORTED_SCOPE);
 }
 static void test_header_agrees_with_payload_but_not_command(void){
   Fake f;setup(&f);
@@ -296,6 +298,58 @@ static void test_legality_callback_precedes_second_original_read(void){
   CHECK(p.no_forced_switch_certified==0u);
   CHECK(p.production_authorized==0u);
 }
+
+/* R7 R3: the original ChooseMove header must not contradict the host's
+ * single-battle scope or silently toggle source NoPpNumber/reserved bytes. */
+static void test_choose_move_header_is_engine_scope_bound(void){
+  Fake f;
+  for(unsigned field=1u;field<=3u;field++){
+    setup(&f);choose_move(&f);
+    f.before.original_header[field]=f.after.original_header[field]=1u;
+    f.before.original_payload[field]=f.after.original_payload[field]=1u;
+    /* header and payload STILL agree. The scope is untrusted. */
+    expect_defer(&f,R7_UNSUPPORTED_SCOPE);
+  }
+  /* A double-battle header is disallowed even when the separate host flag
+   * agrees that this is a double battle. */
+  setup(&f);choose_move(&f);
+  f.before.doubles=f.after.doubles=1u;
+  f.before.original_header[1]=f.after.original_header[1]=1u;
+  f.before.original_payload[1]=f.after.original_payload[1]=1u;
+  expect_defer(&f,R7_UNSUPPORTED_SCOPE);
+  /* A legitimate single header is structurally accepted with a full buffer
+   * but still cannot Move without the authenticated prior Fight ticket. */
+  setup(&f);choose_move(&f);
+  expect_defer(&f,R7_STAGE_CONTINUITY_FAILED);
+}
+static void test_command19_full_tail_snapshot_continuity(void){
+  Fake f;
+  /* Ensure every byte after the move+currentPP prefix is still compared,
+   * including the exact 40th byte which R2's 32-byte cap lost. */
+  for(unsigned i=16u;i<R7_CHOOSEMOVE_TOTAL_BYTES;i++){
+    setup(&f);choose_move(&f);
+    f.before.original_payload[i]=0xa5u;
+    f.after.original_payload[i]=0x5au;
+    R7Lease l={72,101,0};R7FightTicket ticket={0};
+    R7Plan plan=perform(&f,&l,&ticket);
+    CHECK(plan.outcome==R7_DEFER && plan.reason==R7_ORIGINAL_REQUEST_CHANGED);
+    CHECK(l.consumed==0u && ticket.pending==0u);
+    CHECK(plan.native_move_accepted==0u && plan.no_forced_switch_certified==0u);
+  }
+}
+static void test_full_length_move_proposal(void){
+  Fake f;setup(&f);R7Lease lease={72,101,0};R7FightTicket ticket={0};
+  R7Plan p=perform(&f,&lease,&ticket);
+  CHECK(p.outcome==R7_FIGHT && ticket.pending==1u);
+  setup(&f);choose_move(&f);
+  f.before.request_id=f.after.request_id=f.legal.request_id=102u;
+  lease=(R7Lease){72,102,0};
+  CHECK(f.before.payload_length==R7_PAYLOAD_CAP);
+  p=perform(&f,&lease,&ticket);
+  CHECK(p.outcome==R7_MOVE && p.action==10u && p.slot==1u);
+  CHECK(lease.consumed==1u && ticket.pending==0u);
+  expect_source_only_success(p);
+}
 int main(void){
   test_two_stage_and_replay();test_owner_and_scope();test_lease_and_host_failures();
   test_engine_legality_binding();test_original_data_drift();test_stage_continuity();
@@ -303,6 +357,9 @@ int main(void){
   test_header_agrees_with_payload_but_not_command();
   test_command19_move_and_pp_payload_are_authoritative();
   test_legality_callback_precedes_second_original_read();
+  test_choose_move_header_is_engine_scope_bound();
+  test_command19_full_tail_snapshot_continuity();
+  test_full_length_move_proposal();
   printf("R7 source-only host adapter: %u assertions, %u failures\n",checks,failures);
   return failures?1:0;
 }
