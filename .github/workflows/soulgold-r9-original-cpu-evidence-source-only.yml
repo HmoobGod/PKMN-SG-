@@ -1,0 +1,29 @@
+name: SoulGold R9 original CPU evidence source-only contract tests
+on:
+  push:
+    paths:
+      - 'review/r9/**'
+      - '.github/workflows/soulgold-r9-original-cpu-evidence-source-only.yml'
+  pull_request:
+    paths:
+      - 'review/r9/**'
+      - '.github/workflows/soulgold-r9-original-cpu-evidence-source-only.yml'
+permissions:
+  contents: read
+jobs:
+  synthetic-cpu-join-only:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Synthetic regression tests only (NO private game files)
+        run: |
+          PYTHONPATH=review/r9 python3 -m unittest discover -s review/r9 -p 'test_*.py' -v
+          python3 -m py_compile review/r9/audit_real_original_cpu_chain.py review/r9/test_audit_real_original_cpu_chain.py
+      - name: Reject any game material in R9 review tree
+        shell: bash
+        run: |
+          if find review/r9 -type f | grep -Ei '\.(gba|sav|state|so|dll|elf|bin|dmp|trace|log|png|jpe?g|rgba|jsonl|zip|tar|gz)$'; then
+            echo 'Forbidden private game data in R9 source review' >&2
+            exit 1
+          fi
+          echo 'R9 review tree includes source and documentation only'
