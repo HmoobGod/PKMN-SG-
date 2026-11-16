@@ -1,0 +1,13 @@
+name: SoulGold R8-10 Original-command action exclusion source-only
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  fake-only-10:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Run isolated mock regressions
+        run: |
+          PYTHONPATH=review/r8/10_no_auto_switch python3 -m unittest discover -s review/r8/10_no_auto_switch -p 'test_*.py' -v
+          python3 -m py_compile review/r8/10_no_auto_switch/patch10_no_auto_switch.py review/r8/10_no_auto_switch/test_patch10_no_auto_switch.py
