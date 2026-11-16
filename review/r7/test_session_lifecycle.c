@@ -354,6 +354,15 @@ static void test_epoch_boundary_callback_cannot_reenter(void){
   R7BoundaryHost valid={&b,check_boundary};
   CHECK(r7_session_advance_epoch(&s,&valid)==1);
   CHECK(s.epoch==73u && s.reentrant==0u && s.manual_locked==0u);
+  /* Re-entrant lock can recover only after a verified higher epoch; then
+   * the new epoch is still able to propose a source-model Fight. */
+  Fake f;setup(&f);
+  f.before.original_epoch=f.after.original_epoch=f.legal.original_epoch=73u;
+  R7Lease lease={73,101,0};
+  R7Plan p=session_perform(&f,&lease,&s);
+  CHECK(p.outcome==R7_FIGHT && lease.consumed==1u);
+  CHECK(s.count==1u && s.ticket.pending==1u && s.manual_locked==0u);
+  expect_source_only_success(p);
 }
 static void test_takeover_prerequisites_and_uint32_epoch_bound(void){
   Fake f;setup(&f);R7Session s={0};R7Lease l={72,101,0};
@@ -373,6 +382,92 @@ static void test_takeover_prerequisites_and_uint32_epoch_bound(void){
   R7Session new_session={0};CHECK(r7_session_init(&new_session,UINT32_MAX)==0);
 }
 
+
+/* Claude R2 coverage gap B1: a benign-reason defer while a Fight ticket is
+ * outstanding MUST retire the ticket and lock the rest of the epoch.
+ * Retrying the same original command19 must never auto Move. */
+static void test_pending_ticket_benign_defer_quarantines(void){
+  for(unsigned mode=0u;mode<2u;mode++){
+    Fake f;setup(&f);R7Session s={0};R7Lease l={72,101,0};
+    CHECK(r7_session_init(&s,72u)==1);
+    R7Plan p=session_perform(&f,&l,&s);
+    CHECK(p.outcome==R7_FIGHT && s.ticket.pending==1u);
+    CHECK(s.pending_fight_request_id==101u && s.count==1u);
+    choose_move(&f);
+    f.before.request_id=f.after.request_id=f.legal.request_id=102u;
+    if(mode==0u) f.fail_legality=1;
+    else f.legal.move_legal_mask=0u;
+    l=(R7Lease){72,102,0};
+    p=session_perform(&f,&l,&s);
+    check_session_defer(p,mode==0u?R7_NO_ENGINE_LEGALITY:R7_NO_VALID_MOVE);
+    CHECK(l.consumed==0u && s.count==1u);
+    CHECK(s.manual_locked==1u && s.ticket.pending==0u);
+    CHECK(s.pending_fight_request_id==0u);
+    /* The external condition is fixed; the stale ticket must still be dead. */
+    f.fail_legality=0;f.legal.move_legal_mask=0xfu;
+    p=session_perform(&f,&l,&s);
+    check_session_defer(p,R7_STAGE_CONTINUITY_FAILED);
+    CHECK(f.reads==0u && f.law_reads==0u && l.consumed==0u);
+    CHECK(s.manual_locked==1u && s.ticket.pending==0u && s.count==1u);
+  }
+}
+
+/* Claude R2 coverage gap B2: without a Fight ticket, every anomalous reason
+ * must quarantine and deny the NEXT valid request, not just return DEFER.
+ * This pins each non-benign reason independently against whitelist mutants. */
+static void test_no_ticket_anomaly_reason_table_quarantines(void){
+  const R7Reason reasons[]={
+    R7_BAD_API,R7_BAD_ENGINE_READ,R7_UNSUPPORTED_SCOPE,
+    R7_BAD_LEASE,R7_ORIGINAL_REQUEST_CHANGED,
+    R7_STAGE_CONTINUITY_FAILED
+  };
+  for(unsigned i=0u;i<sizeof reasons/sizeof reasons[0];i++){
+    Fake f;setup(&f);R7Session s={0};R7Lease l={72,101,0};
+    CHECK(r7_session_init(&s,72u)==1);
+    switch(reasons[i]){
+      case R7_BAD_ENGINE_READ:f.fail_first=1;break;
+      case R7_UNSUPPORTED_SCOPE:f.before.doubles=f.after.doubles=1u;break;
+      case R7_BAD_LEASE:l.consumed=1u;break;
+      case R7_ORIGINAL_REQUEST_CHANGED:f.after.turn++;break;
+      case R7_STAGE_CONTINUITY_FAILED:choose_move(&f);break;
+      default:break;
+    }
+    R7Plan p=reasons[i]==R7_BAD_API?
+      r7_session_plan(NULL,&l,&s):session_perform(&f,&l,&s);
+    check_session_defer(p,reasons[i]);
+    CHECK(s.manual_locked==1u && s.ticket.pending==0u);
+    CHECK(s.pending_fight_request_id==0u && s.count==0u);
+    /* Valid new request in the same epoch cannot bypass quarantine. */
+    setup(&f);
+    f.before.request_id=f.after.request_id=f.legal.request_id=102u;
+    R7Lease next={72,102,0};
+    p=session_perform(&f,&next,&s);
+    check_session_defer(p,R7_STAGE_CONTINUITY_FAILED);
+    CHECK(f.reads==0u && f.law_reads==0u);
+    CHECK(next.consumed==0u && s.manual_locked==1u && s.count==0u);
+  }
+}
+
+/* Benign no-ticket deferrals must be retriable; otherwise the lifecycle
+ * locks auto unnecessarily, including when legality becomes available. */
+static void test_no_ticket_benign_retry_table(void){
+  for(unsigned mode=0u;mode<2u;mode++){
+    Fake f;setup(&f);R7Session s={0};R7Lease l={72,101,0};
+    CHECK(r7_session_init(&s,72u)==1);
+    if(mode==0u) f.fail_legality=1;
+    else f.legal.move_legal_mask=0u;
+    R7Plan p=session_perform(&f,&l,&s);
+    check_session_defer(p,mode==0u?R7_NO_ENGINE_LEGALITY:R7_NO_VALID_MOVE);
+    CHECK(s.manual_locked==0u && s.ticket.pending==0u);
+    CHECK(s.count==0u && l.consumed==0u);
+    setup(&f);
+    p=session_perform(&f,&l,&s);
+    CHECK(p.outcome==R7_FIGHT && l.consumed==1u);
+    CHECK(s.manual_locked==0u && s.ticket.pending==1u && s.count==1u);
+    expect_source_only_success(p);
+  }
+}
+
 int main(void){
   int baseline_result=r7_r4_original_test_main();
   CHECK(baseline_result==0);
@@ -389,6 +484,9 @@ int main(void){
   test_manual_takeover_callback_cannot_reenter();
   test_epoch_boundary_callback_cannot_reenter();
   test_takeover_prerequisites_and_uint32_epoch_bound();
+  test_pending_ticket_benign_defer_quarantines();
+  test_no_ticket_anomaly_reason_table_quarantines();
+  test_no_ticket_benign_retry_table();
   printf("R7 R5 source-only lifecycle suite: %u cumulative assertions, %u failures\n",checks,failures);
   return failures?1:0;
 }

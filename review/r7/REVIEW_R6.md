@@ -31,3 +31,29 @@ No actual original-controller request ID source, official source-to-ROM ABI iden
 ## Independent review request
 
 Re-run the original 17→17→19 hostile sequence, request-id-gap case, no-ticket cross-epoch case and all three callback re-entrancy tests. Mutate each pending-ticket lock path, request ID strict successor, the read-time and commit-time epoch guards together, and each busy guard. Review the new `quarantine()` side effects and legitimate retry behavior. Confirm no success flags imply native acceptance, no parser out-of-bounds or private artifacts, and that the exact SHA matches this new child branch.
+
+
+## Independent PR149 exact-head review — 2026-11-16, REQUEST CHANGES (test coverage only)
+
+Claude confirmed the source-only B1/B2 repairs but found two mutation-surviving gaps in
+PR149 head `307e0521e4a817fd9c7ac0e59a3c0215fdf01339`:
+
+1. A pending Fight ticket must lock and retire on **both** otherwise-benign Move
+   deferral reasons (`R7_NO_ENGINE_LEGALITY`, `R7_NO_VALID_MOVE`). The
+   original test never exercised their pending-ticket path.
+2. No-ticket anomalous deferrals must lock and **deny the next valid request**
+   for `R7_BAD_API`, `R7_BAD_ENGINE_READ`, `R7_UNSUPPORTED_SCOPE`,
+   `R7_BAD_LEASE`, `R7_ORIGINAL_REQUEST_CHANGED`, and
+   `R7_STAGE_CONTINUITY_FAILED`. In particular the read failure, drift, and
+   doubles-path mutants must not remain uncaught. Conversely, no-ticket
+   `R7_NO_ENGINE_LEGALITY` and `R7_NO_VALID_MOVE` must remain retriable.
+   Reentrant-epoch rearm now also checks a new-epoch source-only Fight.
+
+This isolated R2 child changes **only this documentation and
+`test_session_lifecycle.c`**. Production C, header, engine adapter, CI workflow
+and all protected heads are unchanged. The request-ID `n+1` assumption,
+host-supplied boundary evidence, replay-ledger limitations and lack of a real
+native ROM/menu/PP witness remain unresolved. Fresh independent Claude
+exact-head source/test/security review is required, including deliberate
+mutation of the pending-ticket OR clause and each anomaly-reason whitelist.
+Any passing tests are synthetic, **not** native acceptance (0/20; production 0%).
