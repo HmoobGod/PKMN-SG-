@@ -10,18 +10,39 @@ typedef struct {
   R7Original before,after;
   R7Legal legal;
   unsigned reads, law_reads;
-  int fail_first,fail_second,fail_legality;
+  unsigned call_count;
+  char call_order[4];
+  int fail_first,fail_second,fail_legality,mutate_pp_during_legality;
 } Fake;
 static int rd(void *p,R7Original *out){
   Fake *f=p;f->reads++;
+  if(f->call_count<sizeof(f->call_order)-1u)
+    f->call_order[f->call_count++]='R';
   if ((f->reads==1&&f->fail_first)||(f->reads!=1&&f->fail_second))return 0;
   *out=f->reads==1?f->before:f->after;return 1;
 }
 static int law(void *p,const R7Original *orig,R7Legal *out){
   Fake *f=p;f->law_reads++;
+  if(f->call_count<sizeof(f->call_order)-1u)
+    f->call_order[f->call_count++]='L';
+  if(f->mutate_pp_during_legality) f->after.pp[1]++;
   CHECK(orig->request_id==f->before.request_id);
   if(f->fail_legality)return 0;
   *out=f->legal;return 1;
+}
+static void encode_move_payload(R7Original *o){
+  /* Source-only ChooseMoveStruct layout: 4-byte command header,
+   * 4 little-endian u16 move IDs, then 4 current PP bytes. */
+  for(unsigned i=0;i<4u;i++){
+    o->original_payload[4u+2u*i]=(uint8_t)(o->moves[i]&0xffu);
+    o->original_payload[5u+2u*i]=(uint8_t)(o->moves[i]>>8);
+    o->original_payload[12u+i]=o->pp[i];
+  }
+}
+static void choose_move(Fake *f){
+  f->before.command=f->after.command=19u;
+  f->before.original_header[0]=f->after.original_header[0]=19u;
+  f->before.original_payload[0]=f->after.original_payload[0]=19u;
 }
 static void setup(Fake *f){
   memset(f,0,sizeof *f);
@@ -37,6 +58,7 @@ static void setup(Fake *f){
   memcpy(o->original_payload,o->original_header,4);
   o->moves[0]=247;o->moves[1]=157;o->moves[2]=92;o->moves[3]=269;
   o->pp[0]=20;o->pp[1]=10;o->pp[2]=10;o->pp[3]=20;
+  encode_move_payload(o);
   f->after=*o;
   f->legal.original_epoch=o->original_epoch;f->legal.request_id=o->request_id;
   f->legal.turn=o->turn;f->legal.move_limitations_verified=1;
@@ -47,9 +69,18 @@ static void setup(Fake *f){
   f->legal.priorities[2]=5;f->legal.priorities[3]=250;
 }
 static R7Plan perform(Fake *f,R7Lease *lease,R7FightTicket *ticket){
-  f->reads=f->law_reads=0;
+  f->reads=f->law_reads=f->call_count=0;
+  memset(f->call_order,0,sizeof(f->call_order));
   R7Host host={f,rd,law};
   return r7_plan(&host,lease,ticket);
+}
+static void expect_source_only_success(R7Plan p){
+  CHECK(p.outcome==R7_FIGHT || p.outcome==R7_MOVE);
+  CHECK(p.manual_defer_requested==0u);
+  CHECK(p.native_move_accepted==0u);
+  CHECK(p.native_manual_fallback_accepted==0u);
+  CHECK(p.no_forced_switch_certified==0u);
+  CHECK(p.production_authorized==0u);
 }
 static void expect_defer(Fake *f,R7Reason reason){
   R7Lease lease={72,101,0};R7FightTicket ticket={0};
@@ -65,7 +96,7 @@ static void test_two_stage_and_replay(void){
   Fake f;setup(&f);R7Lease lease={72,101,0};R7FightTicket ticket={0};
   R7Plan p=perform(&f,&lease,&ticket);
   CHECK(p.outcome==R7_FIGHT && p.action==0u && p.slot==1u);
-  CHECK(p.manual_defer_requested==0u && p.native_move_accepted==0u);
+  expect_source_only_success(p);
   CHECK(lease.consumed==1u && ticket.pending==1u);
   CHECK(ticket.slot==1u && ticket.planned_move==157u);
   /* An overlapping ChooseAction never clobbers a pending first-stage ticket. */
@@ -88,6 +119,7 @@ static void test_two_stage_and_replay(void){
   lease=(R7Lease){72,102,0};
   p=perform(&f,&lease,&ticket);
   CHECK(p.outcome==R7_MOVE && p.action==10u && p.slot==1u);
+  expect_source_only_success(p);
   CHECK(lease.consumed==1u && ticket.pending==0u);
   /* Other command numbers NEVER cause emitted actions. */
   f.before.command=f.after.command=18;
@@ -146,11 +178,12 @@ static void test_engine_legality_binding(void){
   R7Lease lease={72,101,0};R7FightTicket ticket={0};
   R7Plan p=perform(&f,&lease,&ticket);
   CHECK(p.outcome==R7_FIGHT && p.slot==0u);
+  expect_source_only_success(p);
   setup(&f);f.legal.known_ineffective_mask=0;
   lease=(R7Lease){72,101,0};ticket=(R7FightTicket){0};
   p=perform(&f,&lease,&ticket);
   CHECK(p.outcome==R7_FIGHT && p.slot==3u); /* uncertainty vs known ineffective */
-  CHECK(p.native_move_accepted==0u);
+  expect_source_only_success(p);
 }
 static void test_original_data_drift(void){
   Fake f;
@@ -191,9 +224,85 @@ static void test_stage_continuity(void){
   p=perform(&f,&l,&t);CHECK(p.reason==R7_STAGE_CONTINUITY_FAILED);
   CHECK(l.consumed==0u && t.pending==1u);
 }
+/* Every length 4..15 must reject command 19; 16 is the first possible
+ * 4+8+4 move/PP payload size, though full native ABI is still unproven. */
+static void test_command19_length_boundary(void){
+  Fake f;
+  for(unsigned n=4u;n<16u;n++){
+    setup(&f);choose_move(&f);
+    f.before.payload_length=f.after.payload_length=(uint8_t)n;
+    expect_defer(&f,R7_UNSUPPORTED_SCOPE);
+  }
+  setup(&f);choose_move(&f);
+  f.before.payload_length=f.after.payload_length=16u;
+  expect_defer(&f,R7_STAGE_CONTINUITY_FAILED); /* valid, but no Fight ticket */
+  setup(&f);choose_move(&f);
+  f.before.payload_length=f.after.payload_length=17u;
+  expect_defer(&f,R7_STAGE_CONTINUITY_FAILED);
+}
+static void test_header_agrees_with_payload_but_not_command(void){
+  Fake f;setup(&f);
+  f.before.original_header[0]=f.after.original_header[0]=19u;
+  f.before.original_payload[0]=f.after.original_payload[0]=19u;
+  /* header == payload; command is still original ChooseAction=17. */
+  expect_defer(&f,R7_UNSUPPORTED_SCOPE);
+  setup(&f);choose_move(&f);
+  f.before.original_header[0]=f.after.original_header[0]=17u;
+  f.before.original_payload[0]=f.after.original_payload[0]=17u;
+  /* header == payload; command is ChooseMove=19. */
+  expect_defer(&f,R7_UNSUPPORTED_SCOPE);
+}
+static void test_command19_move_and_pp_payload_are_authoritative(void){
+  Fake f;
+  for(unsigned i=4u;i<16u;i++){
+    setup(&f);choose_move(&f);
+    f.before.original_payload[i]^=0x55u;
+    f.after.original_payload[i]^=0x55u;
+    /* Both snapshots match, but original payload contradicts host fields. */
+    expect_defer(&f,R7_UNSUPPORTED_SCOPE);
+  }
+  for(unsigned i=0u;i<4u;i++){
+    setup(&f);choose_move(&f);
+    f.before.moves[i]++;f.after.moves[i]++;
+    expect_defer(&f,R7_UNSUPPORTED_SCOPE);
+    setup(&f);choose_move(&f);
+    f.before.pp[i]++;f.after.pp[i]++;
+    expect_defer(&f,R7_UNSUPPORTED_SCOPE);
+  }
+  /* The exact hostile-host example: command19 payload body full of junk. */
+  setup(&f);choose_move(&f);
+  memset(&f.before.original_payload[4],0xaa,16u);
+  memset(&f.after.original_payload[4],0xaa,16u);
+  expect_defer(&f,R7_UNSUPPORTED_SCOPE);
+}
+static void test_legality_callback_precedes_second_original_read(void){
+  Fake f;setup(&f);
+  R7Lease lease={72,101,0};R7FightTicket ticket={0};
+  R7Plan p=perform(&f,&lease,&ticket);
+  CHECK(p.outcome==R7_FIGHT);
+  expect_source_only_success(p);
+  CHECK(strcmp(f.call_order,"RLR")==0);
+  CHECK(f.reads==2u && f.law_reads==1u);
+  setup(&f);f.mutate_pp_during_legality=1;
+  lease=(R7Lease){72,101,0};ticket=(R7FightTicket){0};
+  p=perform(&f,&lease,&ticket);
+  CHECK(p.outcome==R7_DEFER && p.reason==R7_ORIGINAL_REQUEST_CHANGED);
+  CHECK(strcmp(f.call_order,"RLR")==0);
+  CHECK(f.reads==2u && f.law_reads==1u);
+  CHECK(lease.consumed==0u && ticket.pending==0u);
+  CHECK(p.manual_defer_requested==1u);
+  CHECK(p.native_move_accepted==0u);
+  CHECK(p.native_manual_fallback_accepted==0u);
+  CHECK(p.no_forced_switch_certified==0u);
+  CHECK(p.production_authorized==0u);
+}
 int main(void){
   test_two_stage_and_replay();test_owner_and_scope();test_lease_and_host_failures();
   test_engine_legality_binding();test_original_data_drift();test_stage_continuity();
+  test_command19_length_boundary();
+  test_header_agrees_with_payload_but_not_command();
+  test_command19_move_and_pp_payload_are_authoritative();
+  test_legality_callback_precedes_second_original_read();
   printf("R7 source-only host adapter: %u assertions, %u failures\n",checks,failures);
   return failures?1:0;
 }

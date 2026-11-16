@@ -32,6 +32,29 @@ consumed only on a successful source-only proposal; overlapping Fight stages
 are rejected. The only output actions are 0 (Fight) and 10 (Move). No API can
 request or emit Switch, items, capture, forced-switch acceptance or a guest write.
 
+### R7 R2 — original ChooseMove move/PP binding (review pending)
+
+For command 19, `r7_plan` now requires at least 16 original payload bytes,
+then decodes the four move IDs from original-buffer bytes 4–11 as four
+little-endian 16-bit integers and PP from bytes 12–15 as four bytes. All eight
+host-exposed `moves[]` / `pp[]` values must **exactly match those original bytes**
+before the legality callback runs. The two independently read original snapshots
+must then remain byte/field-identical after the callback. Command 17 retains its
+own 4-byte minimum; its move/PP side fields are not asserted to come from a
+ChooseMove buffer. Tests reject mismatched host move arrays, mismatched PP,
+corrupted body bytes (even if both snapshots match), command19 length 4–15,
+header and payload agreeing with each other but not with the declared command,
+and legality helpers that mutate PP before the second read. Source tests also
+pin the `read → legality → read` callback order and all success-path native,
+manual, switch and production flags to zero.
+
+This **proposed binary layout** follows user-supplied
+`soulgold-master/src/battle_controllers.c` (`BtlController_EmitChooseMove`) and
+`include/battle_controllers.h` (`ChooseMoveStruct`). An independently verified
+exact-ROM ABI/symbol map is still required before trusting any offset as native
+evidence. A host fabricating both snapshots can still fool source-only tests.
+No original game functionality has been modified or installed.
+
 If any guard fails, the *plan* returns `R7_DEFER` with no-action sentinels.
 `manual_defer_requested=1` is **NOT** evidence of a functioning original menu.
 All four native, manual, no-forced-switch and production flags remain zero in
