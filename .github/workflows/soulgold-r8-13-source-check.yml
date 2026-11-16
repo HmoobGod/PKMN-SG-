@@ -1,0 +1,13 @@
+name: SoulGold R8-13 Original CPU PP store and move-request correlation source-only
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  fake-only-13:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Run isolated mock regressions
+        run: |
+          PYTHONPATH=review/r8/13_pp_opcode_join python3 -m unittest discover -s review/r8/13_pp_opcode_join -p 'test_*.py' -v
+          python3 -m py_compile review/r8/13_pp_opcode_join/patch13_pp_opcode_join.py review/r8/13_pp_opcode_join/test_patch13_pp_opcode_join.py
