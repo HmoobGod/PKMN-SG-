@@ -27,7 +27,13 @@ static int payload_matches_move_data(const R7Original *s) {
     unsigned offset=4u+2u*i;
     uint16_t move=(uint16_t)((uint16_t)s->original_payload[offset] |
        ((uint16_t)s->original_payload[offset+1u]<<8));
-    if (move!=s->moves[i] || s->original_payload[12u+i]!=s->pp[i])
+    uint8_t current_pp=s->original_payload[12u+i];
+    uint8_t maximum_pp=s->original_payload[16u+i];
+    if (move!=s->moves[i] || current_pp!=s->pp[i])
+      return 0;
+    /* Source-layout maxPp follows currentPp. This is a consistency gate,
+     * not a certification of dynamic move restrictions or the exact ROM ABI. */
+    if (maximum_pp<current_pp || (move!=0u && maximum_pp==0u))
       return 0;
   }
   return 1;
@@ -36,6 +42,9 @@ static int valid_original(const R7Original *s) {
   if (!s || !s->request_id || !s->original_epoch || !s->resources ||
       s->payload_length<4u || s->payload_length>R7_PAYLOAD_CAP) return 0;
   if (s->battler!=0u || (s->command!=17u && s->command!=19u)) return 0;
+  /* BtlController_EmitChooseAction sends exactly four original bytes.
+   * A longer buffer is not an authenticated ChooseAction request. */
+  if (s->command==17u && s->payload_length!=4u) return 0;
   if (!exact_bool(s->player_owned) || !exact_bool(s->wild_single) ||
       !exact_bool(s->doubles) || !exact_bool(s->partner) ||
       !exact_bool(s->auto_enabled) || !exact_bool(s->foe_live)) return 0;

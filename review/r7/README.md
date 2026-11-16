@@ -32,6 +32,31 @@ consumed only on a successful source-only proposal; overlapping Fight stages
 are rejected. The only output actions are 0 (Fight) and 10 (Move). No API can
 request or emit Switch, items, capture, forced-switch acceptance or a guest write.
 
+### R7 R4 — source-layout ChooseAction length and maxPp consistency (Claude PR122 advisories)
+
+Claude independently APPROVED the source-only PR122 head
+`43b96ac451c3d777a00b7c6dfacea65fc9f02907`, while advising that
+ChooseAction must not accept a long buffer and the original ChooseMove
+`maxPp[4]` values should be checked against current PP. The R4 source-only
+follow-up makes **two fail-closed eligibility restrictions**:
+
+- Command 17 (ChooseAction) must have **exactly four bytes**. Source
+  `BtlController_EmitChooseAction` writes the command, action, and two item-ID
+  bytes and transfers four bytes. Header bytes 1–3 remain exact snapshot bytes,
+  but the R7 model does not interpret their values as certified engine intent.
+  A command 17 length of 5–40 now defers rather than issuing a Fight proposal.
+- Command 19 (ChooseMove) still requires **exactly 40 bytes**, with four
+  little-endian u16 move IDs at bytes 4–11 and four current PP bytes at 12–15.
+  Original source places `maxPp[4]` at **bytes 16–19**. On any populated
+  move slot, max PP must be nonzero, and max PP may not be less than the current
+  PP; contradictory requests defer. All 40 original bytes remain snapshot-
+  compared, including the `maxPp` bytes. Other tail fields remain opaque.
+
+These checks validate a source-derived hypothesis, not an exact-ROM ABI or a
+verified original-engine callback. No native menu fallback, original move
+restriction evaluation, one-use request identity, PP causality, forced-switch
+safety or gameplay acceptance is established. All certification flags remain 0.
+
 ### R7 R3 — full source-side ChooseMove buffer and header scope (Claude PR121 advisories)
 
 Claude APPROVED PR121's R2 source-only model at exact
@@ -61,7 +86,7 @@ uploaded ROM is independently ABI-mapped. A dishonest host can fabricate a
 consistent 40-byte request; R7 does not establish native authenticity.
 No original game files are read or modified by this library.
 
-### R7 R2 — original ChooseMove move/PP binding (review pending)
+### R7 R2 — original ChooseMove move/PP binding (previously approved)
 
 For command 19, `r7_plan` now requires at least 16 original payload bytes,
 then decodes the four move IDs from original-buffer bytes 4–11 as four
