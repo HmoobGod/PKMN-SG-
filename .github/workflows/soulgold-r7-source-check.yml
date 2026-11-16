@@ -14,6 +14,14 @@ jobs:
             review/r5/source-first/player0_fail_closed_guard.c \
             -o /tmp/soulgold-r7-source-only-check
           /tmp/soulgold-r7-source-only-check
+      - name: Verify source-only R7 R5 consumed-request ledger and manual ticket lifecycle
+        run: |
+          cc -std=c11 -O2 -Wall -Wextra -Werror -pedantic \
+            review/r7/engine_adapter.c review/r7/session_lifecycle.c \
+            review/r7/test_session_lifecycle.c \
+            review/r5/source-first/player0_fail_closed_guard.c \
+            -o /tmp/soulgold-r7-lifecycle-source-only
+          /tmp/soulgold-r7-lifecycle-source-only
       - name: Refuse raw game artifacts and snapshots in new R7 files
         run: |
           if find review/r7 -type f | grep -Ei '\.(gba|sav|state|so|dll|elf|bin|dmp|trace|log|png|jpe?g|jsonl)$'; then
