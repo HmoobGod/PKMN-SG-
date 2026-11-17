@@ -82,6 +82,34 @@ def rw_r7(ins: Ins) -> tuple[bool,bool]:
     return True,writes
 
 
+def may_clobber_r1(ins: Ins) -> bool:
+    """Conservatively invalidate saved-LR provenance after *any* r1 touch.
+
+    Only proven read-only operations preserve it. Unknown instructions and
+    register-list writes (including ranges such as {r0-r3}) are clobbers.
+    This is intentionally stricter than full instruction semantics: false
+    rejections are safe; false preservation of a return token is not.
+    """
+    op=ins.op.lower().split('.')[0]
+    args=ins.args.lower()
+    expanded=regs(args)
+    # Numeric ranges inside register lists can touch r1 without spelling it.
+    for m in re.finditer(r'(?<![a-z0-9_])r(\d{1,2})\s*-\s*r(\d{1,2})(?![a-z0-9_])', args):
+        low,high=map(int,m.groups())
+        if low<=1<=high:
+            expanded.add('r1')
+    if 'r1' not in expanded:
+        return False
+    if op in {'cmp','cmn','tst','teq','push'}:
+        return False
+    if op in {'str','strb','strh'}:
+        # Store data and base operands are read-only *unless* writeback is used.
+        return '!' in args or bool(re.search(r'\]\s*,',args))
+    # Everything else touching r1 (including MVN, ROR, LDM, LDRSB, ADR,
+    # unknown extensions and unclassified register-list syntax) kills proof.
+    return True
+
+
 def target_in_args(ins: Ins) -> int:
     hits=re.findall(r'(?<![\w])0x([0-9a-fA-F]+)',ins.args)
     ensure(len(hits)>=1, f'branch target unavailable at {ins.address:#x}')
@@ -276,13 +304,11 @@ def callee_r7_all_returns(insns: dict[int,Ins], entry: int) -> dict:
                 r7='worker'
             elif reads:
                 ensure(r7=='worker',f'callee reads incoming/restored r7 at {at:#x}')
-            # A non-POP write to r1 destroys the popped return provenance.
-            parts=[v.strip() for v in inst.args.lower().split(',')]
-            if parts and parts[0]=='r1' and op in {
-                    'mov','movs','ldr','ldrb','ldrh','add','adds','sub','subs',
-                    'lsls','lsrs','asrs','and','ands','orrs','eors','bics','muls',
-                    'adcs','sbcs','neg','negs','uxth','uxtb','sxth','sxtb'}:
+            # Denylist-by-default: only positively recognized r1 read-only
+            # instructions retain the original saved-LR return token.
+            if may_clobber_r1(inst):
                 r1_ret='none'
+            parts=[v.strip() for v in inst.args.lower().split(',')]
             if parts and parts[0]=='lr' and op in {'mov','movs','ldr','add','adds'}:
                 lr='overwritten'
         successors,terminal=edges(inst)
@@ -456,6 +482,13 @@ def main():
     if a.selftest:
         subprocess.run(['python3','-m','unittest','-v','test_r4_source_only_repairs.py'],
                        check=True,cwd=Path(__file__).resolve().parent)
+        # Historical address-only metadata, NOT a new ROM scan or native trace.
+        packet=json.loads(Path(__file__).with_name('R4_R7_VISITED_ADDRESSES_ONLY.json').read_text())
+        addrs=[int(v,16)-0x08000000 for v in packet['visited_original_guest_addresses']]
+        ensure(len(addrs)==66 and len(set(addrs))==66,'historical visited metadata invalid')
+        print('HISTORICAL SOURCE-ONLY ADDRESS LIST: 66 entries')
+        print('HISTORICAL SOURCE-ONLY ADDRESS DIGEST:',visited_address_sha256(set(addrs)))
+        print('LIMIT: address metadata is NOT a fresh private-ROM or native gameplay trace')
         return
     print('PASS: R4 exact unchanged assembly SHA')
     if a.rom:private_rom_analysis(a.rom,a.clang,a.objdump)
