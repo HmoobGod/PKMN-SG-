@@ -10,6 +10,10 @@ from pathlib import Path
 import os
 import tempfile
 import unittest
+import hashlib
+import contextlib
+import io
+from unittest import mock
 
 HERE=Path(__file__).resolve().parent
 
@@ -434,6 +438,149 @@ class LayoutProvenance(unittest.TestCase):
 
     def test_35_critical_approved_source_is_preserved(self):
         self.assertEqual(b.SOURCE.read_bytes(),a.Path(__file__).with_name('player_taunt_recovery_choice_gorilla_r4.s').read_bytes())
+
+
+
+class R1ReturnProvenanceRegression(unittest.TestCase):
+    """Claude's narrow R2 clobbers must not authenticate BX r1 as saved LR."""
+
+    CLOBBERS = (
+        ('mvns', 'r1, r0'),
+        ('rors', 'r1, r0'),
+        ('ldm', 'r0!, {r1}'),
+        ('ldrsb', 'r1, [r0, r2]'),
+        ('adr', 'r1, #8'),
+    )
+
+    def test_61_five_reported_r1_writers_revoke_return_provenance(self):
+        base=a.CALLEE_ENTRY
+        for op,args in self.CLOBBERS:
+            with self.subTest(op=op):
+                callee={
+                    base:a.Ins(base,'push','{r4,r7,lr}'),
+                    base+2:a.Ins(base+2,'mov','r7, r11'),
+                    base+4:a.Ins(base+4,'pop','{r4,r7}'),
+                    base+6:a.Ins(base+6,'pop','{r1}'),
+                    base+8:a.Ins(base+8,op,args),
+                    base+10:a.Ins(base+10,'bx','r1'),
+                }
+                self.assertTrue(a.may_clobber_r1(callee[base+8]))
+                with self.assertRaisesRegex(a.UnsafeCFG,'LR provenance'):
+                    a.callee_r7_all_returns(callee,base)
+
+    def test_62_r1_read_only_operators_keep_provenance(self):
+        base=a.CALLEE_ENTRY
+        for op,args in (('cmp','r1, r0'),('cmn','r1, r0'),
+                        ('tst','r1, r0'),('str','r1, [r0]')):
+            with self.subTest(op=op):
+                self.assertFalse(a.may_clobber_r1(a.Ins(base+8,op,args)))
+                callee={base:a.Ins(base,'push','{r4,r7,lr}'),
+                        base+2:a.Ins(base+2,'mov','r7, r11'),
+                        base+4:a.Ins(base+4,'pop','{r4,r7}'),
+                        base+6:a.Ins(base+6,'pop','{r1}'),
+                        base+8:a.Ins(base+8,op,args),
+                        base+10:a.Ins(base+10,'bx','r1')}
+                self.assertEqual(a.callee_r7_all_returns(callee,base)['return_addresses'],[base+10])
+
+    def test_63_unknown_writer_and_register_range_revoke(self):
+        for op,args in (('rev','r1, r0'),('ldm','r0!, {r0-r3}'),
+                        ('stmia','r1!, {r2}'),('str','r0, [r1, #4]!'),
+                        ('str','r0, [r1], #4'),('mov','r0, r1')):
+            with self.subTest(op=op,args=args):
+                self.assertTrue(a.may_clobber_r1(a.Ins(0,op,args)))
+
+    def test_64_unrelated_reg_is_not_a_false_clobber(self):
+        self.assertFalse(a.may_clobber_r1(a.Ins(0,'mov','r0, r2')))
+
+    def test_64a_historical_address_digest_stays_identical(self):
+        import json
+        metadata=json.loads((HERE/'R4_R7_VISITED_ADDRESSES_ONLY.json').read_text())
+        addrs={int(x,16)-0x08000000 for x in metadata['visited_original_guest_addresses']}
+        self.assertEqual(len(addrs),66)
+        self.assertEqual(a.visited_address_sha256(addrs),
+                         '90b3c50f74ff92ff65a2e28751390f853e5fa5b7d63cff829875d7fffec0524c')
+
+
+class SyntheticRomEndToEndR1(unittest.TestCase):
+    """Full 32 MiB SYNTHETIC Thumb fixture, no actual game bytes.
+
+    Verifies production private_rom_analysis (checksum pin, disassembler,
+    66-node caller CFG, 1 BL, callee stack/return, raw branch scan) end to end.
+    The approved ROM SHA is monkey-patched only inside the fixture test.
+    """
+    HALFWORDS = {
+        'baseline':0x46c0,         # mov r8,r8 (Thumb-1 NOP)
+        'mvns':0x43c1,
+        'rors':0x41c1,
+        'ldm':0xc802,
+        'ldrsb':0x5681,
+        'adr':0xa102,
+    }
+
+    @staticmethod
+    def branch16(src,dst,conditional=False):
+        delta=dst-(src+4)
+        assert delta%2==0
+        d=delta//2
+        if conditional:
+            assert -128<=d<=127
+            return 0xD100|(d&0xff)  # bne
+        assert -1024<=d<=1023
+        return 0xE000|(d&0x7ff)
+
+    @staticmethod
+    def bl_halfwords(src,dst):
+        diff=dst-(src+4)
+        assert diff%2==0 and -(1<<22)<=diff<(1<<22)
+        raw=diff&((1<<23)-1)
+        return (0xF000|((raw>>12)&0x7ff),0xF800|((raw>>1)&0x7ff))
+
+    def fixture(self,which='baseline'):
+        # A made-up 32-MiB image of Thumb NOPs, not copied from any game.
+        fake=bytearray(b'\xc0\x46'*(0x2000000//2))
+        def put(addr,opcode):fake[addr:addr+2]=opcode.to_bytes(2,'little')
+        # Exactly 66 visited caller nodes, including F60..FDE, with two pure
+        # r7 definitions F04/F5A. Only a single BL is reachable before them.
+        h1,h2=self.bl_halfwords(a.CALLEE_CALLSITE,a.CALLEE_ENTRY)
+        put(a.CALLEE_CALLSITE,h1); put(a.CALLEE_CALLSITE+2,h2)
+        for src,dst,cond in ((0x65EE8,0x65F3C,True),
+                             (0x65F56,0x65F60,True),
+                             (0x65F90,0x65FD2,False),
+                             (0x65FDE,0x65F04,False)):
+            put(src,self.branch16(src,dst,cond))
+        put(0x65F04,0x2700);put(0x65F5A,0x2700) # movs r7,#0
+        c=a.CALLEE_ENTRY
+        for off,word in ((0,0xb590),(2,0x465f),(4,0xbc90),
+                         (6,0xbc02),(8,self.HALFWORDS[which]),(10,0x4708)):
+            put(c+off,word)
+        return bytes(fake)
+
+    def test_65_real_production_pipeline_on_synthetic_32mib_rom(self):
+        with tempfile.TemporaryDirectory() as d:
+            binary=self.fixture()
+            path=Path(d)/'synthetic_32mib.bin';path.write_bytes(binary)
+            with mock.patch.object(a,'ROM_SHA',hashlib.sha256(binary).hexdigest()):
+                out=io.StringIO()
+                with contextlib.redirect_stdout(out):
+                    a.private_rom_analysis(path,'clang','llvm-objdump')
+            log=out.getvalue()
+            self.assertIn('predef nodes 66',log)
+            self.assertIn('BL 1',log)
+            self.assertIn('modeled returns 1',log)
+            self.assertIn('HOOK RAW BRANCH CANDIDATES: 0',log)
+
+    def test_66_five_real_thumb_clobbers_rejected_in_full_pipeline(self):
+        # These are true assembled Thumb-1 opcodes independently verified by
+        # Clang ARMv4T; fixture never opens real ROM or save data.
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/'synthetic_32mib.bin'
+            for op in ('mvns','rors','ldm','ldrsb','adr'):
+                with self.subTest(op=op):
+                    binary=self.fixture(op)
+                    path.write_bytes(binary)
+                    with mock.patch.object(a,'ROM_SHA',hashlib.sha256(binary).hexdigest()):
+                        with self.assertRaisesRegex(a.UnsafeCFG,'LR provenance'):
+                            a.private_rom_analysis(path,'clang','llvm-objdump')
 
 
 if __name__=='__main__': unittest.main(verbosity=2)
