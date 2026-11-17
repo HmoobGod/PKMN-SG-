@@ -1,0 +1,13 @@
+# Keep any accidentally placed local emulator/game binaries out of this review folder.
+*.appimage
+*.gba
+*.sav
+*.state
+*.ss*
+*.elf
+*.o
+*.bin
+*.log
+squashfs-root/
+private/
+cache/
