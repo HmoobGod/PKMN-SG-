@@ -1,0 +1,2194 @@
+
+*** Dumping AST Record Layout
+         0 | struct BattlerState
+         0 |   u8[4] targetsDone
+     4:0-0 |   u32 commandingDondozo
+     4:1-1 |   u32 focusPunchBattlers
+     4:2-2 |   u32 multipleSwitchInBattlers
+     4:3-3 |   u32 alreadyStatusedMoveAttempt
+     4:4-4 |   u32 activeAbilityPopUps
+     4:5-5 |   u32 forcedSwitch
+     4:6-6 |   u32 storedHealingWish
+     4:7-7 |   u32 storedLunarDance
+     5:0-0 |   u32 usedEjectItem
+     5:1-1 |   u32 sleepClauseEffectExempt
+     5:2-2 |   u32 usedMicleBerry
+     5:3-3 |   u32 pursuitTarget
+     5:4-5 |   u32 stompingTantrumTimer
+     5:6-6 |   u32 canPickupItem
+     5:7-7 |   u32 ateBoost
+     6:0-0 |   u32 wasAboveHalfHp
+    6:1-11 |   u32 commanderSpecies
+     7:4-4 |   u32 selectionScriptFinished
+     7:5-7 |   u32 lastMoveTarget
+         8 |   u16 hpOnSwitchout
+    10:0-0 |   u16 switchIn
+    10:1-1 |   u16 fainted
+    10:2-3 |   u16 isFirstTurn
+   10:4-15 |   u16 padding
+           | [sizeof=12, align=4]
+
+*** Dumping AST Record Layout
+         0 | struct PartyState
+     0:0-0 |   u32 intrepidSwordBoost
+     0:1-1 |   u32 dauntlessShieldBoost
+     0:2-2 |   u32 ateBerry
+     0:3-3 |   u32 battleBondBoost
+     0:4-4 |   u32 transformZeroToHero
+     0:5-5 |   u32 supersweetSyrup
+    0:6-10 |   u32 timesGotHit
+    1:3-13 |   u32 changedSpecies
+     2:6-6 |   u32 sentOut
+     2:7-7 |   u32 isKnockedOff
+     3:0-2 |   u32 shardplateHits
+     3:3-3 |   u32 transmuteUsed
+     3:4-4 |   u32 twinStarsBoosted
+     3:5-7 |   u32 padding
+         4 |   u16[2] usedHeldItems
+         8 |   u16[2] consumedHeldItems
+           | [sizeof=12, align=4]
+
+*** Dumping AST Record Layout
+         0 | struct FutureSight
+         0 |   u16 move
+     2:0-9 |   u16 counter
+     3:2-4 |   u16 battlerIndex
+     3:5-7 |   u16 partyIndex
+           | [sizeof=4, align=2]
+
+*** Dumping AST Record Layout
+         0 | struct Wish
+         0 |   u16 counter
+         2 |   u8 partyId
+           | [sizeof=4, align=2]
+
+*** Dumping AST Record Layout
+         0 | struct Volatiles
+     0:0-2 |   u32 confusionTurns
+     0:3-3 |   u32 flinched
+     0:4-6 |   u32 uproarTurns
+     0:7-7 |   u32 torment
+     1:0-1 |   u32 bideTurns
+     1:2-4 |   u32 rampageTurns
+     1:5-5 |   u32 multipleTurns
+     1:6-6 |   u32 wrapped
+     2:0-3 |   enum BattlerId wrappedBy
+    2:4-13 |   u32 wrappedMove
+     3:6-6 |   u32 powder
+     3:7-7 |   u32 padding
+     4:0-3 |   enum BattlerId infatuation
+     4:4-4 |   u32 defenseCurl
+     4:5-5 |   u32 transformed
+     4:6-6 |   u32 rage
+     4:7-7 |   u32 substitute
+     5:0-1 |   u32 destinyBond
+     5:2-2 |   u32 escapePrevention
+     5:3-3 |   u32 nightmare
+     5:4-4 |   u32 cursed
+     5:5-5 |   u32 foresight
+     5:6-6 |   u32 dragonCheer
+     5:7-7 |   u32 focusEnergy
+     6:0-2 |   u32 bonusCritStages
+     6:3-5 |   enum SemiInvulnerableState semiInvulnerable
+     6:6-6 |   u32 electrified
+     6:7-7 |   u32 mudSport
+     7:0-0 |   u32 waterSport
+     7:1-1 |   u32 infiniteConfusion
+     7:2-2 |   u32 saltCure
+     7:3-3 |   u32 syrupBomb
+     7:4-7 |   enum BattlerId stickySyrupedBy
+     8:0-0 |   u32 glaiveRush
+     8:1-2 |   u32 auraShieldState
+     8:3-6 |   enum BattlerId leechSeed
+     8:7-8 |   u32 lockOn
+     9:1-1 |   u32 perishSong
+     9:2-2 |   u32 minimize
+     9:3-4 |   u32 chargeTimer
+     9:5-5 |   u32 root
+     9:6-7 |   u32 yawn
+    10:0-0 |   u32 imprison
+    10:1-1 |   u32 grudge
+    10:2-2 |   u32 gastroAcid
+    10:3-3 |   u32 embargo
+    10:4-4 |   u32 smackDown
+    10:5-5 |   u32 telekinesis
+    10:6-6 |   u32 miracleEye
+    10:7-7 |   u32 magnetRise
+    11:0-0 |   u32 healBlock
+    11:1-1 |   u32 aquaRing
+    11:2-2 |   u32 laserFocus
+    11:3-3 |   u32 powerTrick
+    11:4-4 |   u32 noRetreat
+    11:5-5 |   u32 vesselOfRuin
+    11:6-6 |   u32 swordOfRuin
+    11:7-7 |   u32 tabletsOfRuin
+    12:0-0 |   u32 beadsOfRuin
+    12:1-1 |   u32 isTransformedMonShiny
+   16:0-31 |   u32 transformedMonPID
+   20:0-10 |   u32 transformedMonSpecies
+   21:3-12 |   u32 disabledMove
+   22:5-14 |   u32 encoredMove
+    24:0-7 |   u32 consecutiveMoveUses
+    25:0-3 |   u32 stockpileCounter
+    25:4-7 |   u32 stockpileDef
+    26:0-3 |   u32 stockpileSpDef
+    26:4-7 |   u32 stockpileBeforeDef
+    27:0-3 |   u32 stockpileBeforeSpDef
+    28:0-7 |   u32 substituteHP
+    29:0-3 |   u32 encoredMovePos
+    29:4-6 |   u32 disableTimer
+    29:7-9 |   u32 encoreTimer
+    30:2-3 |   u32 perishSongTimer
+   30:4-11 |   u32 rolloutTimer
+    32:0-7 |   u32 furyCutterCounter
+    33:0-7 |   u32 metronomeItemCounter
+    34:0-3 |   enum BattlerId battlerPreventingEscape
+    34:4-6 |   enum BattlerId battlerWithSureHit
+   34:7-10 |   u32 mimickedMoves
+    35:3-4 |   u32 rechargeTimer
+    36:0-7 |   u32 autotomizeCount
+    37:0-2 |   u32 slowStartTimer
+    37:3-5 |   u32 embargoTimer
+    37:6-8 |   u32 magnetRiseTimer
+    38:1-2 |   u32 telekinesisTimer
+    38:3-5 |   u32 healBlockTimer
+    38:6-7 |   u32 frostNovaTimer
+    39:0-2 |   u32 tauntTimer
+    39:3-4 |   u32 tormentTimer
+    39:5-6 |   u32 laserFocusTimer
+    40:0-1 |   u32 throatChopTimer
+    40:2-5 |   u32 wrapTurns
+    40:6-7 |   u32 syrupBombTimer
+    41:0-3 |   u32 usedMoves
+    41:4-4 |   u32 truantCounter
+    41:5-5 |   u32 truantSwitchInHack
+    41:6-6 |   u32 tarShot
+    41:7-7 |   u32 octolock
+    42:0-0 |   u32 cudChew
+    42:1-1 |   u32 weatherAbilityDone
+    42:2-2 |   u32 transformWeatherAbilityDone
+    42:3-3 |   u32 terrainAbilityDone
+    42:4-4 |   u32 syrupBombIsShiny
+    42:5-5 |   u32 usedProteanLibero
+    42:6-6 |   u32 embodyAspectActivated
+    42:7-7 |   u32 flashFireBoosted
+    43:0-0 |   u32 overlock
+    43:1-1 |   u32 boosterEnergyActivated
+    44:0-9 |   enum Ability overwrittenAbility
+    45:2-2 |   u32 roostActive
+    45:3-3 |   u32 unburdenActive
+    45:4-4 |   u32 neutralizingGas
+    45:5-5 |   u32 unnerveActivated
+    45:6-6 |   u32 endured
+    45:7-7 |   u32 tryEjectPack
+    46:0-3 |   enum BattlerId octolockedBy
+    46:4-6 |   enum Stat paradoxBoostedStat
+    46:7-7 |   u32 unableToUseMove
+    47:0-0 |   u32 activateDancer
+           | [sizeof=48, align=4]
+
+*** Dumping AST Record Layout
+         0 | struct BattlePokemon
+         0 |   u16 species
+         2 |   u16 attack
+         4 |   u16 defense
+         6 |   u16 speed
+         8 |   u16 spAttack
+        10 |   u16 spDefense
+        12 |   enum Move[4] moves
+    20:0-4 |   u32 hpIV
+    20:5-9 |   u32 attackIV
+    21:2-6 |   u32 defenseIV
+   21:7-11 |   u32 speedIV
+    22:4-8 |   u32 spAttackIV
+    23:1-5 |   u32 spDefenseIV
+    23:6-7 |   u32 abilityNum
+        24 |   s8[8] statStages
+        32 |   enum Ability ability
+        34 |   enum Type[3] types
+        37 |   u8[4] pp
+        42 |   u16 hp
+        44 |   u8 level
+        45 |   u8 friendship
+        46 |   u16 maxHP
+        48 |   enum Item[2] items
+        52 |   u8[13] nickname
+        65 |   u8 ppBonuses
+        66 |   u8[8] otName
+        76 |   u32 experience
+        80 |   u32 personality
+        84 |   u32 status1
+        88 |   struct Volatiles volatiles
+    88:0-2 |     u32 confusionTurns
+    88:3-3 |     u32 flinched
+    88:4-6 |     u32 uproarTurns
+    88:7-7 |     u32 torment
+    89:0-1 |     u32 bideTurns
+    89:2-4 |     u32 rampageTurns
+    89:5-5 |     u32 multipleTurns
+    89:6-6 |     u32 wrapped
+    90:0-3 |     enum BattlerId wrappedBy
+   90:4-13 |     u32 wrappedMove
+    91:6-6 |     u32 powder
+    91:7-7 |     u32 padding
+    92:0-3 |     enum BattlerId infatuation
+    92:4-4 |     u32 defenseCurl
+    92:5-5 |     u32 transformed
+    92:6-6 |     u32 rage
+    92:7-7 |     u32 substitute
+    93:0-1 |     u32 destinyBond
+    93:2-2 |     u32 escapePrevention
+    93:3-3 |     u32 nightmare
+    93:4-4 |     u32 cursed
+    93:5-5 |     u32 foresight
+    93:6-6 |     u32 dragonCheer
+    93:7-7 |     u32 focusEnergy
+    94:0-2 |     u32 bonusCritStages
+    94:3-5 |     enum SemiInvulnerableState semiInvulnerable
+    94:6-6 |     u32 electrified
+    94:7-7 |     u32 mudSport
+    95:0-0 |     u32 waterSport
+    95:1-1 |     u32 infiniteConfusion
+    95:2-2 |     u32 saltCure
+    95:3-3 |     u32 syrupBomb
+    95:4-7 |     enum BattlerId stickySyrupedBy
+    96:0-0 |     u32 glaiveRush
+    96:1-2 |     u32 auraShieldState
+    96:3-6 |     enum BattlerId leechSeed
+    96:7-8 |     u32 lockOn
+    97:1-1 |     u32 perishSong
+    97:2-2 |     u32 minimize
+    97:3-4 |     u32 chargeTimer
+    97:5-5 |     u32 root
+    97:6-7 |     u32 yawn
+    98:0-0 |     u32 imprison
+    98:1-1 |     u32 grudge
+    98:2-2 |     u32 gastroAcid
+    98:3-3 |     u32 embargo
+    98:4-4 |     u32 smackDown
+    98:5-5 |     u32 telekinesis
+    98:6-6 |     u32 miracleEye
+    98:7-7 |     u32 magnetRise
+    99:0-0 |     u32 healBlock
+    99:1-1 |     u32 aquaRing
+    99:2-2 |     u32 laserFocus
+    99:3-3 |     u32 powerTrick
+    99:4-4 |     u32 noRetreat
+    99:5-5 |     u32 vesselOfRuin
+    99:6-6 |     u32 swordOfRuin
+    99:7-7 |     u32 tabletsOfRuin
+   100:0-0 |     u32 beadsOfRuin
+   100:1-1 |     u32 isTransformedMonShiny
+  104:0-31 |     u32 transformedMonPID
+  108:0-10 |     u32 transformedMonSpecies
+  109:3-12 |     u32 disabledMove
+  110:5-14 |     u32 encoredMove
+   112:0-7 |     u32 consecutiveMoveUses
+   113:0-3 |     u32 stockpileCounter
+   113:4-7 |     u32 stockpileDef
+   114:0-3 |     u32 stockpileSpDef
+   114:4-7 |     u32 stockpileBeforeDef
+   115:0-3 |     u32 stockpileBeforeSpDef
+   116:0-7 |     u32 substituteHP
+   117:0-3 |     u32 encoredMovePos
+   117:4-6 |     u32 disableTimer
+   117:7-9 |     u32 encoreTimer
+   118:2-3 |     u32 perishSongTimer
+  118:4-11 |     u32 rolloutTimer
+   120:0-7 |     u32 furyCutterCounter
+   121:0-7 |     u32 metronomeItemCounter
+   122:0-3 |     enum BattlerId battlerPreventingEscape
+   122:4-6 |     enum BattlerId battlerWithSureHit
+  122:7-10 |     u32 mimickedMoves
+   123:3-4 |     u32 rechargeTimer
+   124:0-7 |     u32 autotomizeCount
+   125:0-2 |     u32 slowStartTimer
+   125:3-5 |     u32 embargoTimer
+   125:6-8 |     u32 magnetRiseTimer
+   126:1-2 |     u32 telekinesisTimer
+   126:3-5 |     u32 healBlockTimer
+   126:6-7 |     u32 frostNovaTimer
+   127:0-2 |     u32 tauntTimer
+   127:3-4 |     u32 tormentTimer
+   127:5-6 |     u32 laserFocusTimer
+   128:0-1 |     u32 throatChopTimer
+   128:2-5 |     u32 wrapTurns
+   128:6-7 |     u32 syrupBombTimer
+   129:0-3 |     u32 usedMoves
+   129:4-4 |     u32 truantCounter
+   129:5-5 |     u32 truantSwitchInHack
+   129:6-6 |     u32 tarShot
+   129:7-7 |     u32 octolock
+   130:0-0 |     u32 cudChew
+   130:1-1 |     u32 weatherAbilityDone
+   130:2-2 |     u32 transformWeatherAbilityDone
+   130:3-3 |     u32 terrainAbilityDone
+   130:4-4 |     u32 syrupBombIsShiny
+   130:5-5 |     u32 usedProteanLibero
+   130:6-6 |     u32 embodyAspectActivated
+   130:7-7 |     u32 flashFireBoosted
+   131:0-0 |     u32 overlock
+   131:1-1 |     u32 boosterEnergyActivated
+   132:0-9 |     enum Ability overwrittenAbility
+   133:2-2 |     u32 roostActive
+   133:3-3 |     u32 unburdenActive
+   133:4-4 |     u32 neutralizingGas
+   133:5-5 |     u32 unnerveActivated
+   133:6-6 |     u32 endured
+   133:7-7 |     u32 tryEjectPack
+   134:0-3 |     enum BattlerId octolockedBy
+   134:4-6 |     enum Stat paradoxBoostedStat
+   134:7-7 |     u32 unableToUseMove
+   135:0-0 |     u32 activateDancer
+       136 |   u32 otId
+       140 |   u8 metLevel
+       141 |   bool8 isShiny
+       142 |   enum Ability[3] innates
+       148 |   enum Item item
+           | [sizeof=152, align=4]
+
+*** Dumping AST Record Layout
+         0 | struct EventStates
+     0:0-7 |   enum EndTurnResolutionOrder endTurn
+     1:0-7 |   u32 endTurnBlock
+     2:0-3 |   enum BattlerId endTurnBattler
+    2:4-11 |   u32 arenaTurn
+     3:4-7 |   enum BattleSide battlerSide
+     4:0-3 |   enum BattlerId moveEndBattler
+     5:0-7 |   enum FirstTurnEventsStates beforeFirstTurn
+     6:0-7 |   enum FaintedActions faintedAction
+     7:0-3 |   enum BattlerId faintedActionBattler
+     8:0-7 |   enum CancelerState atkCanceler
+     9:0-3 |   enum BattlerId atkCancelerBattler
+    10:0-7 |   enum BattleIntroStates battleIntro
+    11:0-7 |   enum SwitchInEvents switchIn
+    12:0-7 |   u32 battlerSwitchIn
+    13:0-7 |   u32 moveEndBlock
+           | [sizeof=16, align=4]
+
+*** Dumping AST Record Layout
+         0 | struct BattleStruct
+         0 |   struct BattlerState[4] battlerState
+        48 |   struct PartyState[2][6] partyState
+       192 |   struct EventStates eventState
+   192:0-7 |     enum EndTurnResolutionOrder endTurn
+   193:0-7 |     u32 endTurnBlock
+   194:0-3 |     enum BattlerId endTurnBattler
+  194:4-11 |     u32 arenaTurn
+   195:4-7 |     enum BattleSide battlerSide
+   196:0-3 |     enum BattlerId moveEndBattler
+   197:0-7 |     enum FirstTurnEventsStates beforeFirstTurn
+   198:0-7 |     enum FaintedActions faintedAction
+   199:0-3 |     enum BattlerId faintedActionBattler
+   200:0-7 |     enum CancelerState atkCanceler
+   201:0-3 |     enum BattlerId atkCancelerBattler
+   202:0-7 |     enum BattleIntroStates battleIntro
+   203:0-7 |     enum SwitchInEvents switchIn
+   204:0-7 |     u32 battlerSwitchIn
+   205:0-7 |     u32 moveEndBlock
+       208 |   struct FutureSight[4] futureSight
+       224 |   struct Wish[4] wish
+       240 |   u16[4] moveTarget
+       248 |   u32 expShareExpValue
+       252 |   u32 expValue
+       256 |   u8 weatherDuration
+       257 |   u8[6] expGettersOrder
+       263 |   u8 expGetterMonId
+   264:0-2 |   u8 expOrderId
+   264:3-4 |   u8 expGetterBattlerId
+   264:5-5 |   u8 teamGotExpMsgPrinted
+       265 |   u8 givenExpMons
+       266 |   u8 expSentInMons
+       267 |   u8 wildVictorySong
+       268 |   enum Type dynamicMoveType
+       269 |   enum BattlerId battlerPreventingSwitchout
+   270:0-5 |   u8 moneyMultiplier
+   270:6-6 |   u8 moneyMultiplierItem
+   270:7-7 |   u8 moneyMultiplierMove
+       271 |   u8 savedTurnActionNumber
+       272 |   u8 scriptPartyIdx
+       273 |   u8[4] battlerPartyIndexes
+       277 |   u8[4] monToSwitchIntoId
+       281 |   u8[4][3] battlerPartyOrders
+       293 |   u8 runTries
+       294 |   u8[13] caughtMonNick
+       307 |   u8 safariGoNearCounter
+       308 |   u8 safariPkblThrowCounter
+       309 |   u8 safariEscapeFactor
+       310 |   u8 safariCatchFactor
+       311 |   u8 linkBattleVsSpriteId_V
+       312 |   u8 linkBattleVsSpriteId_S
+       313 |   u8[4] chosenMovePositions
+       317 |   u8[4] stateIdAfterSelScript
+       321 |   u8 prevSelectedPartySlot
+       322 |   u8 stringMoveType
+       323 |   u8 palaceFlags
+       324 |   u8 field_93
+       325 |   u8 wallyBattleState
+       326 |   u8 wallyMovesState
+       327 |   u8 wallyWaitFrames
+       328 |   u8 wallyMoveFrames
+       330 |   u16[4] lastTakenMove
+       340 |   u32 savedBattleTypeFlags
+       344 |   u16 abilityPreventingSwitchout
+       346 |   u8 hpScale
+       348 |   u16 synchronizeMoveEffect
+   350:0-0 |   u8 anyMonHasTransformed
+   350:1-1 |   u8 sleepClauseNotBlocked
+   350:2-2 |   u8 isSkyBattle
+   350:3-3 |   u8 unableToUseMove
+   350:4-4 |   u8 triAttackBurn
+   350:5-5 |   u8 hasBattleInputStarted
+   350:6-7 |   u8 unused
+       352 |   void (*)(void) savedCallback
+       356 |   u16[4] chosenItem
+       364 |   u16[4] choicedMove
+           | [sizeof=372, align=4]
+
+*** Dumping IRgen Record Layout
+Record: RecordDecl 0x55f20daab480 </tmp/sg_r4_public_layout_cidipmft/layout.c:184:1, line:192:1> line:184:8 struct Volatiles definition
+|-FieldDecl 0x55f20dab2b50 <line:62:77, line:19:59> line:62:45 confusionTurns 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab2b30 <line:19:21, col:59> 'int'
+|   |-value: Int 3
+|   `-ParenExpr 0x55f20dab2b00 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab2ae0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20daab580 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab2ab8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab2aa0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab2968 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab2a40 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab2a20 <col:55, col:57> 'int'
+|             `-BinaryOperator 0x55f20dab29c8 <line:44:27, line:62:102> 'int' '+'
+|               |-IntegerLiteral 0x55f20dab2988 <line:44:27> 'int' 5
+|               `-IntegerLiteral 0x55f20dab29a8 <line:62:102> 'int' 1
+|-FieldDecl 0x55f20dab2d30 <line:63:77, line:19:59> line:63:45 flinched 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab2d10 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dab2ce0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab2cc0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab2ba0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab2c98 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab2c80 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab2bc0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab2c58 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab2c38 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab2be0 <line:63:82> 'int' 1
+|-FieldDecl 0x55f20dab2f10 <line:64:77, line:19:59> line:64:45 uproarTurns 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab2ef0 <line:19:21, col:59> 'int'
+|   |-value: Int 3
+|   `-ParenExpr 0x55f20dab2ec0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab2ea0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab2d80 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab2e78 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab2e60 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab2da0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab2e38 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab2e18 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab2dc0 <line:64:82> 'int' 5
+|-FieldDecl 0x55f20dab30f0 <line:65:77, line:19:59> line:65:45 torment 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab30d0 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dab30a0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab3080 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab2f60 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab3058 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab3040 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab2f80 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab3018 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab2ff8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab2fa0 <line:65:82> 'int' 1
+|-FieldDecl 0x55f20dab32d0 <line:66:77, line:19:59> line:66:45 bideTurns 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab32b0 <line:19:21, col:59> 'int'
+|   |-value: Int 2
+|   `-ParenExpr 0x55f20dab3280 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab3260 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab3140 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab3238 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab3220 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab3160 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab31f8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab31d8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab3180 <line:66:82> 'int' 3
+|-FieldDecl 0x55f20dab34f0 <line:67:77, line:19:59> line:67:45 rampageTurns 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab34d0 <line:19:21, col:59> 'int'
+|   |-value: Int 3
+|   `-ParenExpr 0x55f20dab34a0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab3480 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab3320 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab3458 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab3440 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab3340 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab3418 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab33f8 <col:55, col:57> 'int'
+|             `-BinaryOperator 0x55f20dab33a0 <line:45:25, line:67:100> 'int' '+'
+|               |-IntegerLiteral 0x55f20dab3360 <line:45:25> 'int' 3
+|               `-IntegerLiteral 0x55f20dab3380 <line:67:100> 'int' 1
+|-FieldDecl 0x55f20dab36d0 <line:68:77, line:19:59> line:68:45 multipleTurns 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab36b0 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dab3680 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab3660 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab3540 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab3638 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab3620 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab3560 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab35f8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab35d8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab3580 <line:68:82> 'int' 1
+|-FieldDecl 0x55f20dab10d0 <line:69:77, line:19:59> line:69:45 wrapped 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab10b0 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dab1080 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab1060 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab3720 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab1038 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab1020 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab3740 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab0ff8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab0fd8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab0f80 <line:69:82> 'int' 1
+|-FieldDecl 0x55f20dab13f0 <line:70:77, line:19:59> line:70:45 wrappedBy 'enum BattlerId'
+| `-ConstantExpr 0x55f20dab13d0 <line:19:21, col:59> 'int'
+|   |-value: Int 4
+|   `-ParenExpr 0x55f20dab1358 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab1338 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab1120 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab1310 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab12f8 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab1140 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab12d0 <col:41, col:57> 'unsigned int' <NoOp>
+|           `-ParenExpr 0x55f20dab12b0 <col:55, col:57> 'unsigned int'
+|             `-ParenExpr 0x55f20dab1258 <line:18:21, col:37> 'unsigned int'
+|               `-BinaryOperator 0x55f20dab1238 <col:22, col:36> 'unsigned int' '-'
+|                 |-ParenExpr 0x55f20dab11e0 <col:22, col:32> 'unsigned int'
+|                 | `-BinaryOperator 0x55f20dab11c0 <col:23, col:31> 'unsigned int' '<<'
+|                 |   |-IntegerLiteral 0x55f20dab1160 <col:23> 'unsigned int' 1
+|                 |   `-ParenExpr 0x55f20dab11a0 <col:29, col:31> 'int'
+|                 |     `-IntegerLiteral 0x55f20dab1180 <line:11:28> 'int' 4
+|                 `-ImplicitCastExpr 0x55f20dab1220 <line:18:36> 'unsigned int' <IntegralCast>
+|                   `-IntegerLiteral 0x55f20dab1200 <col:36> 'int' 1
+|-FieldDecl 0x55f20dab1610 <line:71:77, line:19:59> line:71:45 wrappedMove 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab15f0 <line:19:21, col:59> 'int'
+|   |-value: Int 10
+|   `-ParenExpr 0x55f20dab15c0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab15a0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab1440 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab1578 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab1560 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab1460 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab1538 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab1518 <col:55, col:57> 'int'
+|             `-BinaryOperator 0x55f20dab14c0 <line:43:25, line:71:100> 'int' '-'
+|               |-IntegerLiteral 0x55f20dab1480 <line:43:25> 'int' 936
+|               `-IntegerLiteral 0x55f20dab14a0 <line:71:100> 'int' 1
+|-FieldDecl 0x55f20dab17f0 <line:72:77, line:19:59> line:72:45 powder 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab17d0 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dab17a0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab1780 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab1660 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab1758 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab1740 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab1680 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab1718 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab16f8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab16a0 <line:72:82> 'int' 1
+|-FieldDecl 0x55f20dab19d0 <line:73:77, line:19:59> line:73:45 padding 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab19b0 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dab1980 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab1960 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab1840 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab1938 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab1920 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab1860 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab18f8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab18d8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab1880 <line:73:82> 'int' 1
+|-FieldDecl 0x55f20dab1cb8 <line:74:77, line:19:59> line:74:45 infatuation 'enum BattlerId'
+| `-ConstantExpr 0x55f20dab1c98 <line:19:21, col:59> 'int'
+|   |-value: Int 4
+|   `-ParenExpr 0x55f20dab1c58 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab1c38 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab1a20 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab1c10 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab1bf8 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab1a40 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab1bd0 <col:41, col:57> 'unsigned int' <NoOp>
+|           `-ParenExpr 0x55f20dab1bb0 <col:55, col:57> 'unsigned int'
+|             `-ParenExpr 0x55f20dab1b58 <line:18:21, col:37> 'unsigned int'
+|               `-BinaryOperator 0x55f20dab1b38 <col:22, col:36> 'unsigned int' '-'
+|                 |-ParenExpr 0x55f20dab1ae0 <col:22, col:32> 'unsigned int'
+|                 | `-BinaryOperator 0x55f20dab1ac0 <col:23, col:31> 'unsigned int' '<<'
+|                 |   |-IntegerLiteral 0x55f20dab1a60 <col:23> 'unsigned int' 1
+|                 |   `-ParenExpr 0x55f20dab1aa0 <col:29, col:31> 'int'
+|                 |     `-IntegerLiteral 0x55f20dab1a80 <line:11:28> 'int' 4
+|                 `-ImplicitCastExpr 0x55f20dab1b20 <line:18:36> 'unsigned int' <IntegralCast>
+|                   `-IntegerLiteral 0x55f20dab1b00 <col:36> 'int' 1
+|-FieldDecl 0x55f20dab1e98 <line:75:77, line:19:59> line:75:45 defenseCurl 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab1e78 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dab1e48 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab1e28 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab1d08 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab1e00 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab1de8 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab1d28 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab1dc0 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab1da0 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab1d48 <line:75:82> 'int' 1
+|-FieldDecl 0x55f20dab4e68 <line:76:77, line:19:59> line:76:45 transformed 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab4e48 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dab4e18 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab4df8 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab1ee8 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab4dd0 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab4db8 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab1f08 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab4d90 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab4d70 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab1f28 <line:76:82> 'int' 1
+|-FieldDecl 0x55f20dab5048 <line:77:77, line:19:59> line:77:45 rage 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab5028 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dab4ff8 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab4fd8 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab4eb8 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab4fb0 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab4f98 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab4ed8 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab4f70 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab4f50 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab4ef8 <line:77:82> 'int' 1
+|-FieldDecl 0x55f20dab5228 <line:78:77, line:19:59> line:78:45 substitute 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab5208 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dab51d8 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab51b8 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab5098 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab5190 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab5178 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab50b8 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab5150 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab5130 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab50d8 <line:78:82> 'int' 1
+|-FieldDecl 0x55f20dab5408 <line:79:77, line:19:59> line:79:45 destinyBond 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab53e8 <line:19:21, col:59> 'int'
+|   |-value: Int 2
+|   `-ParenExpr 0x55f20dab53b8 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab5398 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab5278 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab5370 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab5358 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab5298 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab5330 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab5310 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab52b8 <line:79:82> 'int' 2
+|-FieldDecl 0x55f20dab55e8 <line:80:77, line:19:59> line:80:45 escapePrevention 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab55c8 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dab5598 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab5578 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab5458 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab5550 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab5538 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab5478 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab5510 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab54f0 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab5498 <line:80:82> 'int' 1
+|-FieldDecl 0x55f20dab57c8 <line:81:77, line:19:59> line:81:45 nightmare 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab57a8 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dab5778 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab5758 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab5638 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab5730 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab5718 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab5658 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab56f0 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab56d0 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab5678 <line:81:82> 'int' 1
+|-FieldDecl 0x55f20dab59a8 <line:82:77, line:19:59> line:82:45 cursed 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab5988 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dab5958 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab5938 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab5818 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab5910 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab58f8 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab5838 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab58d0 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab58b0 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab5858 <line:82:82> 'int' 1
+|-FieldDecl 0x55f20dab5b88 <line:83:77, line:19:59> line:83:45 foresight 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab5b68 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dab5b38 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab5b18 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab59f8 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab5af0 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab5ad8 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab5a18 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab5ab0 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab5a90 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab5a38 <line:83:82> 'int' 1
+|-FieldDecl 0x55f20dabd560 <line:84:77, line:19:59> line:84:45 dragonCheer 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab5d48 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dab5d18 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab5cf8 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab5bd8 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab5cd0 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab5cb8 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab5bf8 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab5c90 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab5c70 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab5c18 <line:84:82> 'int' 1
+|-FieldDecl 0x55f20dabd740 <line:85:77, line:19:59> line:85:45 focusEnergy 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dabd720 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dabd6f0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabd6d0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabd5b0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabd6a8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabd690 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabd5d0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabd668 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dabd648 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dabd5f0 <line:85:82> 'int' 1
+|-FieldDecl 0x55f20dabd920 <line:86:77, line:19:59> line:86:45 bonusCritStages 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dabd900 <line:19:21, col:59> 'int'
+|   |-value: Int 3
+|   `-ParenExpr 0x55f20dabd8d0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabd8b0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabd790 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabd888 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabd870 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabd7b0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabd848 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dabd828 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dabd7d0 <line:86:82> 'int' 4
+|-FieldDecl 0x55f20dabdb40 <line:87:77, line:19:59> line:87:45 semiInvulnerable 'enum SemiInvulnerableState'
+| `-ConstantExpr 0x55f20dabdb20 <line:19:21, col:59> 'int'
+|   |-value: Int 3
+|   `-ParenExpr 0x55f20dabdab0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabda90 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabd970 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabda68 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabda50 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabd990 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabda28 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dabda08 <col:55, col:57> 'int'
+|             `-DeclRefExpr 0x55f20dabd9b0 <line:87:105> 'int' EnumConstant 0x55f20daaa550 'SEMI_INVULNERABLE_COUNT' 'int'
+|-FieldDecl 0x55f20dabdd20 <line:88:77, line:19:59> line:88:45 electrified 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dabdd00 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dabdcd0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabdcb0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabdb90 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabdc88 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabdc70 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabdbb0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabdc48 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dabdc28 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dabdbd0 <line:88:82> 'int' 1
+|-FieldDecl 0x55f20dabdf00 <line:89:77, line:19:59> line:89:45 mudSport 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dabdee0 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dabdeb0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabde90 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabdd70 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabde68 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabde50 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabdd90 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabde28 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dabde08 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dabddb0 <line:89:82> 'int' 1
+|-FieldDecl 0x55f20dabe0e0 <line:90:77, line:19:59> line:90:45 waterSport 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dabe0c0 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dabe090 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabe070 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabdf50 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabe048 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabe030 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabdf70 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabe008 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dabdfe8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dabdf90 <line:90:82> 'int' 1
+|-FieldDecl 0x55f20dabe2c0 <line:91:77, line:19:59> line:91:45 infiniteConfusion 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dabe2a0 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dabe270 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabe250 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabe130 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabe228 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabe210 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabe150 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabe1e8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dabe1c8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dabe170 <line:91:82> 'int' 1
+|-FieldDecl 0x55f20dabe4a0 <line:92:77, line:19:59> line:92:45 saltCure 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dabe480 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dabe450 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabe430 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabe310 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabe408 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabe3f0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabe330 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabe3c8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dabe3a8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dabe350 <line:92:82> 'int' 1
+|-FieldDecl 0x55f20dabe6a0 <line:93:77, line:19:59> line:93:45 syrupBomb 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dabe680 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dabe650 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabe630 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabe4f0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabe608 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabe5f0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabe510 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabe5c8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dabe5a8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dabe530 <line:93:82> 'int' 1
+|-FieldDecl 0x55f20dabe988 <line:94:77, line:19:59> line:94:45 stickySyrupedBy 'enum BattlerId'
+| `-ConstantExpr 0x55f20dabe968 <line:19:21, col:59> 'int'
+|   |-value: Int 4
+|   `-ParenExpr 0x55f20dabe928 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabe908 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabe6f0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabe8e0 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabe8c8 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabe710 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabe8a0 <col:41, col:57> 'unsigned int' <NoOp>
+|           `-ParenExpr 0x55f20dabe880 <col:55, col:57> 'unsigned int'
+|             `-ParenExpr 0x55f20dabe828 <line:18:21, col:37> 'unsigned int'
+|               `-BinaryOperator 0x55f20dabe808 <col:22, col:36> 'unsigned int' '-'
+|                 |-ParenExpr 0x55f20dabe7b0 <col:22, col:32> 'unsigned int'
+|                 | `-BinaryOperator 0x55f20dabe790 <col:23, col:31> 'unsigned int' '<<'
+|                 |   |-IntegerLiteral 0x55f20dabe730 <col:23> 'unsigned int' 1
+|                 |   `-ParenExpr 0x55f20dabe770 <col:29, col:31> 'int'
+|                 |     `-IntegerLiteral 0x55f20dabe750 <line:11:28> 'int' 4
+|                 `-ImplicitCastExpr 0x55f20dabe7f0 <line:18:36> 'unsigned int' <IntegralCast>
+|                   `-IntegerLiteral 0x55f20dabe7d0 <col:36> 'int' 1
+|-FieldDecl 0x55f20dabeb68 <line:95:77, line:19:59> line:95:45 glaiveRush 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dabeb48 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dabeb18 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabeaf8 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabe9d8 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabead0 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabeab8 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabe9f8 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabea90 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dabea70 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dabea18 <line:95:82> 'int' 1
+|-FieldDecl 0x55f20dabed48 <line:96:77, line:19:59> line:96:45 auraShieldState 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dabed28 <line:19:21, col:59> 'int'
+|   |-value: Int 2
+|   `-ParenExpr 0x55f20dabecf8 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabecd8 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabebb8 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabecb0 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabec98 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabebd8 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabec70 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dabec50 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dabebf8 <line:96:82> 'int' 2
+|-FieldDecl 0x55f20dabf030 <line:97:77, line:19:59> line:97:45 leechSeed 'enum BattlerId'
+| `-ConstantExpr 0x55f20dabf010 <line:19:21, col:59> 'int'
+|   |-value: Int 4
+|   `-ParenExpr 0x55f20dabefd0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabefb0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabed98 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabef88 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabef70 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabedb8 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabef48 <col:41, col:57> 'unsigned int' <NoOp>
+|           `-ParenExpr 0x55f20dabef28 <col:55, col:57> 'unsigned int'
+|             `-ParenExpr 0x55f20dabeed0 <line:18:21, col:37> 'unsigned int'
+|               `-BinaryOperator 0x55f20dabeeb0 <col:22, col:36> 'unsigned int' '-'
+|                 |-ParenExpr 0x55f20dabee58 <col:22, col:32> 'unsigned int'
+|                 | `-BinaryOperator 0x55f20dabee38 <col:23, col:31> 'unsigned int' '<<'
+|                 |   |-IntegerLiteral 0x55f20dabedd8 <col:23> 'unsigned int' 1
+|                 |   `-ParenExpr 0x55f20dabee18 <col:29, col:31> 'int'
+|                 |     `-IntegerLiteral 0x55f20dabedf8 <line:11:28> 'int' 4
+|                 `-ImplicitCastExpr 0x55f20dabee98 <line:18:36> 'unsigned int' <IntegralCast>
+|                   `-IntegerLiteral 0x55f20dabee78 <col:36> 'int' 1
+|-FieldDecl 0x55f20dabf210 <line:98:77, line:19:59> line:98:45 lockOn 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dabf1f0 <line:19:21, col:59> 'int'
+|   |-value: Int 2
+|   `-ParenExpr 0x55f20dabf1c0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabf1a0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabf080 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabf178 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabf160 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabf0a0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabf138 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dabf118 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dabf0c0 <line:98:82> 'int' 2
+|-FieldDecl 0x55f20dabf3f0 <line:99:77, line:19:59> line:99:45 perishSong 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dabf3d0 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dabf3a0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabf380 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabf260 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabf358 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabf340 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabf280 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabf318 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dabf2f8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dabf2a0 <line:99:82> 'int' 1
+|-FieldDecl 0x55f20dac0130 <line:100:77, line:19:59> line:100:45 minimize 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac0110 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dac00e0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac00c0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabf440 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabf538 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabf520 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabf460 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabf4f8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dabf4d8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dabf480 <line:100:82> 'int' 1
+|-FieldDecl 0x55f20dac0310 <line:101:77, line:19:59> line:101:45 chargeTimer 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac02f0 <line:19:21, col:59> 'int'
+|   |-value: Int 2
+|   `-ParenExpr 0x55f20dac02c0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac02a0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac0180 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dac0278 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dac0260 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac01a0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dac0238 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dac0218 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dac01c0 <line:101:82> 'int' 3
+|-FieldDecl 0x55f20dac04f0 <line:102:77, line:19:59> line:102:45 root 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac04d0 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dac04a0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac0480 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac0360 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dac0458 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dac0440 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac0380 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dac0418 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dac03f8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dac03a0 <line:102:82> 'int' 1
+|-FieldDecl 0x55f20dac06d0 <line:103:77, line:19:59> line:103:45 yawn 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac06b0 <line:19:21, col:59> 'int'
+|   |-value: Int 2
+|   `-ParenExpr 0x55f20dac0680 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac0660 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac0540 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dac0638 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dac0620 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac0560 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dac05f8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dac05d8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dac0580 <line:103:82> 'int' 2
+|-FieldDecl 0x55f20dac08b0 <line:104:77, line:19:59> line:104:45 imprison 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac0890 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dac0860 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac0840 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac0720 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dac0818 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dac0800 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac0740 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dac07d8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dac07b8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dac0760 <line:104:82> 'int' 1
+|-FieldDecl 0x55f20dac0a90 <line:105:77, line:19:59> line:105:45 grudge 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac0a70 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dac0a40 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac0a20 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac0900 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dac09f8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dac09e0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac0920 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dac09b8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dac0998 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dac0940 <line:105:82> 'int' 1
+|-FieldDecl 0x55f20dac0c70 <line:106:77, line:19:59> line:106:45 gastroAcid 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac0c50 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dac0c20 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac0c00 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac0ae0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dac0bd8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dac0bc0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac0b00 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dac0b98 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dac0b78 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dac0b20 <line:106:82> 'int' 1
+|-FieldDecl 0x55f20dac0e50 <line:107:77, line:19:59> line:107:45 embargo 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac0e30 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dac0e00 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac0de0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac0cc0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dac0db8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dac0da0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac0ce0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dac0d78 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dac0d58 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dac0d00 <line:107:82> 'int' 1
+|-FieldDecl 0x55f20dac1030 <line:108:77, line:19:59> line:108:45 smackDown 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac1010 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dac0fe0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac0fc0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac0ea0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dac0f98 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dac0f80 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac0ec0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dac0f58 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dac0f38 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dac0ee0 <line:108:82> 'int' 1
+|-FieldDecl 0x55f20dac1220 <line:109:77, line:19:59> line:109:45 telekinesis 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac1200 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dac11d0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac11b0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac1080 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dac1188 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dac1170 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac10a0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dac1148 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dac1128 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dac10d0 <line:109:82> 'int' 1
+|-FieldDecl 0x55f20dac1400 <line:110:77, line:19:59> line:110:45 miracleEye 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac13e0 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dac13b0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac1390 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac1270 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dac1368 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dac1350 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac1290 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dac1328 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dac1308 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dac12b0 <line:110:82> 'int' 1
+|-FieldDecl 0x55f20dac15e0 <line:111:77, line:19:59> line:111:45 magnetRise 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac15c0 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dac1590 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac1570 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac1450 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dac1548 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dac1530 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac1470 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dac1508 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dac14e8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dac1490 <line:111:82> 'int' 1
+|-FieldDecl 0x55f20dac17c0 <line:112:77, line:19:59> line:112:45 healBlock 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac17a0 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dac1770 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac1750 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac1630 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dac1728 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dac1710 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac1650 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dac16e8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dac16c8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dac1670 <line:112:82> 'int' 1
+|-FieldDecl 0x55f20dac19a0 <line:113:77, line:19:59> line:113:45 aquaRing 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac1980 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dac1950 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac1930 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac1810 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dac1908 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dac18f0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac1830 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dac18c8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dac18a8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dac1850 <line:113:82> 'int' 1
+|-FieldDecl 0x55f20dac1b80 <line:114:77, line:19:59> line:114:45 laserFocus 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac1b60 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dac1b30 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac1b10 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac19f0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dac1ae8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dac1ad0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac1a10 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dac1aa8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dac1a88 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dac1a30 <line:114:82> 'int' 1
+|-FieldDecl 0x55f20dac1d60 <line:115:77, line:19:59> line:115:45 powerTrick 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac1d40 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dac1d10 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac1cf0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac1bd0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dac1cc8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dac1cb0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac1bf0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dac1c88 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dac1c68 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dac1c10 <line:115:82> 'int' 1
+|-FieldDecl 0x55f20dac1f40 <line:116:77, line:19:59> line:116:45 noRetreat 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac1f20 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dac1ef0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac1ed0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac1db0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dac1ea8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dac1e90 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac1dd0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dac1e68 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dac1e48 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dac1df0 <line:116:82> 'int' 1
+|-FieldDecl 0x55f20dac21d0 <line:117:77, line:19:59> line:117:45 vesselOfRuin 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac21b0 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dac2180 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac20b0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac1f90 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dac2088 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dac2070 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac1fb0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dac2048 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dac2028 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dac1fd0 <line:117:82> 'int' 1
+|-FieldDecl 0x55f20dac23b0 <line:118:77, line:19:59> line:118:45 swordOfRuin 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac2390 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dac2360 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac2340 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac2220 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dac2318 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dac2300 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac2240 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dac22d8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dac22b8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dac2260 <line:118:82> 'int' 1
+|-FieldDecl 0x55f20dac2590 <line:119:77, line:19:59> line:119:45 tabletsOfRuin 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac2570 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dac2540 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac2520 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac2400 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dac24f8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dac24e0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac2420 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dac24b8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dac2498 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dac2440 <line:119:82> 'int' 1
+|-FieldDecl 0x55f20dac2770 <line:120:77, line:19:59> line:120:45 beadsOfRuin 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac2750 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dac2720 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac2700 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac25e0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dac26d8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dac26c0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac2600 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dac2698 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dac2678 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dac2620 <line:120:82> 'int' 1
+|-FieldDecl 0x55f20dac2950 <line:121:77, line:19:59> line:121:45 isTransformedMonShiny 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac2930 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dac2900 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac28e0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac27c0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dac28b8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dac28a0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac27e0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dac2878 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dac2858 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dac2800 <line:121:82> 'int' 1
+|-FieldDecl 0x55f20dac2b30 <line:122:77, line:19:59> line:122:45 transformedMonPID 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac2b10 <line:19:21, col:59> 'int'
+|   |-value: Int 32
+|   `-ParenExpr 0x55f20dac2ae0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac2ac0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac29a0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dac2a98 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dac2a80 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac29c0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dac2a58 <col:41, col:57> 'unsigned int' <NoOp>
+|           `-ParenExpr 0x55f20dac2a38 <col:55, col:57> 'unsigned int'
+|             `-IntegerLiteral 0x55f20dac29e0 <line:39:20> 'unsigned int' 4294967295
+|-FieldDecl 0x55f20dac2d10 <line:123:77, line:19:59> line:123:45 transformedMonSpecies 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac2cf0 <line:19:21, col:59> 'int'
+|   |-value: Int 11
+|   `-ParenExpr 0x55f20dac2cc0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac2ca0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac2b80 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dac2c78 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dac2c60 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac2ba0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dac2c38 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dac2c18 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dac2bc0 <line:41:21> 'int' 1578
+|-FieldDecl 0x55f20dac2ef0 <line:124:77, line:19:59> line:124:45 disabledMove 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac2ed0 <line:19:21, col:59> 'int'
+|   |-value: Int 10
+|   `-ParenExpr 0x55f20dac2ea0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac2e80 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac2d60 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dac2e58 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dac2e40 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac2d80 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dac2e18 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dac2df8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dac2da0 <line:43:25> 'int' 936
+|-FieldDecl 0x55f20dac30d0 <line:125:77, line:19:59> line:125:45 encoredMove 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dac30b0 <line:19:21, col:59> 'int'
+|   |-value: Int 10
+|   `-ParenExpr 0x55f20dac3080 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dac3060 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac2f40 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dac3038 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dac3020 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac2f60 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dac2ff8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dac2fd8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dac2f80 <line:43:25> 'int' 936
+|-FieldDecl 0x55f20dab76a0 <line:126:77, line:19:59> line:126:45 consecutiveMoveUses 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab7680 <line:19:21, col:59> 'int'
+|   |-value: Int 8
+|   `-ParenExpr 0x55f20dab7650 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab7630 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dac3120 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab7608 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab75f0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dac3140 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab75c8 <col:41, col:57> 'unsigned int' <NoOp>
+|           `-ParenExpr 0x55f20dab75a8 <col:55, col:57> 'unsigned int'
+|             `-IntegerLiteral 0x55f20dac3160 <line:40:19> 'unsigned int' 255
+|-FieldDecl 0x55f20dab7880 <line:127:77, line:19:59> line:127:45 stockpileCounter 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab7860 <line:19:21, col:59> 'int'
+|   |-value: Int 4
+|   `-ParenExpr 0x55f20dab7830 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab7810 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab76f0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab77e8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab77d0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab7710 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab77a8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab7788 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab7730 <line:17:24> 'int' 12
+|-FieldDecl 0x55f20dab7a60 <line:128:77, line:19:59> line:128:45 stockpileDef 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab7a40 <line:19:21, col:59> 'int'
+|   |-value: Int 4
+|   `-ParenExpr 0x55f20dab7a10 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab79f0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab78d0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab79c8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab79b0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab78f0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab7988 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab7968 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab7910 <line:17:24> 'int' 12
+|-FieldDecl 0x55f20dab7c40 <line:129:77, line:19:59> line:129:45 stockpileSpDef 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab7c20 <line:19:21, col:59> 'int'
+|   |-value: Int 4
+|   `-ParenExpr 0x55f20dab7bf0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab7bd0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab7ab0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab7ba8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab7b90 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab7ad0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab7b68 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab7b48 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab7af0 <line:17:24> 'int' 12
+|-FieldDecl 0x55f20dab7e20 <line:130:77, line:19:59> line:130:45 stockpileBeforeDef 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab7e00 <line:19:21, col:59> 'int'
+|   |-value: Int 4
+|   `-ParenExpr 0x55f20dab7dd0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab7db0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab7c90 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab7d88 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab7d70 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab7cb0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab7d48 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab7d28 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab7cd0 <line:17:24> 'int' 12
+|-FieldDecl 0x55f20dab8000 <line:131:77, line:19:59> line:131:45 stockpileBeforeSpDef 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab7fe0 <line:19:21, col:59> 'int'
+|   |-value: Int 4
+|   `-ParenExpr 0x55f20dab7fb0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab7f90 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab7e70 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab7f68 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab7f50 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab7e90 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab7f28 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab7f08 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab7eb0 <line:17:24> 'int' 12
+|-FieldDecl 0x55f20dab81e0 <line:132:77, line:19:59> line:132:45 substituteHP 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab81c0 <line:19:21, col:59> 'int'
+|   |-value: Int 8
+|   `-ParenExpr 0x55f20dab8190 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab8170 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab8050 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab8148 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab8130 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab8070 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab8108 <col:41, col:57> 'unsigned int' <NoOp>
+|           `-ParenExpr 0x55f20dab80e8 <col:55, col:57> 'unsigned int'
+|             `-IntegerLiteral 0x55f20dab8090 <line:40:19> 'unsigned int' 255
+|-FieldDecl 0x55f20dab84b8 <line:133:77, line:19:59> line:133:45 encoredMovePos 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab8498 <line:19:21, col:59> 'int'
+|   |-value: Int 4
+|   `-ParenExpr 0x55f20dab8468 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab8448 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab8230 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab8420 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab8408 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab8250 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab83e0 <col:41, col:57> 'unsigned int' <NoOp>
+|           `-ParenExpr 0x55f20dab83c0 <col:55, col:57> 'unsigned int'
+|             `-ParenExpr 0x55f20dab8368 <line:18:21, col:37> 'unsigned int'
+|               `-BinaryOperator 0x55f20dab8348 <col:22, col:36> 'unsigned int' '-'
+|                 |-ParenExpr 0x55f20dab82f0 <col:22, col:32> 'unsigned int'
+|                 | `-BinaryOperator 0x55f20dab82d0 <col:23, col:31> 'unsigned int' '<<'
+|                 |   |-IntegerLiteral 0x55f20dab8270 <col:23> 'unsigned int' 1
+|                 |   `-ParenExpr 0x55f20dab82b0 <col:29, col:31> 'int'
+|                 |     `-IntegerLiteral 0x55f20dab8290 <line:7:23> 'int' 4
+|                 `-ImplicitCastExpr 0x55f20dab8330 <line:18:36> 'unsigned int' <IntegralCast>
+|                   `-IntegerLiteral 0x55f20dab8310 <col:36> 'int' 1
+|-FieldDecl 0x55f20dab86b0 <line:134:77, line:19:59> line:134:45 disableTimer 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab8690 <line:19:21, col:59> 'int'
+|   |-value: Int 3
+|   `-ParenExpr 0x55f20dab8660 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab8640 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab8508 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab8618 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab8600 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab8528 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab85d8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab85b8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab8548 <line:46:25> 'int' 4
+|-FieldDecl 0x55f20dab8890 <line:135:77, line:19:59> line:135:45 encoreTimer 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab8870 <line:19:21, col:59> 'int'
+|   |-value: Int 3
+|   `-ParenExpr 0x55f20dab8840 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab8820 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab8700 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab87f8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab87e0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab8720 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab87b8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab8798 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab8740 <line:47:24> 'int' 4
+|-FieldDecl 0x55f20dab8a70 <line:136:77, line:19:59> line:136:45 perishSongTimer 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab8a50 <line:19:21, col:59> 'int'
+|   |-value: Int 2
+|   `-ParenExpr 0x55f20dab8a20 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab8a00 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab88e0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab89d8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab89c0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab8900 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab8998 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab8978 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab8920 <line:48:29> 'int' 3
+|-FieldDecl 0x55f20dab8c50 <line:137:77, line:19:59> line:137:45 rolloutTimer 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab8c30 <line:19:21, col:59> 'int'
+|   |-value: Int 8
+|   `-ParenExpr 0x55f20dab8c00 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab8be0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab8ac0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab8bb8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab8ba0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab8ae0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab8b78 <col:41, col:57> 'unsigned int' <NoOp>
+|           `-ParenExpr 0x55f20dab8b58 <col:55, col:57> 'unsigned int'
+|             `-IntegerLiteral 0x55f20dab8b00 <line:40:19> 'unsigned int' 255
+|-FieldDecl 0x55f20dab8e30 <line:138:77, line:19:59> line:138:45 furyCutterCounter 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab8e10 <line:19:21, col:59> 'int'
+|   |-value: Int 8
+|   `-ParenExpr 0x55f20dab8de0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab8dc0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab8ca0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab8d98 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab8d80 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab8cc0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab8d58 <col:41, col:57> 'unsigned int' <NoOp>
+|           `-ParenExpr 0x55f20dab8d38 <col:55, col:57> 'unsigned int'
+|             `-IntegerLiteral 0x55f20dab8ce0 <line:40:19> 'unsigned int' 255
+|-FieldDecl 0x55f20dab9010 <line:139:77, line:19:59> line:139:45 metronomeItemCounter 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab8ff0 <line:19:21, col:59> 'int'
+|   |-value: Int 8
+|   `-ParenExpr 0x55f20dab8fc0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab8fa0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab8e80 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab8f78 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab8f60 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab8ea0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab8f38 <col:41, col:57> 'unsigned int' <NoOp>
+|           `-ParenExpr 0x55f20dab8f18 <col:55, col:57> 'unsigned int'
+|             `-IntegerLiteral 0x55f20dab8ec0 <line:40:19> 'unsigned int' 255
+|-FieldDecl 0x55f20dab92f8 <line:140:77, line:19:59> line:140:45 battlerPreventingEscape 'enum BattlerId'
+| `-ConstantExpr 0x55f20dab92d8 <line:19:21, col:59> 'int'
+|   |-value: Int 4
+|   `-ParenExpr 0x55f20dab9298 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab9278 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab9060 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab9250 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab9238 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab9080 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab9210 <col:41, col:57> 'unsigned int' <NoOp>
+|           `-ParenExpr 0x55f20dab91f0 <col:55, col:57> 'unsigned int'
+|             `-ParenExpr 0x55f20dab9198 <line:18:21, col:37> 'unsigned int'
+|               `-BinaryOperator 0x55f20dab9178 <col:22, col:36> 'unsigned int' '-'
+|                 |-ParenExpr 0x55f20dab9120 <col:22, col:32> 'unsigned int'
+|                 | `-BinaryOperator 0x55f20dab9100 <col:23, col:31> 'unsigned int' '<<'
+|                 |   |-IntegerLiteral 0x55f20dab90a0 <col:23> 'unsigned int' 1
+|                 |   `-ParenExpr 0x55f20dab90e0 <col:29, col:31> 'int'
+|                 |     `-IntegerLiteral 0x55f20dab90c0 <line:11:28> 'int' 4
+|                 `-ImplicitCastExpr 0x55f20dab9160 <line:18:36> 'unsigned int' <IntegralCast>
+|                   `-IntegerLiteral 0x55f20dab9140 <col:36> 'int' 1
+|-FieldDecl 0x55f20dab94e8 <line:141:77, line:19:59> line:141:45 battlerWithSureHit 'enum BattlerId'
+| `-ConstantExpr 0x55f20dab94c8 <line:19:21, col:59> 'int'
+|   |-value: Int 3
+|   `-ParenExpr 0x55f20dab9488 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab9468 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab9348 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab9440 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab9428 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab9368 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab9400 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab93e0 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab9388 <line:11:28> 'int' 4
+|-FieldDecl 0x55f20dab97d8 <line:142:77, line:19:59> line:142:45 mimickedMoves 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab97b8 <line:19:21, col:59> 'int'
+|   |-value: Int 4
+|   `-ParenExpr 0x55f20dab9788 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab9768 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab9538 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab9740 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab9728 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab9558 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab9700 <col:41, col:57> 'unsigned int' <NoOp>
+|           `-ParenExpr 0x55f20dab96e0 <col:55, col:57> 'unsigned int'
+|             `-ParenExpr 0x55f20dab9688 <line:18:21, col:37> 'unsigned int'
+|               `-BinaryOperator 0x55f20dab9668 <col:22, col:36> 'unsigned int' '-'
+|                 |-ParenExpr 0x55f20dab9610 <col:22, col:32> 'unsigned int'
+|                 | `-BinaryOperator 0x55f20dab95f0 <col:23, col:31> 'unsigned int' '<<'
+|                 |   |-IntegerLiteral 0x55f20dab9590 <col:23> 'unsigned int' 1
+|                 |   `-ParenExpr 0x55f20dab95d0 <col:29, col:31> 'int'
+|                 |     `-IntegerLiteral 0x55f20dab95b0 <line:7:23> 'int' 4
+|                 `-ImplicitCastExpr 0x55f20dab9650 <line:18:36> 'unsigned int' <IntegralCast>
+|                   `-IntegerLiteral 0x55f20dab9630 <col:36> 'int' 1
+|-FieldDecl 0x55f20dab99b8 <line:143:77, line:19:59> line:143:45 rechargeTimer 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab9998 <line:19:21, col:59> 'int'
+|   |-value: Int 2
+|   `-ParenExpr 0x55f20dab9968 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab9948 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab9828 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab9920 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab9908 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab9848 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab98e0 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab98c0 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab9868 <line:143:82> 'int' 2
+|-FieldDecl 0x55f20dab9b98 <line:144:77, line:19:59> line:144:45 autotomizeCount 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab9b78 <line:19:21, col:59> 'int'
+|   |-value: Int 8
+|   `-ParenExpr 0x55f20dab9b48 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab9b28 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab9a08 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab9b00 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab9ae8 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab9a28 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab9ac0 <col:41, col:57> 'unsigned int' <NoOp>
+|           `-ParenExpr 0x55f20dab9aa0 <col:55, col:57> 'unsigned int'
+|             `-IntegerLiteral 0x55f20dab9a48 <line:40:19> 'unsigned int' 255
+|-FieldDecl 0x55f20dab9d78 <line:145:77, line:19:59> line:145:45 slowStartTimer 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab9d58 <line:19:21, col:59> 'int'
+|   |-value: Int 3
+|   `-ParenExpr 0x55f20dab9d28 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab9d08 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab9be8 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab9ce0 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab9cc8 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab9c08 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab9ca0 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab9c80 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab9c28 <line:49:28> 'int' 5
+|-FieldDecl 0x55f20dab9f58 <line:146:77, line:19:59> line:146:45 embargoTimer 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dab9f38 <line:19:21, col:59> 'int'
+|   |-value: Int 3
+|   `-ParenExpr 0x55f20dab9f08 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dab9ee8 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab9dc8 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dab9ec0 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dab9ea8 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab9de8 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dab9e80 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dab9e60 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab9e08 <line:50:25> 'int' 5
+|-FieldDecl 0x55f20daba138 <line:147:77, line:19:59> line:147:45 magnetRiseTimer 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daba118 <line:19:21, col:59> 'int'
+|   |-value: Int 3
+|   `-ParenExpr 0x55f20daba0e8 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20daba0c8 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dab9fa8 <col:22> 'int' 32
+|       `-CallExpr 0x55f20daba0a0 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20daba088 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dab9fc8 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20daba060 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20daba040 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dab9fe8 <line:51:29> 'int' 5
+|-FieldDecl 0x55f20daba318 <line:148:77, line:19:59> line:148:45 telekinesisTimer 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daba2f8 <line:19:21, col:59> 'int'
+|   |-value: Int 2
+|   `-ParenExpr 0x55f20daba2c8 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20daba2a8 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20daba188 <col:22> 'int' 32
+|       `-CallExpr 0x55f20daba280 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20daba268 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20daba1a8 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20daba240 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20daba220 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20daba1c8 <line:52:29> 'int' 3
+|-FieldDecl 0x55f20daba4f8 <line:149:77, line:19:59> line:149:45 healBlockTimer 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daba4d8 <line:19:21, col:59> 'int'
+|   |-value: Int 3
+|   `-ParenExpr 0x55f20daba4a8 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20daba488 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20daba368 <col:22> 'int' 32
+|       `-CallExpr 0x55f20daba460 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20daba448 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20daba388 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20daba420 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20daba400 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20daba3a8 <line:53:28> 'int' 5
+|-FieldDecl 0x55f20daba6f0 <line:150:77, line:19:59> line:150:45 frostNovaTimer 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daba6d0 <line:19:21, col:59> 'int'
+|   |-value: Int 2
+|   `-ParenExpr 0x55f20daba6a0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20daba680 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20daba548 <col:22> 'int' 32
+|       `-CallExpr 0x55f20daba658 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20daba640 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20daba568 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20daba618 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20daba5f8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20daba5a0 <line:150:82> 'int' 2
+|-FieldDecl 0x55f20daba8d0 <line:151:77, line:19:59> line:151:45 tauntTimer 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daba8b0 <line:19:21, col:59> 'int'
+|   |-value: Int 3
+|   `-ParenExpr 0x55f20daba880 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20daba860 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20daba740 <col:22> 'int' 32
+|       `-CallExpr 0x55f20daba838 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20daba820 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20daba760 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20daba7f8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20daba7d8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20daba780 <line:57:23> 'int' 5
+|-FieldDecl 0x55f20dabaab0 <line:152:77, line:19:59> line:152:45 tormentTimer 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dabaa90 <line:19:21, col:59> 'int'
+|   |-value: Int 2
+|   `-ParenExpr 0x55f20dabaa60 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabaa40 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20daba920 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabaa18 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabaa00 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20daba940 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20daba9d8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20daba9b8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20daba960 <line:58:25> 'int' 3
+|-FieldDecl 0x55f20dabac90 <line:153:77, line:19:59> line:153:45 laserFocusTimer 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dabac70 <line:19:21, col:59> 'int'
+|   |-value: Int 2
+|   `-ParenExpr 0x55f20dabac40 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabac20 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabab00 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dababf8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dababe0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabab20 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dababb8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dabab98 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dabab40 <line:54:29> 'int' 2
+|-FieldDecl 0x55f20dabae70 <line:154:77, line:19:59> line:154:45 throatChopTimer 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dabae50 <line:19:21, col:59> 'int'
+|   |-value: Int 2
+|   `-ParenExpr 0x55f20dabae20 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabae00 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabace0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabadd8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabadc0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabad00 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabad98 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dabad78 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dabad20 <line:55:29> 'int' 2
+|-FieldDecl 0x55f20dabb110 <line:155:77, line:19:59> line:155:45 wrapTurns 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dabb0f0 <line:19:21, col:59> 'int'
+|   |-value: Int 4
+|   `-ParenExpr 0x55f20dabb0c0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabb0a0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabaec0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabb078 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabb060 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabaee0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabb038 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dabb018 <col:55, col:57> 'int'
+|             `-ParenExpr 0x55f20dabafc0 <line:155:82, col:117> 'int'
+|               `-BinaryOperator 0x55f20dabafa0 <line:56:22, line:155:116> 'int' '*'
+|                 |-IntegerLiteral 0x55f20dabaf00 <line:56:22> 'int' 7
+|                 `-ParenExpr 0x55f20dabaf80 <line:155:98, col:116> 'int'
+|                   `-BinaryOperator 0x55f20dabaf60 <line:10:23, line:155:115> 'int' '+'
+|                     |-IntegerLiteral 0x55f20dabaf20 <line:10:23> 'int' 1
+|                     `-IntegerLiteral 0x55f20dabaf40 <line:155:115> 'int' 1
+|-FieldDecl 0x55f20dabb2f0 <line:156:77, line:19:59> line:156:45 syrupBombTimer 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dabb2d0 <line:19:21, col:59> 'int'
+|   |-value: Int 2
+|   `-ParenExpr 0x55f20dabb2a0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabb280 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabb160 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabb258 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabb240 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabb180 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabb218 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dabb1f8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dabb1a0 <line:59:28> 'int' 3
+|-FieldDecl 0x55f20dabb5e0 <line:157:77, line:19:59> line:157:45 usedMoves 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dabb5c0 <line:19:21, col:59> 'int'
+|   |-value: Int 4
+|   `-ParenExpr 0x55f20dabb578 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabb558 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabb340 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabb530 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabb518 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabb360 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabb4f0 <col:41, col:57> 'unsigned int' <NoOp>
+|           `-ParenExpr 0x55f20dabb4d0 <col:55, col:57> 'unsigned int'
+|             `-ParenExpr 0x55f20dabb478 <line:18:21, col:37> 'unsigned int'
+|               `-BinaryOperator 0x55f20dabb458 <col:22, col:36> 'unsigned int' '-'
+|                 |-ParenExpr 0x55f20dabb400 <col:22, col:32> 'unsigned int'
+|                 | `-BinaryOperator 0x55f20dabb3e0 <col:23, col:31> 'unsigned int' '<<'
+|                 |   |-IntegerLiteral 0x55f20dabb380 <col:23> 'unsigned int' 1
+|                 |   `-ParenExpr 0x55f20dabb3c0 <col:29, col:31> 'int'
+|                 |     `-IntegerLiteral 0x55f20dabb3a0 <line:7:23> 'int' 4
+|                 `-ImplicitCastExpr 0x55f20dabb440 <line:18:36> 'unsigned int' <IntegralCast>
+|                   `-IntegerLiteral 0x55f20dabb420 <col:36> 'int' 1
+|-FieldDecl 0x55f20dabb7c0 <line:158:77, line:19:59> line:158:45 truantCounter 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dabb7a0 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dabb770 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabb750 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabb630 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabb728 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabb710 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabb650 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabb6e8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dabb6c8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dabb670 <line:158:82> 'int' 1
+|-FieldDecl 0x55f20dabb9a0 <line:159:77, line:19:59> line:159:45 truantSwitchInHack 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dabb980 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dabb950 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabb930 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabb810 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabb908 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabb8f0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabb830 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabb8c8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dabb8a8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dabb850 <line:159:82> 'int' 1
+|-FieldDecl 0x55f20dabbb80 <line:160:77, line:19:59> line:160:45 tarShot 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dabbb60 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dabbb30 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabbb10 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabb9f0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabbae8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabbad0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabba10 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabbaa8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dabba88 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dabba30 <line:160:82> 'int' 1
+|-FieldDecl 0x55f20dabbd60 <line:161:77, line:19:59> line:161:45 octolock 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dabbd40 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dabbd10 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabbcf0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabbbd0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabbcc8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabbcb0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabbbf0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabbc88 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dabbc68 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dabbc10 <line:161:82> 'int' 1
+|-FieldDecl 0x55f20dabc038 <line:162:77, line:19:59> line:162:45 cudChew 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dabc018 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dabbfe8 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabbfc8 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabbdb0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabbfa0 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabbf88 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabbdd0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabbf60 <col:41, col:57> 'unsigned int' <NoOp>
+|           `-ParenExpr 0x55f20dabbf40 <col:55, col:57> 'unsigned int'
+|             `-ParenExpr 0x55f20dabbee8 <line:18:21, col:37> 'unsigned int'
+|               `-BinaryOperator 0x55f20dabbec8 <col:22, col:36> 'unsigned int' '-'
+|                 |-ParenExpr 0x55f20dabbe70 <col:22, col:32> 'unsigned int'
+|                 | `-BinaryOperator 0x55f20dabbe50 <col:23, col:31> 'unsigned int' '<<'
+|                 |   |-IntegerLiteral 0x55f20dabbdf0 <col:23> 'unsigned int' 1
+|                 |   `-ParenExpr 0x55f20dabbe30 <col:29, col:31> 'int'
+|                 |     `-IntegerLiteral 0x55f20dabbe10 <line:10:23> 'int' 1
+|                 `-ImplicitCastExpr 0x55f20dabbeb0 <line:18:36> 'unsigned int' <IntegralCast>
+|                   `-IntegerLiteral 0x55f20dabbe90 <col:36> 'int' 1
+|-FieldDecl 0x55f20dabc218 <line:163:77, line:19:59> line:163:45 weatherAbilityDone 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dabc1f8 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dabc1c8 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabc1a8 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabc088 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabc180 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabc168 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabc0a8 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabc140 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dabc120 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dabc0c8 <line:163:82> 'int' 1
+|-FieldDecl 0x55f20dabc3f8 <line:164:89, line:19:59> line:164:48 transformWeatherAbilityDone 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20dabc3d8 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dabc3a8 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabc388 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabc268 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabc360 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabc348 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabc288 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabc320 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dabc300 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dabc2a8 <line:164:94> 'int' 1
+|-FieldDecl 0x55f20daf7510 <line:165:77, line:19:59> line:165:45 terrainAbilityDone 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daf74f0 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20dabc588 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20dabc568 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20dabc448 <col:22> 'int' 32
+|       `-CallExpr 0x55f20dabc540 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20dabc528 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20dabc468 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20dabc500 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20dabc4e0 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20dabc488 <line:165:82> 'int' 1
+|-FieldDecl 0x55f20daf76f0 <line:166:77, line:19:59> line:166:45 syrupBombIsShiny 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daf76d0 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20daf76a0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20daf7680 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20daf7560 <col:22> 'int' 32
+|       `-CallExpr 0x55f20daf7658 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20daf7640 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20daf7580 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20daf7618 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20daf75f8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20daf75a0 <line:166:82> 'int' 1
+|-FieldDecl 0x55f20daf78d0 <line:167:77, line:19:59> line:167:45 usedProteanLibero 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daf78b0 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20daf7880 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20daf7860 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20daf7740 <col:22> 'int' 32
+|       `-CallExpr 0x55f20daf7838 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20daf7820 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20daf7760 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20daf77f8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20daf77d8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20daf7780 <line:167:82> 'int' 1
+|-FieldDecl 0x55f20daf7ab0 <line:168:77, line:19:59> line:168:45 embodyAspectActivated 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daf7a90 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20daf7a60 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20daf7a40 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20daf7920 <col:22> 'int' 32
+|       `-CallExpr 0x55f20daf7a18 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20daf7a00 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20daf7940 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20daf79d8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20daf79b8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20daf7960 <line:168:82> 'int' 1
+|-FieldDecl 0x55f20daf7c90 <line:169:77, line:19:59> line:169:45 flashFireBoosted 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daf7c70 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20daf7c40 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20daf7c20 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20daf7b00 <col:22> 'int' 32
+|       `-CallExpr 0x55f20daf7bf8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20daf7be0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20daf7b20 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20daf7bb8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20daf7b98 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20daf7b40 <line:169:82> 'int' 1
+|-FieldDecl 0x55f20daf7e70 <line:170:77, line:19:59> line:170:45 overlock 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daf7e50 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20daf7e20 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20daf7e00 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20daf7ce0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20daf7dd8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20daf7dc0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20daf7d00 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20daf7d98 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20daf7d78 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20daf7d20 <line:170:82> 'int' 1
+|-FieldDecl 0x55f20daf8050 <line:171:77, line:19:59> line:171:45 boosterEnergyActivated 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daf8030 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20daf8000 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20daf7fe0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20daf7ec0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20daf7fb8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20daf7fa0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20daf7ee0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20daf7f78 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20daf7f58 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20daf7f00 <line:171:82> 'int' 1
+|-FieldDecl 0x55f20daf8270 <line:172:77, line:19:59> line:172:45 overwrittenAbility 'enum Ability'
+| `-ConstantExpr 0x55f20daf8250 <line:19:21, col:59> 'int'
+|   |-value: Int 10
+|   `-ParenExpr 0x55f20daf81e0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20daf81c0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20daf80a0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20daf8198 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20daf8180 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20daf80c0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20daf8158 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20daf8138 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20daf80e0 <line:42:25> 'int' 532
+|-FieldDecl 0x55f20daf8450 <line:173:77, line:19:59> line:173:45 roostActive 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daf8430 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20daf8400 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20daf83e0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20daf82c0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20daf83b8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20daf83a0 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20daf82e0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20daf8378 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20daf8358 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20daf8300 <line:173:82> 'int' 1
+|-FieldDecl 0x55f20daf8640 <line:174:77, line:19:59> line:174:45 unburdenActive 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daf8620 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20daf85f0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20daf85d0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20daf84a0 <col:22> 'int' 32
+|       `-CallExpr 0x55f20daf85a8 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20daf8590 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20daf84c0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20daf8568 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20daf8548 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20daf84f0 <line:174:82> 'int' 1
+|-FieldDecl 0x55f20daf8820 <line:175:77, line:19:59> line:175:45 neutralizingGas 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daf8800 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20daf87d0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20daf87b0 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20daf8690 <col:22> 'int' 32
+|       `-CallExpr 0x55f20daf8788 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20daf8770 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20daf86b0 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20daf8748 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20daf8728 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20daf86d0 <line:175:82> 'int' 1
+|-FieldDecl 0x55f20daf8a00 <line:176:77, line:19:59> line:176:45 unnerveActivated 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daf89e0 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20daf89b0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20daf8990 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20daf8870 <col:22> 'int' 32
+|       `-CallExpr 0x55f20daf8968 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20daf8950 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20daf8890 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20daf8928 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20daf8908 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20daf88b0 <line:176:82> 'int' 1
+|-FieldDecl 0x55f20daf8be0 <line:177:77, line:19:59> line:177:45 endured 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daf8bc0 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20daf8b90 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20daf8b70 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20daf8a50 <col:22> 'int' 32
+|       `-CallExpr 0x55f20daf8b48 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20daf8b30 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20daf8a70 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20daf8b08 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20daf8ae8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20daf8a90 <line:177:82> 'int' 1
+|-FieldDecl 0x55f20daf8dc0 <line:178:77, line:19:59> line:178:45 tryEjectPack 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daf8da0 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20daf8d70 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20daf8d50 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20daf8c30 <col:22> 'int' 32
+|       `-CallExpr 0x55f20daf8d28 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20daf8d10 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20daf8c50 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20daf8ce8 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20daf8cc8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20daf8c70 <line:178:82> 'int' 1
+|-FieldDecl 0x55f20daf90a8 <line:179:77, line:19:59> line:179:45 octolockedBy 'enum BattlerId'
+| `-ConstantExpr 0x55f20daf9088 <line:19:21, col:59> 'int'
+|   |-value: Int 4
+|   `-ParenExpr 0x55f20daf9048 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20daf9028 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20daf8e10 <col:22> 'int' 32
+|       `-CallExpr 0x55f20daf9000 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20daf8fe8 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20daf8e30 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20daf8fc0 <col:41, col:57> 'unsigned int' <NoOp>
+|           `-ParenExpr 0x55f20daf8fa0 <col:55, col:57> 'unsigned int'
+|             `-ParenExpr 0x55f20daf8f48 <line:18:21, col:37> 'unsigned int'
+|               `-BinaryOperator 0x55f20daf8f28 <col:22, col:36> 'unsigned int' '-'
+|                 |-ParenExpr 0x55f20daf8ed0 <col:22, col:32> 'unsigned int'
+|                 | `-BinaryOperator 0x55f20daf8eb0 <col:23, col:31> 'unsigned int' '<<'
+|                 |   |-IntegerLiteral 0x55f20daf8e50 <col:23> 'unsigned int' 1
+|                 |   `-ParenExpr 0x55f20daf8e90 <col:29, col:31> 'int'
+|                 |     `-IntegerLiteral 0x55f20daf8e70 <line:11:28> 'int' 4
+|                 `-ImplicitCastExpr 0x55f20daf8f10 <line:18:36> 'unsigned int' <IntegralCast>
+|                   `-IntegerLiteral 0x55f20daf8ef0 <col:36> 'int' 1
+|-FieldDecl 0x55f20daf9310 <line:180:77, line:19:59> line:180:45 paradoxBoostedStat 'enum Stat'
+| `-ConstantExpr 0x55f20daf92f0 <line:19:21, col:59> 'int'
+|   |-value: Int 3
+|   `-ParenExpr 0x55f20daf9278 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20daf9258 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20daf90f8 <col:22> 'int' 32
+|       `-CallExpr 0x55f20daf9230 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20daf9218 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20daf9118 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20daf91f0 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20daf91d0 <col:55, col:57> 'int'
+|             `-BinaryOperator 0x55f20daf9178 <line:180:88, col:100> 'int' '-'
+|               |-DeclRefExpr 0x55f20daf9138 <col:88> 'int' EnumConstant 0x55f20daaa7b0 'NUM_STATS' 'int'
+|               `-IntegerLiteral 0x55f20daf9158 <col:100> 'int' 1
+|-FieldDecl 0x55f20daf9500 <line:181:77, line:19:59> line:181:45 unableToUseMove 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daf94d0 <line:19:21, col:59> 'int'
+|   |-value: Int 1
+|   `-ParenExpr 0x55f20daf94a0 <col:21, col:59> 'int'
+|     `-BinaryOperator 0x55f20daf9480 <col:22, col:58> 'int' '-'
+|       |-IntegerLiteral 0x55f20daf9360 <col:22> 'int' 32
+|       `-CallExpr 0x55f20daf9458 <col:27, col:58> 'int'
+|         |-ImplicitCastExpr 0x55f20daf9440 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+|         | `-DeclRefExpr 0x55f20daf9380 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+|         `-CStyleCastExpr 0x55f20daf9418 <col:41, col:57> 'unsigned int' <IntegralCast>
+|           `-ParenExpr 0x55f20daf93f8 <col:55, col:57> 'int'
+|             `-IntegerLiteral 0x55f20daf93a0 <line:181:82> 'int' 1
+`-FieldDecl 0x55f20daf96e0 <line:182:77, line:19:59> line:182:45 activateDancer 'u32':'unsigned int'
+  `-ConstantExpr 0x55f20daf96c0 <line:19:21, col:59> 'int'
+    |-value: Int 1
+    `-ParenExpr 0x55f20daf9690 <col:21, col:59> 'int'
+      `-BinaryOperator 0x55f20daf9670 <col:22, col:58> 'int' '-'
+        |-IntegerLiteral 0x55f20daf9550 <col:22> 'int' 32
+        `-CallExpr 0x55f20daf9648 <col:27, col:58> 'int'
+          |-ImplicitCastExpr 0x55f20daf9630 <col:27> 'int (*)(unsigned int)' <BuiltinFnToFnPtr>
+          | `-DeclRefExpr 0x55f20daf9570 <col:27> '<builtin fn type>' Function 0x55f20dab27a8 '__builtin_clz' 'int (unsigned int)'
+          `-CStyleCastExpr 0x55f20daf9608 <col:41, col:57> 'unsigned int' <IntegralCast>
+            `-ParenExpr 0x55f20daf95e8 <col:55, col:57> 'int'
+              `-IntegerLiteral 0x55f20daf9590 <line:182:82> 'int' 1
+
+Layout: <CGRecordLayout
+  LLVMType:%struct.Volatiles = type { i32, i32, i32, i8, i32, i32, i32, i32, i32, i32, i32, i32 }
+  IsZeroInitializable:1
+  BitFields:[
+    <CGBitFieldInfo Offset:0 Size:3 IsSigned:0 StorageSize:32 StorageOffset:0 VolatileOffset:0 VolatileStorageSize:0 VolatileStorageOffset:0>
+    <CGBitFieldInfo Offset:3 Size:1 IsSigned:0 StorageSize:32 StorageOffset:0 VolatileOffset:3 VolatileStorageSize:32 VolatileStorageOffset:0>
+    <CGBitFieldInfo Offset:4 Size:3 IsSigned:0 StorageSize:32 StorageOffset:0 VolatileOffset:4 VolatileStorageSize:32 VolatileStorageOffset:0>
+    <CGBitFieldInfo Offset:7 Size:1 IsSigned:0 StorageSize:32 StorageOffset:0 VolatileOffset:7 VolatileStorageSize:32 VolatileStorageOffset:0>
+    <CGBitFieldInfo Offset:8 Size:2 IsSigned:0 StorageSize:32 StorageOffset:0 VolatileOffset:8 VolatileStorageSize:32 VolatileStorageOffset:0>
+    <CGBitFieldInfo Offset:10 Size:3 IsSigned:0 StorageSize:32 StorageOffset:0 VolatileOffset:10 VolatileStorageSize:32 VolatileStorageOffset:0>
+    <CGBitFieldInfo Offset:13 Size:1 IsSigned:0 StorageSize:32 StorageOffset:0 VolatileOffset:13 VolatileStorageSize:32 VolatileStorageOffset:0>
+    <CGBitFieldInfo Offset:14 Size:1 IsSigned:0 StorageSize:32 StorageOffset:0 VolatileOffset:14 VolatileStorageSize:32 VolatileStorageOffset:0>
+    <CGBitFieldInfo Offset:16 Size:4 IsSigned:0 StorageSize:32 StorageOffset:0 VolatileOffset:0 VolatileStorageSize:8 VolatileStorageOffset:2>
+    <CGBitFieldInfo Offset:20 Size:10 IsSigned:0 StorageSize:32 StorageOffset:0 VolatileOffset:20 VolatileStorageSize:32 VolatileStorageOffset:0>
+    <CGBitFieldInfo Offset:30 Size:1 IsSigned:0 StorageSize:32 StorageOffset:0 VolatileOffset:30 VolatileStorageSize:32 VolatileStorageOffset:0>
+    <CGBitFieldInfo Offset:31 Size:1 IsSigned:0 StorageSize:32 StorageOffset:0 VolatileOffset:31 VolatileStorageSize:32 VolatileStorageOffset:0>
+    <CGBitFieldInfo Offset:0 Size:4 IsSigned:0 StorageSize:32 StorageOffset:4 VolatileOffset:0 VolatileStorageSize:8 VolatileStorageOffset:4>
+    <CGBitFieldInfo Offset:4 Size:1 IsSigned:0 StorageSize:32 StorageOffset:4 VolatileOffset:4 VolatileStorageSize:32 VolatileStorageOffset:1>
+    <CGBitFieldInfo Offset:5 Size:1 IsSigned:0 StorageSize:32 StorageOffset:4 VolatileOffset:5 VolatileStorageSize:32 VolatileStorageOffset:1>
+    <CGBitFieldInfo Offset:6 Size:1 IsSigned:0 StorageSize:32 StorageOffset:4 VolatileOffset:6 VolatileStorageSize:32 VolatileStorageOffset:1>
+    <CGBitFieldInfo Offset:7 Size:1 IsSigned:0 StorageSize:32 StorageOffset:4 VolatileOffset:7 VolatileStorageSize:32 VolatileStorageOffset:1>
+    <CGBitFieldInfo Offset:8 Size:2 IsSigned:0 StorageSize:32 StorageOffset:4 VolatileOffset:8 VolatileStorageSize:32 VolatileStorageOffset:1>
+    <CGBitFieldInfo Offset:10 Size:1 IsSigned:0 StorageSize:32 StorageOffset:4 VolatileOffset:10 VolatileStorageSize:32 VolatileStorageOffset:1>
+    <CGBitFieldInfo Offset:11 Size:1 IsSigned:0 StorageSize:32 StorageOffset:4 VolatileOffset:11 VolatileStorageSize:32 VolatileStorageOffset:1>
+    <CGBitFieldInfo Offset:12 Size:1 IsSigned:0 StorageSize:32 StorageOffset:4 VolatileOffset:12 VolatileStorageSize:32 VolatileStorageOffset:1>
+    <CGBitFieldInfo Offset:13 Size:1 IsSigned:0 StorageSize:32 StorageOffset:4 VolatileOffset:13 VolatileStorageSize:32 VolatileStorageOffset:1>
+    <CGBitFieldInfo Offset:14 Size:1 IsSigned:0 StorageSize:32 StorageOffset:4 VolatileOffset:14 VolatileStorageSize:32 VolatileStorageOffset:1>
+    <CGBitFieldInfo Offset:15 Size:1 IsSigned:0 StorageSize:32 StorageOffset:4 VolatileOffset:15 VolatileStorageSize:32 VolatileStorageOffset:1>
+    <CGBitFieldInfo Offset:16 Size:3 IsSigned:0 StorageSize:32 StorageOffset:4 VolatileOffset:16 VolatileStorageSize:32 VolatileStorageOffset:1>
+    <CGBitFieldInfo Offset:19 Size:3 IsSigned:0 StorageSize:32 StorageOffset:4 VolatileOffset:3 VolatileStorageSize:8 VolatileStorageOffset:6>
+    <CGBitFieldInfo Offset:22 Size:1 IsSigned:0 StorageSize:32 StorageOffset:4 VolatileOffset:22 VolatileStorageSize:32 VolatileStorageOffset:1>
+    <CGBitFieldInfo Offset:23 Size:1 IsSigned:0 StorageSize:32 StorageOffset:4 VolatileOffset:23 VolatileStorageSize:32 VolatileStorageOffset:1>
+    <CGBitFieldInfo Offset:24 Size:1 IsSigned:0 StorageSize:32 StorageOffset:4 VolatileOffset:24 VolatileStorageSize:32 VolatileStorageOffset:1>
+    <CGBitFieldInfo Offset:25 Size:1 IsSigned:0 StorageSize:32 StorageOffset:4 VolatileOffset:25 VolatileStorageSize:32 VolatileStorageOffset:1>
+    <CGBitFieldInfo Offset:26 Size:1 IsSigned:0 StorageSize:32 StorageOffset:4 VolatileOffset:26 VolatileStorageSize:32 VolatileStorageOffset:1>
+    <CGBitFieldInfo Offset:27 Size:1 IsSigned:0 StorageSize:32 StorageOffset:4 VolatileOffset:27 VolatileStorageSize:32 VolatileStorageOffset:1>
+    <CGBitFieldInfo Offset:28 Size:4 IsSigned:0 StorageSize:32 StorageOffset:4 VolatileOffset:4 VolatileStorageSize:8 VolatileStorageOffset:7>
+    <CGBitFieldInfo Offset:0 Size:1 IsSigned:0 StorageSize:32 StorageOffset:8 VolatileOffset:0 VolatileStorageSize:0 VolatileStorageOffset:0>
+    <CGBitFieldInfo Offset:1 Size:2 IsSigned:0 StorageSize:32 StorageOffset:8 VolatileOffset:1 VolatileStorageSize:32 VolatileStorageOffset:2>
+    <CGBitFieldInfo Offset:3 Size:4 IsSigned:0 StorageSize:32 StorageOffset:8 VolatileOffset:3 VolatileStorageSize:8 VolatileStorageOffset:8>
+    <CGBitFieldInfo Offset:7 Size:2 IsSigned:0 StorageSize:32 StorageOffset:8 VolatileOffset:7 VolatileStorageSize:32 VolatileStorageOffset:2>
+    <CGBitFieldInfo Offset:9 Size:1 IsSigned:0 StorageSize:32 StorageOffset:8 VolatileOffset:9 VolatileStorageSize:32 VolatileStorageOffset:2>
+    <CGBitFieldInfo Offset:10 Size:1 IsSigned:0 StorageSize:32 StorageOffset:8 VolatileOffset:10 VolatileStorageSize:32 VolatileStorageOffset:2>
+    <CGBitFieldInfo Offset:11 Size:2 IsSigned:0 StorageSize:32 StorageOffset:8 VolatileOffset:11 VolatileStorageSize:32 VolatileStorageOffset:2>
+    <CGBitFieldInfo Offset:13 Size:1 IsSigned:0 StorageSize:32 StorageOffset:8 VolatileOffset:13 VolatileStorageSize:32 VolatileStorageOffset:2>
+    <CGBitFieldInfo Offset:14 Size:2 IsSigned:0 StorageSize:32 StorageOffset:8 VolatileOffset:14 VolatileStorageSize:32 VolatileStorageOffset:2>
+    <CGBitFieldInfo Offset:16 Size:1 IsSigned:0 StorageSize:32 StorageOffset:8 VolatileOffset:16 VolatileStorageSize:32 VolatileStorageOffset:2>
+    <CGBitFieldInfo Offset:17 Size:1 IsSigned:0 StorageSize:32 StorageOffset:8 VolatileOffset:17 VolatileStorageSize:32 VolatileStorageOffset:2>
+    <CGBitFieldInfo Offset:18 Size:1 IsSigned:0 StorageSize:32 StorageOffset:8 VolatileOffset:18 VolatileStorageSize:32 VolatileStorageOffset:2>
+    <CGBitFieldInfo Offset:19 Size:1 IsSigned:0 StorageSize:32 StorageOffset:8 VolatileOffset:19 VolatileStorageSize:32 VolatileStorageOffset:2>
+    <CGBitFieldInfo Offset:20 Size:1 IsSigned:0 StorageSize:32 StorageOffset:8 VolatileOffset:20 VolatileStorageSize:32 VolatileStorageOffset:2>
+    <CGBitFieldInfo Offset:21 Size:1 IsSigned:0 StorageSize:32 StorageOffset:8 VolatileOffset:21 VolatileStorageSize:32 VolatileStorageOffset:2>
+    <CGBitFieldInfo Offset:22 Size:1 IsSigned:0 StorageSize:32 StorageOffset:8 VolatileOffset:22 VolatileStorageSize:32 VolatileStorageOffset:2>
+    <CGBitFieldInfo Offset:23 Size:1 IsSigned:0 StorageSize:32 StorageOffset:8 VolatileOffset:23 VolatileStorageSize:32 VolatileStorageOffset:2>
+    <CGBitFieldInfo Offset:24 Size:1 IsSigned:0 StorageSize:32 StorageOffset:8 VolatileOffset:24 VolatileStorageSize:32 VolatileStorageOffset:2>
+    <CGBitFieldInfo Offset:25 Size:1 IsSigned:0 StorageSize:32 StorageOffset:8 VolatileOffset:25 VolatileStorageSize:32 VolatileStorageOffset:2>
+    <CGBitFieldInfo Offset:26 Size:1 IsSigned:0 StorageSize:32 StorageOffset:8 VolatileOffset:26 VolatileStorageSize:32 VolatileStorageOffset:2>
+    <CGBitFieldInfo Offset:27 Size:1 IsSigned:0 StorageSize:32 StorageOffset:8 VolatileOffset:27 VolatileStorageSize:32 VolatileStorageOffset:2>
+    <CGBitFieldInfo Offset:28 Size:1 IsSigned:0 StorageSize:32 StorageOffset:8 VolatileOffset:28 VolatileStorageSize:32 VolatileStorageOffset:2>
+    <CGBitFieldInfo Offset:29 Size:1 IsSigned:0 StorageSize:32 StorageOffset:8 VolatileOffset:29 VolatileStorageSize:32 VolatileStorageOffset:2>
+    <CGBitFieldInfo Offset:30 Size:1 IsSigned:0 StorageSize:32 StorageOffset:8 VolatileOffset:30 VolatileStorageSize:32 VolatileStorageOffset:2>
+    <CGBitFieldInfo Offset:31 Size:1 IsSigned:0 StorageSize:32 StorageOffset:8 VolatileOffset:31 VolatileStorageSize:32 VolatileStorageOffset:2>
+    <CGBitFieldInfo Offset:0 Size:1 IsSigned:0 StorageSize:8 StorageOffset:12 VolatileOffset:0 VolatileStorageSize:32 VolatileStorageOffset:3>
+    <CGBitFieldInfo Offset:1 Size:1 IsSigned:0 StorageSize:8 StorageOffset:12 VolatileOffset:1 VolatileStorageSize:32 VolatileStorageOffset:3>
+    <CGBitFieldInfo Offset:0 Size:32 IsSigned:0 StorageSize:32 StorageOffset:16 VolatileOffset:0 VolatileStorageSize:0 VolatileStorageOffset:0>
+    <CGBitFieldInfo Offset:0 Size:11 IsSigned:0 StorageSize:32 StorageOffset:20 VolatileOffset:0 VolatileStorageSize:0 VolatileStorageOffset:0>
+    <CGBitFieldInfo Offset:11 Size:10 IsSigned:0 StorageSize:32 StorageOffset:20 VolatileOffset:11 VolatileStorageSize:32 VolatileStorageOffset:5>
+    <CGBitFieldInfo Offset:21 Size:10 IsSigned:0 StorageSize:32 StorageOffset:20 VolatileOffset:21 VolatileStorageSize:32 VolatileStorageOffset:5>
+    <CGBitFieldInfo Offset:0 Size:8 IsSigned:0 StorageSize:32 StorageOffset:24 VolatileOffset:0 VolatileStorageSize:0 VolatileStorageOffset:0>
+    <CGBitFieldInfo Offset:8 Size:4 IsSigned:0 StorageSize:32 StorageOffset:24 VolatileOffset:8 VolatileStorageSize:32 VolatileStorageOffset:6>
+    <CGBitFieldInfo Offset:12 Size:4 IsSigned:0 StorageSize:32 StorageOffset:24 VolatileOffset:12 VolatileStorageSize:32 VolatileStorageOffset:6>
+    <CGBitFieldInfo Offset:16 Size:4 IsSigned:0 StorageSize:32 StorageOffset:24 VolatileOffset:16 VolatileStorageSize:32 VolatileStorageOffset:6>
+    <CGBitFieldInfo Offset:20 Size:4 IsSigned:0 StorageSize:32 StorageOffset:24 VolatileOffset:20 VolatileStorageSize:32 VolatileStorageOffset:6>
+    <CGBitFieldInfo Offset:24 Size:4 IsSigned:0 StorageSize:32 StorageOffset:24 VolatileOffset:24 VolatileStorageSize:32 VolatileStorageOffset:6>
+    <CGBitFieldInfo Offset:0 Size:8 IsSigned:0 StorageSize:32 StorageOffset:28 VolatileOffset:0 VolatileStorageSize:0 VolatileStorageOffset:0>
+    <CGBitFieldInfo Offset:8 Size:4 IsSigned:0 StorageSize:32 StorageOffset:28 VolatileOffset:8 VolatileStorageSize:32 VolatileStorageOffset:7>
+    <CGBitFieldInfo Offset:12 Size:3 IsSigned:0 StorageSize:32 StorageOffset:28 VolatileOffset:12 VolatileStorageSize:32 VolatileStorageOffset:7>
+    <CGBitFieldInfo Offset:15 Size:3 IsSigned:0 StorageSize:32 StorageOffset:28 VolatileOffset:15 VolatileStorageSize:32 VolatileStorageOffset:7>
+    <CGBitFieldInfo Offset:18 Size:2 IsSigned:0 StorageSize:32 StorageOffset:28 VolatileOffset:18 VolatileStorageSize:32 VolatileStorageOffset:7>
+    <CGBitFieldInfo Offset:20 Size:8 IsSigned:0 StorageSize:32 StorageOffset:28 VolatileOffset:20 VolatileStorageSize:32 VolatileStorageOffset:7>
+    <CGBitFieldInfo Offset:0 Size:8 IsSigned:0 StorageSize:32 StorageOffset:32 VolatileOffset:0 VolatileStorageSize:0 VolatileStorageOffset:0>
+    <CGBitFieldInfo Offset:8 Size:8 IsSigned:0 StorageSize:32 StorageOffset:32 VolatileOffset:8 VolatileStorageSize:32 VolatileStorageOffset:8>
+    <CGBitFieldInfo Offset:16 Size:4 IsSigned:0 StorageSize:32 StorageOffset:32 VolatileOffset:0 VolatileStorageSize:8 VolatileStorageOffset:34>
+    <CGBitFieldInfo Offset:20 Size:3 IsSigned:0 StorageSize:32 StorageOffset:32 VolatileOffset:4 VolatileStorageSize:8 VolatileStorageOffset:34>
+    <CGBitFieldInfo Offset:23 Size:4 IsSigned:0 StorageSize:32 StorageOffset:32 VolatileOffset:23 VolatileStorageSize:32 VolatileStorageOffset:8>
+    <CGBitFieldInfo Offset:27 Size:2 IsSigned:0 StorageSize:32 StorageOffset:32 VolatileOffset:27 VolatileStorageSize:32 VolatileStorageOffset:8>
+    <CGBitFieldInfo Offset:0 Size:8 IsSigned:0 StorageSize:32 StorageOffset:36 VolatileOffset:0 VolatileStorageSize:0 VolatileStorageOffset:0>
+    <CGBitFieldInfo Offset:8 Size:3 IsSigned:0 StorageSize:32 StorageOffset:36 VolatileOffset:8 VolatileStorageSize:32 VolatileStorageOffset:9>
+    <CGBitFieldInfo Offset:11 Size:3 IsSigned:0 StorageSize:32 StorageOffset:36 VolatileOffset:11 VolatileStorageSize:32 VolatileStorageOffset:9>
+    <CGBitFieldInfo Offset:14 Size:3 IsSigned:0 StorageSize:32 StorageOffset:36 VolatileOffset:14 VolatileStorageSize:32 VolatileStorageOffset:9>
+    <CGBitFieldInfo Offset:17 Size:2 IsSigned:0 StorageSize:32 StorageOffset:36 VolatileOffset:17 VolatileStorageSize:32 VolatileStorageOffset:9>
+    <CGBitFieldInfo Offset:19 Size:3 IsSigned:0 StorageSize:32 StorageOffset:36 VolatileOffset:19 VolatileStorageSize:32 VolatileStorageOffset:9>
+    <CGBitFieldInfo Offset:22 Size:2 IsSigned:0 StorageSize:32 StorageOffset:36 VolatileOffset:22 VolatileStorageSize:32 VolatileStorageOffset:9>
+    <CGBitFieldInfo Offset:24 Size:3 IsSigned:0 StorageSize:32 StorageOffset:36 VolatileOffset:24 VolatileStorageSize:32 VolatileStorageOffset:9>
+    <CGBitFieldInfo Offset:27 Size:2 IsSigned:0 StorageSize:32 StorageOffset:36 VolatileOffset:27 VolatileStorageSize:32 VolatileStorageOffset:9>
+    <CGBitFieldInfo Offset:29 Size:2 IsSigned:0 StorageSize:32 StorageOffset:36 VolatileOffset:29 VolatileStorageSize:32 VolatileStorageOffset:9>
+    <CGBitFieldInfo Offset:0 Size:2 IsSigned:0 StorageSize:32 StorageOffset:40 VolatileOffset:0 VolatileStorageSize:0 VolatileStorageOffset:0>
+    <CGBitFieldInfo Offset:2 Size:4 IsSigned:0 StorageSize:32 StorageOffset:40 VolatileOffset:2 VolatileStorageSize:32 VolatileStorageOffset:10>
+    <CGBitFieldInfo Offset:6 Size:2 IsSigned:0 StorageSize:32 StorageOffset:40 VolatileOffset:6 VolatileStorageSize:32 VolatileStorageOffset:10>
+    <CGBitFieldInfo Offset:8 Size:4 IsSigned:0 StorageSize:32 StorageOffset:40 VolatileOffset:8 VolatileStorageSize:32 VolatileStorageOffset:10>
+    <CGBitFieldInfo Offset:12 Size:1 IsSigned:0 StorageSize:32 StorageOffset:40 VolatileOffset:12 VolatileStorageSize:32 VolatileStorageOffset:10>
+    <CGBitFieldInfo Offset:13 Size:1 IsSigned:0 StorageSize:32 StorageOffset:40 VolatileOffset:13 VolatileStorageSize:32 VolatileStorageOffset:10>
+    <CGBitFieldInfo Offset:14 Size:1 IsSigned:0 StorageSize:32 StorageOffset:40 VolatileOffset:14 VolatileStorageSize:32 VolatileStorageOffset:10>
+    <CGBitFieldInfo Offset:15 Size:1 IsSigned:0 StorageSize:32 StorageOffset:40 VolatileOffset:15 VolatileStorageSize:32 VolatileStorageOffset:10>
+    <CGBitFieldInfo Offset:16 Size:1 IsSigned:0 StorageSize:32 StorageOffset:40 VolatileOffset:16 VolatileStorageSize:32 VolatileStorageOffset:10>
+    <CGBitFieldInfo Offset:17 Size:1 IsSigned:0 StorageSize:32 StorageOffset:40 VolatileOffset:17 VolatileStorageSize:32 VolatileStorageOffset:10>
+    <CGBitFieldInfo Offset:18 Size:1 IsSigned:0 StorageSize:32 StorageOffset:40 VolatileOffset:18 VolatileStorageSize:32 VolatileStorageOffset:10>
+    <CGBitFieldInfo Offset:19 Size:1 IsSigned:0 StorageSize:32 StorageOffset:40 VolatileOffset:19 VolatileStorageSize:32 VolatileStorageOffset:10>
+    <CGBitFieldInfo Offset:20 Size:1 IsSigned:0 StorageSize:32 StorageOffset:40 VolatileOffset:20 VolatileStorageSize:32 VolatileStorageOffset:10>
+    <CGBitFieldInfo Offset:21 Size:1 IsSigned:0 StorageSize:32 StorageOffset:40 VolatileOffset:21 VolatileStorageSize:32 VolatileStorageOffset:10>
+    <CGBitFieldInfo Offset:22 Size:1 IsSigned:0 StorageSize:32 StorageOffset:40 VolatileOffset:22 VolatileStorageSize:32 VolatileStorageOffset:10>
+    <CGBitFieldInfo Offset:23 Size:1 IsSigned:0 StorageSize:32 StorageOffset:40 VolatileOffset:23 VolatileStorageSize:32 VolatileStorageOffset:10>
+    <CGBitFieldInfo Offset:24 Size:1 IsSigned:0 StorageSize:32 StorageOffset:40 VolatileOffset:24 VolatileStorageSize:32 VolatileStorageOffset:10>
+    <CGBitFieldInfo Offset:25 Size:1 IsSigned:0 StorageSize:32 StorageOffset:40 VolatileOffset:25 VolatileStorageSize:32 VolatileStorageOffset:10>
+    <CGBitFieldInfo Offset:0 Size:10 IsSigned:0 StorageSize:32 StorageOffset:44 VolatileOffset:0 VolatileStorageSize:16 VolatileStorageOffset:22>
+    <CGBitFieldInfo Offset:10 Size:1 IsSigned:0 StorageSize:32 StorageOffset:44 VolatileOffset:10 VolatileStorageSize:32 VolatileStorageOffset:11>
+    <CGBitFieldInfo Offset:11 Size:1 IsSigned:0 StorageSize:32 StorageOffset:44 VolatileOffset:11 VolatileStorageSize:32 VolatileStorageOffset:11>
+    <CGBitFieldInfo Offset:12 Size:1 IsSigned:0 StorageSize:32 StorageOffset:44 VolatileOffset:12 VolatileStorageSize:32 VolatileStorageOffset:11>
+    <CGBitFieldInfo Offset:13 Size:1 IsSigned:0 StorageSize:32 StorageOffset:44 VolatileOffset:13 VolatileStorageSize:32 VolatileStorageOffset:11>
+    <CGBitFieldInfo Offset:14 Size:1 IsSigned:0 StorageSize:32 StorageOffset:44 VolatileOffset:14 VolatileStorageSize:32 VolatileStorageOffset:11>
+    <CGBitFieldInfo Offset:15 Size:1 IsSigned:0 StorageSize:32 StorageOffset:44 VolatileOffset:15 VolatileStorageSize:32 VolatileStorageOffset:11>
+    <CGBitFieldInfo Offset:16 Size:4 IsSigned:0 StorageSize:32 StorageOffset:44 VolatileOffset:0 VolatileStorageSize:8 VolatileStorageOffset:46>
+    <CGBitFieldInfo Offset:20 Size:3 IsSigned:0 StorageSize:32 StorageOffset:44 VolatileOffset:4 VolatileStorageSize:8 VolatileStorageOffset:46>
+    <CGBitFieldInfo Offset:23 Size:1 IsSigned:0 StorageSize:32 StorageOffset:44 VolatileOffset:23 VolatileStorageSize:32 VolatileStorageOffset:11>
+    <CGBitFieldInfo Offset:24 Size:1 IsSigned:0 StorageSize:32 StorageOffset:44 VolatileOffset:24 VolatileStorageSize:32 VolatileStorageOffset:11>
+]>
+
+*** Dumping IRgen Record Layout
+Record: RecordDecl 0x55f20daf9730 </tmp/sg_r4_public_layout_cidipmft/layout.c:193:1, line:230:1> line:193:8 struct BattlePokemon definition
+|-FieldDecl 0x55f20daf9840 <line:195:14, col:18> col:18 species 'u16':'unsigned short'
+|-FieldDecl 0x55f20daf98a0 <line:196:14, col:18> col:18 attack 'u16':'unsigned short'
+|-FieldDecl 0x55f20daf9900 <line:197:14, col:18> col:18 defense 'u16':'unsigned short'
+|-FieldDecl 0x55f20daf9960 <line:198:14, col:18> col:18 speed 'u16':'unsigned short'
+|-FieldDecl 0x55f20daf99c0 <line:199:14, col:18> col:18 spAttack 'u16':'unsigned short'
+|-FieldDecl 0x55f20daf9a20 <line:200:14, col:18> col:18 spDefense 'u16':'unsigned short'
+|-FieldDecl 0x55f20daf9b70 <line:201:14, col:43> col:24 moves 'enum Move[4]'
+|-FieldDecl 0x55f20daf9c10 <line:202:14, col:23> col:18 hpIV 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daf9bf0 <col:23> 'int'
+|   |-value: Int 5
+|   `-IntegerLiteral 0x55f20daf9bc0 <col:23> 'int' 5
+|-FieldDecl 0x55f20daf9cb0 <line:203:14, col:27> col:18 attackIV 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daf9c90 <col:27> 'int'
+|   |-value: Int 5
+|   `-IntegerLiteral 0x55f20daf9c60 <col:27> 'int' 5
+|-FieldDecl 0x55f20daf9d50 <line:204:14, col:28> col:18 defenseIV 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daf9d30 <col:28> 'int'
+|   |-value: Int 5
+|   `-IntegerLiteral 0x55f20daf9d00 <col:28> 'int' 5
+|-FieldDecl 0x55f20daf9df0 <line:205:14, col:26> col:18 speedIV 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daf9dd0 <col:26> 'int'
+|   |-value: Int 5
+|   `-IntegerLiteral 0x55f20daf9da0 <col:26> 'int' 5
+|-FieldDecl 0x55f20daf9e90 <line:206:14, col:29> col:18 spAttackIV 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daf9e70 <col:29> 'int'
+|   |-value: Int 5
+|   `-IntegerLiteral 0x55f20daf9e40 <col:29> 'int' 5
+|-FieldDecl 0x55f20daf9f30 <line:207:14, col:30> col:18 spDefenseIV 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daf9f10 <col:30> 'int'
+|   |-value: Int 5
+|   `-IntegerLiteral 0x55f20daf9ee0 <col:30> 'int' 5
+|-FieldDecl 0x55f20daf9fd0 <line:208:14, col:29> col:18 abilityNum 'u32':'unsigned int'
+| `-ConstantExpr 0x55f20daf9fb0 <col:29> 'int'
+|   |-value: Int 2
+|   `-IntegerLiteral 0x55f20daf9f80 <col:29> 'int' 2
+|-FieldDecl 0x55f20dafa140 <line:209:14, col:44> col:17 statStages 's8[8]'
+|-FieldDecl 0x55f20dafa1b0 <line:210:14, col:27> col:27 ability 'enum Ability'
+|-FieldDecl 0x55f20dafa300 <line:211:14, col:31> col:24 types 'enum Type[3]'
+|-FieldDecl 0x55f20dafa470 <line:212:14, col:33> col:17 pp 'u8[4]'
+|-FieldDecl 0x55f20dafa8e0 <line:213:14, col:18> col:18 hp 'u16':'unsigned short'
+|-FieldDecl 0x55f20dafa940 <line:214:14, col:17> col:17 level 'u8':'unsigned char'
+|-FieldDecl 0x55f20dafa9a0 <line:215:14, col:17> col:17 friendship 'u8':'unsigned char'
+|-FieldDecl 0x55f20dafaa00 <line:216:14, col:18> col:18 maxHP 'u16':'unsigned short'
+|-FieldDecl 0x55f20dafab50 <line:217:14, col:52> col:24 items 'enum Item[2]'
+|-FieldDecl 0x55f20dafaca0 <line:218:14, col:49> col:17 nickname 'u8[13]'
+|-FieldDecl 0x55f20dafad00 <line:219:14, col:17> col:17 ppBonuses 'u8':'unsigned char'
+|-FieldDecl 0x55f20dafae50 <line:220:14, col:46> col:17 otName 'u8[8]'
+|-FieldDecl 0x55f20dafaeb0 <line:221:14, col:18> col:18 experience 'u32':'unsigned int'
+|-FieldDecl 0x55f20dafaf10 <line:222:14, col:18> col:18 personality 'u32':'unsigned int'
+|-FieldDecl 0x55f20dafaf70 <line:223:14, col:18> col:18 status1 'u32':'unsigned int'
+|-FieldDecl 0x55f20dafb010 <line:224:14, col:31> col:31 volatiles 'struct Volatiles'
+|-FieldDecl 0x55f20dafb070 <line:225:14, col:18> col:18 otId 'u32':'unsigned int'
+|-FieldDecl 0x55f20dafb0d0 <line:226:14, col:17> col:17 metLevel 'u8':'unsigned char'
+|-FieldDecl 0x55f20dafb190 <line:227:14, col:20> col:20 isShiny 'bool8':'unsigned char'
+|-FieldDecl 0x55f20dafb2b0 <line:228:14, col:59> col:27 innates 'enum Ability[3]'
+`-FieldDecl 0x55f20dafb320 <line:229:14, col:24> col:24 item 'enum Item'
+
+Layout: <CGRecordLayout
+  LLVMType:%struct.BattlePokemon = type { i16, i16, i16, i16, i16, i16, [4 x i16], i32, [8 x i8], i16, [3 x i8], [4 x i8], i16, i8, i8, i16, [2 x i16], [13 x i8], i8, [8 x i8], i32, i32, i32, %struct.Volatiles, i32, i8, i8, [3 x i16], i16 }
+  IsZeroInitializable:1
+  BitFields:[
+    <CGBitFieldInfo Offset:0 Size:5 IsSigned:0 StorageSize:32 StorageOffset:20 VolatileOffset:0 VolatileStorageSize:0 VolatileStorageOffset:0>
+    <CGBitFieldInfo Offset:5 Size:5 IsSigned:0 StorageSize:32 StorageOffset:20 VolatileOffset:5 VolatileStorageSize:32 VolatileStorageOffset:5>
+    <CGBitFieldInfo Offset:10 Size:5 IsSigned:0 StorageSize:32 StorageOffset:20 VolatileOffset:10 VolatileStorageSize:32 VolatileStorageOffset:5>
+    <CGBitFieldInfo Offset:15 Size:5 IsSigned:0 StorageSize:32 StorageOffset:20 VolatileOffset:15 VolatileStorageSize:32 VolatileStorageOffset:5>
+    <CGBitFieldInfo Offset:20 Size:5 IsSigned:0 StorageSize:32 StorageOffset:20 VolatileOffset:20 VolatileStorageSize:32 VolatileStorageOffset:5>
+    <CGBitFieldInfo Offset:25 Size:5 IsSigned:0 StorageSize:32 StorageOffset:20 VolatileOffset:25 VolatileStorageSize:32 VolatileStorageOffset:5>
+    <CGBitFieldInfo Offset:30 Size:2 IsSigned:0 StorageSize:32 StorageOffset:20 VolatileOffset:30 VolatileStorageSize:32 VolatileStorageOffset:5>
+]>
