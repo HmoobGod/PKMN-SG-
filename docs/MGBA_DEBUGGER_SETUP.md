@@ -70,3 +70,12 @@ Fail-closed focus rules:
 On this host, the exact new verifier passed **3/3** fresh empty-mGBA/Xvfb cycles, including a run with intentionally incorrect *parent* DISPLAY/XAUTHORITY values (which were overridden by isolated values). The script rejected an extra `--rom` argument at CLI parsing and a tampered AppImage before execution. The GitHub file blob matches the locally tested source. This is **Qt focus and harmless input readiness only**, not a game Start/Confirm, GDB, or native Auto Battle witness. The earlier X11 7/7 test remains separate.
 
 Do not reuse old window IDs or rely on `wmctrl`. Any new ROM/game execution requires separately bounded owner authorization. This source-only PR stays **draft and unmerged**, with **R5 NATIVE HOLD / formal 0/20**.
+
+
+### Runtime game/FPS title correction (2026-11-20, harmless validation)
+
+The previous *empty-window-only* exact-title gate (`mGBA - 0.10.5`) caused an authorized native session to stop before Start: a running game had the title `mGBA - POKEMON EMER (45.3 fps) - 0.10.5`. The safer replacement is a **bounded, fully anchored versioned mGBA title pattern** admitting the empty title or a game-title/FPS segment, **not** substring matching. It retains exact WM_CLASS `("mgba-qt", "mGBA")`, `IsViewable`, minimum 240×160 dimensions, exactly one candidate, Xauthority, synchronous X11 error handling, and exact `XGetInputFocus` identity.
+
+The updated ROM-free verifier also changes the title of its own *empty* Qt window to the historically observed gameplay/FPS shape using X11 `XStoreName`, reselects the same window, and checks harmless `Ctrl+O` opens the Select ROM dialog without choosing a file. A separate temporary empty-mGBA/Xvfb test passed the empty and changed titles, focus identity, Ctrl+O and multiple negative-title cases. **The changed title was simulated; it is not gameplay proof.** The old unmapped 1×1/3×3 helper windows remain rejected. Do not copy previously observed window IDs between sessions.
+
+The resulting updated source is `tools/verify_mgba_qt_focus.py` on this draft PR. No game file was opened during title-fix validation. A real game still requires fresh owner authority and the exact bounded native test rules; R5 NATIVE HOLD and formal 0/20 remain.
