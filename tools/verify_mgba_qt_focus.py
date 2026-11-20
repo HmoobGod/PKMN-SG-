@@ -11,6 +11,7 @@ import ctypes as C
 import ctypes.util
 import hashlib
 import os
+import re
 from pathlib import Path
 import secrets
 import shutil
@@ -21,6 +22,9 @@ import time
 APPIMAGE_SHA256 = "fdf0a5c1588e1606c38315735cf48a9f9dca3573f32a3947ebc956f8297e85cd"
 MGBA_COMMIT = "26b7884bc25a5933960f3cdcd98bac1ae14d42e2"
 IS_VIEWABLE = 2
+# Running games add a title/FPS. Exact Qt identity, map state and dimensions
+# are separately required; never match the word mGBA fuzzily.
+MAIN_TITLE = re.compile(r"^mGBA - (?:0\.10\.5|[A-Za-z0-9][A-Za-z0-9 ._()\-]{0,95}(?: \([0-9]{1,3}(?:\.[0-9])? fps\))? - 0\.10\.5)$")
 
 
 class XWindowAttributes(C.Structure):
@@ -83,6 +87,7 @@ class XClient:
         self.x.XKeysymToKeycode.restype = C.c_uint
         self.xt.XTestFakeKeyEvent.argtypes = [C.c_void_p, C.c_uint, C.c_int, C.c_ulong]
         self.xt.XTestFakeKeyEvent.restype = C.c_int
+        self.x.XStoreName.argtypes = [C.c_void_p, C.c_ulong, C.c_char_p]
         self.x.XCloseDisplay.argtypes = [C.c_void_p]
         self.x.XSetErrorHandler.argtypes = [XERROR_CB]
         self.x.XSetErrorHandler.restype = C.c_void_p
@@ -144,7 +149,7 @@ class XClient:
         windows = self.windows()
         # Never select Qt helper windows by fuzzy matching the word "mGBA".
         candidates = [w for w in windows
-                      if w["name"] == "mGBA - 0.10.5"
+                      if MAIN_TITLE.fullmatch(w["name"])
                       and w["class"] == ("mgba-qt", "mGBA")
                       and w["map_state"] == IS_VIEWABLE
                       and w["width"] >= 240 and w["height"] >= 160]
@@ -223,6 +228,15 @@ def verify(appimage: Path) -> None:
         version = checked_run([str(exe), "--version"])
         if "0.10.5" not in (version.stdout + version.stderr) or MGBA_COMMIT not in (version.stdout + version.stderr):
             raise RuntimeError("Extracted executable version mismatch")
+        # Pure title tests, before launching the harmless Qt GUI.
+        if not (MAIN_TITLE.fullmatch("mGBA - 0.10.5")
+                and MAIN_TITLE.fullmatch("mGBA - POKEMON EMER (45.3 fps) - 0.10.5")):
+            raise RuntimeError("Expected Qt title patterns rejected")
+        for invalid in ("mGBA", "Qt Selection Owner for mGBA", "mGBA - 0.10.4",
+                        "mGBA - POKEMON EMER - 0.10.4", "mGBA - (45.3 fps) - 0.10.5"):
+            if MAIN_TITLE.fullmatch(invalid):
+                raise RuntimeError("Invalid Qt title accepted")
+        print("PASS bounded title allowlist and helper/mismatch rejection")
         print("PASS existing AppImage SHA256 and extracted mGBA 0.10.5 version")
         free = [i for i in range(101, 150)
                 if not Path(f"/tmp/.X11-unix/X{i}").exists() and not Path(f"/tmp/.X{i}-lock").exists()]
@@ -273,6 +287,15 @@ def verify(appimage: Path) -> None:
                     raise RuntimeError("No correctly mapped main Qt window")
                 print(f"PASS exact main title/WM_CLASS, IsViewable, dimensions {target['width']}x{target['height']}")
                 print("PASS XSetInputFocus and XGetInputFocus same window ID")
+                # Harmless test: change the EMPTY Qt window title to the exact
+                # historically observed gameplay/FPS shape. No game is loaded.
+                simulated = "mGBA - POKEMON EMER (45.3 fps) - 0.10.5"
+                client.x.XStoreName(client.dpy, target["id"], simulated.encode())
+                client.check()
+                changed = client.focus_main_window()
+                if changed["id"] != target["id"] or changed["name"] != simulated:
+                    raise RuntimeError("Runtime-title focus failed Qt window identity")
+                print("PASS simulated gameplay/FPS title on the same visible Qt window")
                 client.open_dialog()
             finally:
                 client.close()
