@@ -65,6 +65,86 @@ class FixtureTests(unittest.TestCase):
             with self.subTest(cmd=cmd),self.assertRaises(m.PreflightError):
                 m.readonly_rsp(NoIO(),cmd)
 
+    def test_feature_offer_is_strictly_allowlisted(self):
+        self.assertEqual(m.FEATURE_QUERY, 'qSupported:swbreak+;hwbreak+')
+        class NoIO:
+            def sendall(self, *a): raise AssertionError('must refuse unexpected command')
+        for cmd in ('qSupported', 'qSupported:hwbreak+', 'qSupported:swbreak+',
+                    'qSupported:swbreak+;hwbreak+;vContSupported+',
+                    'Z1,08000100,2', 's', 'c'):
+            with self.subTest(cmd=cmd), self.assertRaises(m.PreflightError):
+                m.readonly_rsp(NoIO(), cmd)
+
+    def test_supported_features_exact_positive(self):
+        reply='swbreak+;hwbreak+;qXfer:features:read+;qXfer:memory-map:read+;QStartNoAckMode+'
+        self.assertEqual(m.validate_supported_breakpoint_features(reply)[:2],
+                         ('swbreak+', 'hwbreak+'))
+
+    def test_missing_and_contradictory_features_fail_closed(self):
+        for reply in ('', 'S02', 'E07', 'hwbreak+', 'swbreak+',
+                      'swbreak+;hwbreak-', 'swbreak-;hwbreak+',
+                      'swbreak+;hwbreak+;hwbreak-',
+                      'swbreak+;hwbreak+;swbreak+',
+                      'swbreak+;hwbreak+;', 'swbreak+;;hwbreak+'):
+            with self.subTest(reply=reply), self.assertRaises(m.PreflightError):
+                m.validate_supported_breakpoint_features(reply)
+
+    def test_genuine_rsp_feature_negotiation_framing(self):
+        peer,client=socket.socketpair()
+        try:
+            client.settimeout(2)
+            def server():
+                req=peer.recv(512)
+                payload=m.FEATURE_QUERY.encode('ascii')
+                assert req==b'$'+payload+(b'#%02x'%(sum(payload)&255)), req
+                body=b'swbreak+;hwbreak+;qXfer:features:read+;QStartNoAckMode+'
+                peer.sendall(b'+$'+body+(b'#%02x'%(sum(body)&255)))
+                assert peer.recv(1)==b'+'
+            t=threading.Thread(target=server);t.start()
+            response=m.negotiate_breakpoint_features(client)
+            self.assertIn('swbreak+',response)
+            self.assertIn('hwbreak+',response)
+            t.join(2)
+            self.assertFalse(t.is_alive())
+        finally:peer.close();client.close()
+
+    def test_z1_hardware_stop_and_exact_pc_only(self):
+        regs=['00000000']*17
+        regs[15]=(0x08000100).to_bytes(4,'little').hex()
+        value=m.require_exact_z1_stop('T05hwbreak:;', ''.join(regs), 0x08000100)
+        self.assertEqual(value,{'reason':'hwbreak','pc':0x08000100})
+
+    def test_z1_s05k_is_inconclusive_even_with_matching_pc(self):
+        regs=['00000000']*17
+        regs[15]=(0x08000100).to_bytes(4,'little').hex()
+        with self.assertRaisesRegex(m.InconclusiveStop,'S05k'):
+            m.require_exact_z1_stop('S05k',''.join(regs),0x08000100)
+
+    def test_other_stop_reasons_fail_closed(self):
+        regs=['00000000']*17
+        regs[15]=(0x08000100).to_bytes(4,'little').hex()
+        for stop in ('S05','T05swbreak:;', 'T05watch:02000000;',
+                     'T05hwbreak:;extra','T05hwbreak:', 'T05', '', 'S02', 'T05hwbreak:;\x00'):
+            with self.subTest(stop=stop), self.assertRaises(m.InconclusiveStop):
+                m.require_exact_z1_stop(stop, ''.join(regs), 0x08000100)
+
+    def test_z1_wrong_pc_fails_closed(self):
+        regs=['00000000']*17
+        regs[15]=(0x08000102).to_bytes(4,'little').hex()
+        with self.assertRaisesRegex(m.InconclusiveStop,'PC mismatch'):
+            m.require_exact_z1_stop('T05hwbreak:;', ''.join(regs), 0x08000100)
+
+    def test_z1_missing_or_malformed_registers_fails_closed(self):
+        for bad in ('', '0'*128, 'Z'*136, '0'*137, None):
+            with self.subTest(bad=repr(bad)), self.assertRaises(m.InconclusiveStop):
+                m.require_exact_z1_stop('T05hwbreak:;',bad,0x08000100)
+
+    def test_z1_expected_pc_cannot_be_odd_or_out_of_rom(self):
+        regs='0'*136
+        for bad in (True, -1, 0x08000101, 0x02000000, 0x0a000000):
+            with self.subTest(bad=bad), self.assertRaises(m.PreflightError):
+                m.require_exact_z1_stop('T05hwbreak:;',regs,bad)
+
     def test_valid_rsp_ack_packet_checksum(self):
         peer,client=socket.socketpair()
         try:
