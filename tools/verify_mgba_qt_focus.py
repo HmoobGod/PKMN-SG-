@@ -310,6 +310,43 @@ def call_isolated_xlib(display, authority, *, simulate_title=False, verify_dialo
     return output
 
 
+XLIB_READINESS_BUDGET_SECONDS = 20.0
+
+
+def wait_for_main_window(display, authority, emulator, *, total_timeout=XLIB_READINESS_BUDGET_SECONDS,
+                         clock=None, sleeper=None):
+    """Single monotonic deadline for all initial empty-Qt readiness attempts.
+
+    A per-helper subprocess timeout alone does not bound repeated NOT_READY
+    responses. Treat every other failure as terminal and never reconnect GDB.
+    """
+    if type(total_timeout) not in (int, float) or not (0 < total_timeout <= XLIB_READINESS_BUDGET_SECONDS):
+        raise ObserverError('invalid overall Xlib readiness deadline')
+    if clock is None: clock = time.monotonic
+    if sleeper is None: sleeper = time.sleep
+    deadline = clock() + total_timeout
+    for _ in range(55):
+        if emulator.poll() is not None:
+            raise ObserverError('empty mGBA exited before focus check')
+        remaining = deadline - clock()
+        if remaining <= 0:
+            raise ObserverError('overall Xlib readiness deadline exceeded')
+        try:
+            result = call_isolated_xlib(display, authority, timeout=min(5.0, remaining))
+        except ObserverError as exc:
+            if str(exc) != 'empty Qt main window not yet available':
+                raise
+        else:
+            if clock() > deadline:
+                raise ObserverError('overall Xlib readiness deadline exceeded')
+            return result
+        remaining = deadline - clock()
+        if remaining <= 0:
+            raise ObserverError('overall Xlib readiness deadline exceeded')
+        sleeper(min(0.1, remaining))
+    raise ObserverError('Xlib readiness attempt cap exceeded')
+
+
 def verify_empty_mgba(appimage):
     """One no-game empty-Qt/Xvfb test; uses verified AppImage only."""
     if appimage.name!='mGBA-0.10.5-appimage-x64.appimage' or not appimage.is_file() or appimage.stat().st_size!=APPIMAGE_SIZE:
@@ -354,17 +391,7 @@ def verify_empty_mgba(appimage):
             proc.append(subprocess.Popen([str(exe)],env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL))
             # Parent credentials are explicitly synchronized, not guessed by worker.
             os.environ['DISPLAY'],os.environ['XAUTHORITY']=display,str(authority)
-            first=None
-            for _ in range(55):
-                if proc[1].poll() is not None:raise ObserverError('empty mGBA exited before focus check')
-                try:
-                    first=call_isolated_xlib(display,str(authority),timeout=5)
-                    break
-                except ObserverError as e:
-                    if str(e)!='empty Qt main window not yet available':
-                        raise
-                time.sleep(.1)
-            if first is None:raise ObserverError('no correct empty Qt window')
+            first=wait_for_main_window(display,str(authority),proc[1])
             second=call_isolated_xlib(display,str(authority),simulate_title=True,
                                       verify_dialog=True,timeout=12)
             if first['window_id']!=second['window_id']:

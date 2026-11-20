@@ -185,9 +185,78 @@ class HardenedObserverTests(unittest.TestCase):
 
     def test_dialog_validation_keeps_original_title_rules(self):
         for title in ('mGBA','Qt Selection Owner for mGBA',
-                      'mGBA - POKEMON EMER - 0.10.4','mGBA - (45.3 fps) - 0.10.5'):
+                      'mGBA - SAMPLE TITLE - 0.10.4','mGBA - (45.3 fps) - 0.10.5'):
             self.assertIsNone(m.MAIN_TITLE.fullmatch(title))
         self.assertIsNotNone(m.MAIN_TITLE.fullmatch('mGBA - TEST (45.3 fps) - 0.10.5'))
+
+    def test_overall_ready_deadline_rejects_unbounded_not_ready(self):
+        class Alive:
+            def poll(self): return None
+        now=[100.0]
+        waits=[]
+        def clock(): return now[0]
+        def sleep(seconds): now[0]+=seconds
+        def not_ready(_display,_authority,*,timeout):
+            waits.append(timeout)
+            now[0]+=2.4
+            raise m.ObserverError('empty Qt main window not yet available')
+        with mock.patch.object(m,'call_isolated_xlib',side_effect=not_ready):
+            with self.assertRaisesRegex(m.ObserverError,'overall Xlib readiness deadline'):
+                m.wait_for_main_window(self.display,self.auth,Alive(),total_timeout=6.0,
+                                       clock=clock,sleeper=sleep)
+        self.assertEqual(len(waits),3)
+        self.assertGreater(waits[0],waits[-1])
+        self.assertLessEqual(now[0]-100.0,8.0)
+
+    def test_overall_deadline_success_and_remaining_budget(self):
+        class Alive:
+            def poll(self): return None
+        now=[0.0]
+        observed=[]
+        def attempt(_display,_authority,*,timeout):
+            observed.append(timeout)
+            if len(observed)==1:
+                now[0]+=3.0
+                raise m.ObserverError('empty Qt main window not yet available')
+            now[0]+=0.5
+            return self.good
+        with mock.patch.object(m,'call_isolated_xlib',side_effect=attempt):
+            result=m.wait_for_main_window(self.display,self.auth,Alive(),total_timeout=4,
+                                          clock=lambda:now[0],sleeper=lambda n:now.__setitem__(0,now[0]+n))
+        self.assertEqual(result,self.good)
+        self.assertEqual(len(observed),2)
+        self.assertLess(observed[1],1)
+
+    def test_overall_deadline_fails_closed_after_late_success(self):
+        class Alive:
+            def poll(self):return None
+        now=[0.0]
+        def too_late(*args,**kwargs):
+            now[0]=3.01
+            return self.good
+        with mock.patch.object(m,'call_isolated_xlib',side_effect=too_late):
+            with self.assertRaisesRegex(m.ObserverError,'overall Xlib readiness deadline'):
+                m.wait_for_main_window(self.display,self.auth,Alive(),total_timeout=3,
+                                       clock=lambda:now[0],sleeper=lambda s:None)
+
+    def test_overall_deadline_rejects_wrong_options_and_process_exit(self):
+        class Gone:
+            def poll(self):return 11
+        class Alive:
+            def poll(self):return None
+        for invalid in (-1,0,True,21):
+            with self.subTest(invalid=invalid),self.assertRaisesRegex(m.ObserverError,'invalid overall'):
+                m.wait_for_main_window(self.display,self.auth,Alive(),total_timeout=invalid)
+        with self.assertRaisesRegex(m.ObserverError,'exited'):
+            m.wait_for_main_window(self.display,self.auth,Gone())
+
+    def test_overall_deadline_never_retries_unexpected_helper_failure(self):
+        class Alive:
+            def poll(self):return None
+        with mock.patch.object(m,'call_isolated_xlib',side_effect=m.ObserverError('isolated Xlib helper failure exit=-11')) as call:
+            with self.assertRaisesRegex(m.ObserverError,'exit=-11'):
+                m.wait_for_main_window(self.display,self.auth,Alive(),total_timeout=10)
+        self.assertEqual(call.call_count,1)
 
     def test_forbidden_source_patterns_absent(self):
         src=SRC.read_text()
