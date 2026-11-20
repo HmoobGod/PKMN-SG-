@@ -3,7 +3,8 @@
 
 Only a hardcoded, original 32KiB PR45 public-generated inert Thumb fixture
 is run in an isolated network namespace. Never reads private games/saves.
-Only read-only GDB RSP '?' / 'g' / 'm' packets are issued. No breakpoints.
+Only source-allowlisted qSupported, read-only ?/g/m are sent. No breakpoints.
+Pure Z1 stop classification cannot install a breakpoint or mutate a guest.
 """
 from __future__ import annotations
 
@@ -25,9 +26,15 @@ APPIMAGE_SIZE = 25208000
 MGBA_VERSION_COMMIT = "26b7884bc25a5933960f3cdcd98bac1ae14d42e2"
 FIXTURE_SHA256 = "cfa20bc9ccad2131abeedaed0d1d5aa49425f8bce5616370d0b6659c7cd4804b"
 HOST, PORT = "127.0.0.1", 2345
+FEATURE_QUERY = "qSupported:swbreak+;hwbreak+"
 
 
 class PreflightError(RuntimeError):
+    pass
+
+
+class InconclusiveStop(PreflightError):
+    """An ambiguous debugger stop is NOT evidence of a reached instruction."""
     pass
 
 
@@ -59,7 +66,7 @@ def read_byte(sock: socket.socket) -> bytes:
 
 
 def readonly_rsp(sock: socket.socket, request: str) -> str:
-    if request not in ("?", "g", "m080000c0,4", "m08000100,2"):
+    if request not in (FEATURE_QUERY, "?", "g", "m080000c0,4", "m08000100,2"):
         raise PreflightError("RSP command not on generated-fixture read-only allowlist")
     # Once ANY packet is sent, a transport failure poisons this connection.
     # Never retry the request, reconnect, or infer that debugger is ready.
@@ -92,6 +99,59 @@ def readonly_rsp(sock: socket.socket, request: str) -> str:
             raise PreflightError("nonascii RSP response") from error
     except OSError as error:
         raise PreflightError("RSP transport failed after connection; never retry") from error
+
+
+def validate_supported_breakpoint_features(reply: str) -> tuple[str, ...]:
+    """Fail closed on partial, contradictory or duplicated qSupported features.
+
+    The mGBA 0.10.5 source replies with feature tokens after processing the
+    offered swbreak+ AND hwbreak+ flags. Valid response alone proves only the
+    protocol exchange; it does not prove a breakpoint stop or a game event.
+    """
+    if not isinstance(reply, str) or not reply or len(reply) > 1024:
+        raise PreflightError("malformed qSupported response")
+    tokens = reply.split(";")
+    if any(not token for token in tokens):
+        raise PreflightError("empty qSupported feature")
+    for capability in ("swbreak+", "hwbreak+"):
+        if tokens.count(capability) != 1:
+            raise PreflightError(f"qSupported missing/duplicated {capability}")
+    if any(token.startswith(("swbreak", "hwbreak"))
+           and token not in ("swbreak+", "hwbreak+") for token in tokens):
+        raise PreflightError("contradictory qSupported breakpoint capability")
+    return tuple(tokens)
+
+
+def negotiate_breakpoint_features(sock: socket.socket) -> tuple[str, ...]:
+    """Advertise both stop-reason flags before any future Z1 use.
+
+    This synthetic readiness preflight sends NO Z1, watchpoint, step or continue.
+    A later authorized client must negotiate on its OWN connection: the state
+    is connection-local and any subsequent qSupported resets the server flags.
+    """
+    reply = readonly_rsp(sock, FEATURE_QUERY)
+    return validate_supported_breakpoint_features(reply)
+
+
+def require_exact_z1_stop(stop: str, registers: str, expected_pc: int) -> dict:
+    """Pure validator only; requires an independently obtained stopped 'g'.
+
+    S05k is mGBA's fallback when both negotiated flags or the breakpoint
+    metadata are missing. A checksum-correct stop packet alone is insufficient.
+    Only exact T05hwbreak:; + independently matching PC is admissible.
+    """
+    if stop == "S05k":
+        raise InconclusiveStop("S05k: breakpoint details absent; never infer Z1 hit")
+    if stop != "T05hwbreak:;":
+        raise InconclusiveStop("unexpected/ambiguous breakpoint stop reason")
+    if type(expected_pc) is not int or not (0x08000000 <= expected_pc < 0x0A000000) or expected_pc % 2:
+        raise PreflightError("invalid expected Thumb instruction address")
+    if not isinstance(registers, str) or not re.fullmatch(r"[0-9A-Fa-f]{136}", registers):
+        raise InconclusiveStop("missing/malformed stopped register packet")
+    pc = int.from_bytes(bytes.fromhex(registers[120:128]), "little")
+    if pc != expected_pc:
+        raise InconclusiveStop("hardware breakpoint stop PC mismatch")
+    return {"reason": "hwbreak", "pc": pc}
 
 
 def connect_until_listening(process: subprocess.Popen, *, timeout: float = 12.0,
@@ -156,6 +216,11 @@ def inside_namespace(exe: Path) -> None:
             sock, tries = connect_until_listening(process)
             with sock:
                 sock.settimeout(4.0)
+                # Explicit feature negotiation precedes all future Z1 use.
+                # This tool does not install Z1. Its own packet allowlist stays
+                # limited to qSupported + read-only synthetic inspections.
+                caps = negotiate_breakpoint_features(sock)
+                print("PASS qSupported:swbreak+;hwbreak+ accepted and both supported", flush=True)
                 # An ACK + checksummed response proves server processes packets.
                 stop = readonly_rsp(sock, "?")
                 registers = readonly_rsp(sock, "g")
@@ -168,7 +233,7 @@ def inside_namespace(exe: Path) -> None:
                 if arm.lower() != "00009fe5" or thumb.lower() != "fee7":
                     raise PreflightError("GDB mapped program not the pinned synthetic fixture")
                 print(f"PASS actual mGBA GDB: TCP attempt {tries}; ?={stop}; g={len(registers)} hex; synthetic ARM={arm}, Thumb={thumb}", flush=True)
-                print("PASS GDB READY: only ?/g/m, no execution/capture of private game, no breakpoints", flush=True)
+                print("PASS GDB READY: qSupported + ?/g/m only; no private game or breakpoints", flush=True)
         finally:
             if process.poll() is None:
                 process.terminate()
