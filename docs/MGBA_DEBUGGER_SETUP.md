@@ -44,3 +44,29 @@ Observed on this host: exact SHA-256 PASS; mGBA version/commit PASS; advertised 
 - [Issue #151 — verified X/Z input mapping in real native test](https://github.com/HmoobGod/PKMN-SG-/issues/151#issuecomment-6956903093)
 - [Issue #151 — extracted 0.10.5 runtime / GDB tool-only milestone](https://github.com/HmoobGod/PKMN-SG-/issues/151#issuecomment-6976474932)
 - [Issue #151 — canonical project checkpoint and safeguards](https://github.com/HmoobGod/PKMN-SG-/issues/151)
+
+
+## Verified mapped-Qt focus target and Xauthority handoff (2026-11-20, NO GAME)
+
+The earlier `BadMatch` focus failures can occur if a fuzzy "mGBA" title match selects an **unmapped Qt helper window**, rather than the actual Qt main window. Actual empty mGBA 0.10.5 under isolated Xvfb exposed three distinct top-level IDs:
+
+- `"mGBA"` — **1×1, unmapped, no WM_CLASS**: never focus.
+- `"Qt Selection Owner for mGBA"` — **3×3, unmapped, no WM_CLASS**: never focus.
+- `"mGBA - 0.10.5"` — **480×343, `IsViewable` (map_state=2), WM_CLASS res_name `"mgba-qt"` / res_class `"mGBA"`**: permitted target once *reverified in that exact run*. **IDs are ephemeral**; do not hard-code the observed hexadecimal window IDs.
+
+The directly tested **tool-only** source is [`tools/verify_mgba_qt_focus.py`](../tools/verify_mgba_qt_focus.py). It accepts *only* the existing AppImage path (never ROM/save/game arguments), verifies its SHA-256 and extracted Qt version, then starts an **empty** mGBA Qt window inside a private `Xvfb` session.
+
+```sh
+python3 tools/verify_mgba_qt_focus.py --appimage /path/to/existing/mGBA-0.10.5-appimage-x64.appimage
+```
+
+Fail-closed focus rules:
+1. Pass the same `DISPLAY` and `XAUTHORITY` credentials to **Xvfb, the Qt process, and the parent Python Xlib focus client**. Setting credentials for the child process *alone* causes `XOpenDisplay` to fail from the parent.
+2. Enumerate root top-level windows with `XQueryTree`, read `XFetchName`, `XGetClassHint` (WM_CLASS) and `XGetWindowAttributes`.
+3. Require **exactly one** window with name `mGBA - 0.10.5`, WM_CLASS `("mgba-qt", "mGBA")`, `map_state == IsViewable (2)` and dimensions at least **240×160**. Reject tiny/unmapped Qt helper windows and ambiguity before sending any input.
+4. Call `XSetInputFocus`, `XSync` and immediately verify `XGetInputFocus` equals the selected window's ID. Trap and reject asynchronous X11 errors (`BadMatch`, `BadWindow`).
+5. Deliver **only harmless** XTest `Ctrl+O` and verify one visible **Select ROM** dialog. **Do not select a file**. Shut down the Qt process, Xvfb and temporary workspace.
+
+On this host, the exact new verifier passed **3/3** fresh empty-mGBA/Xvfb cycles, including a run with intentionally incorrect *parent* DISPLAY/XAUTHORITY values (which were overridden by isolated values). The script rejected an extra `--rom` argument at CLI parsing and a tampered AppImage before execution. The GitHub file blob matches the locally tested source. This is **Qt focus and harmless input readiness only**, not a game Start/Confirm, GDB, or native Auto Battle witness. The earlier X11 7/7 test remains separate.
+
+Do not reuse old window IDs or rely on `wmctrl`. Any new ROM/game execution requires separately bounded owner authorization. This source-only PR stays **draft and unmerged**, with **R5 NATIVE HOLD / formal 0/20**.
