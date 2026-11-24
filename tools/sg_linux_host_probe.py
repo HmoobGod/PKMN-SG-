@@ -22,7 +22,7 @@ VERSION=re.compile(r'[0-9][0-9A-Za-z.+~_-]{0,63}\Z')
 class Hold(RuntimeError): pass
 
 # Fixed stage labels only. Never emit exception text or host-derived values.
-DIAGNOSTIC_CODES=frozenset({'AUTH', 'HOST', 'CGROUP', 'DOCKER_IDENTITY', 'DOCKER_API', 'KERNEL_LISTENER', 'PIDFD', 'SLICE_PRECHECK', 'SLICE_CREATION', 'SLICE_PERSISTENCE', 'SLICE_REMOVAL', 'SLICE_FD_CLOSE', 'RECEIPT', 'UNCLASSIFIED'})
+DIAGNOSTIC_CODES=frozenset({'AUTH', 'HOST', 'CGROUP', 'DOCKER_IDENTITY', 'DOCKER_API', 'KERNEL_LISTENER', 'PIDFD', 'SLICE_PRECHECK', 'SLICE_PRECHECK_QUERY', 'SLICE_PRECHECK_STATE', 'SLICE_CREATION', 'SLICE_PERSISTENCE', 'SLICE_REMOVAL', 'SLICE_FD_CLOSE', 'RECEIPT', 'UNCLASSIFIED'})
 class DiagnosticHold(Hold):
     def __init__(self,code):
         self.code=code if type(code) is str and code in DIAGNOSTIC_CODES else 'UNCLASSIFIED'
@@ -122,7 +122,7 @@ def cmd(argv,end):
         finally:
             for f in bufs: f.close()
 
-def show(unit,keys,end): return props(cmd(SYSTEM+['show',unit]+['--property='+k for k in keys],end),keys)
+def show(unit,keys,end): return props(cmd(SYSTEM+['show','--all',unit]+['--property='+k for k in keys],end),keys)
 def identity(st): return (st.st_dev,st.st_ino)
 def absent(path):
     try: path.lstat()
@@ -288,7 +288,10 @@ def slice_measure(name,b,end):
     with diagnostic('SLICE_PRECHECK'):
         require(absent(path) and absent(unit),'preexisting slice')
         # systemctl show may successfully describe not-found or fail; never guess from failure.
-        require(show(name,keys,end)=={'LoadState':'not-found','ActiveState':'inactive','ControlGroup':''},'preexisting or unresolved unit')
+        with diagnostic('SLICE_PRECHECK_QUERY'):
+            state=show(name,keys,end)
+        with diagnostic('SLICE_PRECHECK_STATE'):
+            require(state=={'LoadState':'not-found','ActiveState':'inactive','ControlGroup':''},'preexisting or unresolved unit')
     with diagnostic('SLICE_CREATION'):
         fd=os.open(unit,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_CLOEXEC,0o644)
         try:
