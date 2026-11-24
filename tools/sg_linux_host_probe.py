@@ -4,6 +4,7 @@ Runtime is deliberately gated by a future independently reviewed manual workflow
 """
 import hashlib, json, os, re, select, selectors, stat, subprocess, sys, time, socket, struct
 from pathlib import Path
+from contextlib import contextmanager
 
 ROOT=Path('/sys/fs/cgroup')
 UNITS=Path('/run/systemd/system')
@@ -19,6 +20,28 @@ BOOT=re.compile(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\Z')
 SHA=re.compile(r'[0-9a-f]{64}\Z')
 VERSION=re.compile(r'[0-9][0-9A-Za-z.+~_-]{0,63}\Z')
 class Hold(RuntimeError): pass
+
+# Fixed stage labels only. Never emit exception text or host-derived values.
+DIAGNOSTIC_CODES=frozenset({'AUTH', 'HOST', 'CGROUP', 'DOCKER_IDENTITY', 'DOCKER_API', 'KERNEL_LISTENER', 'PIDFD', 'SLICE_PRECHECK', 'SLICE_CREATION', 'SLICE_PERSISTENCE', 'SLICE_REMOVAL', 'SLICE_FD_CLOSE', 'RECEIPT', 'UNCLASSIFIED'})
+class DiagnosticHold(Hold):
+    def __init__(self,code):
+        self.code=code if type(code) is str and code in DIAGNOSTIC_CODES else 'UNCLASSIFIED'
+        super().__init__(self.code)
+
+@contextmanager
+def diagnostic(code):
+    try:
+        yield
+    except DiagnosticHold:
+        raise
+    except Exception:
+        raise DiagnosticHold(code) from None
+
+def report_hold(exc):
+    code=exc.code if type(exc) is DiagnosticHold else 'UNCLASSIFIED'
+    if type(code) is not str or code not in DIAGNOSTIC_CODES: code='UNCLASSIFIED'
+    print('HOST_COMPATIBILITY_HOLD_QUARANTINE',file=sys.stderr)
+    print('SG_HOST_DIAGNOSTIC='+code,file=sys.stderr)
 
 def require(ok, reason):
     if not ok: raise Hold(reason)
@@ -210,31 +233,47 @@ def peer_snapshot(sock,st,pid,d,end):
     return (peer,k,daemon_fds,manager_fds,mode,s)
 
 def host_measure(end):
-    require(os.geteuid()==0 and os.uname().machine=='x86_64','root x64 host required')
-    require(Path('/proc/1/comm').read_text().strip()=='systemd','PID1 not systemd')
-    require(identity(os.stat('/proc/self/ns/pid'))==identity(os.stat('/proc/1/ns/pid')),'not host PID namespace')
-    mount_gate(Path('/proc/self/mountinfo').read_text())
-    require(Path('/proc/1/cgroup').read_text().startswith('0::') and len(Path('/proc/1/cgroup').read_text().splitlines())==1,'PID1 cgroup not unified')
-    b=boot(); osrel=Path('/etc/os-release').read_text().splitlines(); require('ID=ubuntu' in osrel and 'VERSION_ID="24.04"' in osrel,'unexpected host distribution')
-    systemd=cmd(['/usr/bin/systemctl','--version'],end).splitlines()[0]; require(re.fullmatch(r'systemd [0-9]+(?: \([^\r\n]{1,180}\))?',systemd),'systemd version grammar')
-    sock=Path('/var/run/docker.sock'); st=sock.stat(); require(stat.S_ISSOCK(st.st_mode) and st.st_uid==0 and sock.resolve()==Path('/run/docker.sock'),'local root socket required')
-    d=show('docker.service',SERVICE_KEYS,end); require(d['ActiveState']=='active' and re.fullmatch(r'[1-9][0-9]{0,9}',d['MainPID']),'docker service unavailable')
-    pid=int(d['MainPID']); require(pid>1,'invalid daemon PID'); fd=os.pidfd_open(pid,0)
+    with diagnostic('HOST'):
+        require(os.geteuid()==0 and os.uname().machine=='x86_64','root x64 host required')
+        require(Path('/proc/1/comm').read_text().strip()=='systemd','PID1 not systemd')
+        require(identity(os.stat('/proc/self/ns/pid'))==identity(os.stat('/proc/1/ns/pid')),'not host PID namespace')
+    with diagnostic('CGROUP'):
+        mount_gate(Path('/proc/self/mountinfo').read_text())
+        require(Path('/proc/1/cgroup').read_text().startswith('0::') and len(Path('/proc/1/cgroup').read_text().splitlines())==1,'PID1 cgroup not unified')
+    with diagnostic('HOST'):
+        b=boot(); osrel=Path('/etc/os-release').read_text().splitlines(); require('ID=ubuntu' in osrel and 'VERSION_ID="24.04"' in osrel,'unexpected host distribution')
+        systemd=cmd(['/usr/bin/systemctl','--version'],end).splitlines()[0]; require(re.fullmatch(r'systemd [0-9]+(?: \([^\r\n]{1,180}\))?',systemd),'systemd version grammar')
+    with diagnostic('DOCKER_IDENTITY'):
+        sock=Path('/var/run/docker.sock'); st=sock.stat(); require(stat.S_ISSOCK(st.st_mode) and st.st_uid==0 and sock.resolve()==Path('/run/docker.sock'),'local root socket required')
+        d=show('docker.service',SERVICE_KEYS,end); require(d['ActiveState']=='active' and re.fullmatch(r'[1-9][0-9]{0,9}',d['MainPID']),'docker service unavailable')
+        pid=int(d['MainPID']); require(pid>1,'invalid daemon PID')
+    with diagnostic('PIDFD'):
+        fd=os.pidfd_open(pid,0)
     try:
-        poll=select.poll(); poll.register(fd,select.POLLIN|select.POLLHUP|select.POLLERR); require(not poll.poll(0),'daemon already dead')
-        before=proc_identity(pid,end); manager_start=proc_start(1)
-        snapshot=peer_snapshot(sock,st,pid,d,end)
-        info=strict_json(cmd(DOCKER+['info','--format','{{json .}}'],end)); ver=strict_json(cmd(DOCKER+['version','--format','{{json .}}'],end)); client,server=docker_gate(info,ver)
-        require(not poll.poll(0) and proc_identity(pid,end)==before and proc_start(1)==manager_start and boot()==b and show('docker.service',SERVICE_KEYS,end)==d,'daemon/socket drift')
-        require(peer_snapshot(sock,st,pid,d,end)==snapshot and not poll.poll(0) and proc_start(pid)==before[0] and proc_start(1)==manager_start and boot()==b and identity(os.stat(Path('/proc')/str(pid)/'exe'))==before[3:5],'listener/peer continuity failure')
-        peer,k,daemon_fds,manager_fds,mode,socket_unit=snapshot
-    finally: os.close(fd)
-    self_fd=os.pidfd_open(os.getpid(),0)
-    try:
-        q=select.poll();q.register(self_fd,select.POLLIN|select.POLLHUP|select.POLLERR);require(not q.poll(0),'self PIDFD invalid')
-    finally: os.close(self_fd)
-    left(end)
-    return dict(boot_id=b,systemd=systemd,kernel=os.uname().release,docker_client=client,docker_server=server,dockerd_pid=pid,dockerd_start_ticks=before[0],dockerd_sha256=before[2],docker_cli_sha256=digest(Path('/usr/bin/docker').read_bytes()),socket_dev=st.st_dev,socket_ino=st.st_ino,peer_pid=peer[0],peer_uid=peer[1],dockerd_exe_dev=before[3],dockerd_exe_ino=before[4],kernel_listener_ino=k[0],listener_cookie=list(k[1:3]),listener_vfs_ino=k[3],listener_vfs_dev=k[4],daemon_listener_fds=list(daemon_fds),manager_listener_fds=list(manager_fds),peer_mode=mode,service_triggered_by=d['TriggeredBy'],socket_unit=socket_unit,manager_start_ticks=manager_start,cgroup_version='2',cgroup_driver='systemd',pidfd=True,host_pid_namespace=True,rootful=True)
+        with diagnostic('PIDFD'):
+            poll=select.poll(); poll.register(fd,select.POLLIN|select.POLLHUP|select.POLLERR); require(not poll.poll(0),'daemon already dead')
+        with diagnostic('DOCKER_IDENTITY'):
+            before=proc_identity(pid,end); manager_start=proc_start(1)
+        with diagnostic('KERNEL_LISTENER'):
+            snapshot=peer_snapshot(sock,st,pid,d,end)
+        with diagnostic('DOCKER_API'):
+            info=strict_json(cmd(DOCKER+['info','--format','{{json .}}'],end)); ver=strict_json(cmd(DOCKER+['version','--format','{{json .}}'],end)); client,server=docker_gate(info,ver)
+        with diagnostic('DOCKER_IDENTITY'):
+            require(not poll.poll(0) and proc_identity(pid,end)==before and proc_start(1)==manager_start and boot()==b and show('docker.service',SERVICE_KEYS,end)==d,'daemon/socket drift')
+        with diagnostic('KERNEL_LISTENER'):
+            require(peer_snapshot(sock,st,pid,d,end)==snapshot and not poll.poll(0) and proc_start(pid)==before[0] and proc_start(1)==manager_start and boot()==b and identity(os.stat(Path('/proc')/str(pid)/'exe'))==before[3:5],'listener/peer continuity failure')
+            peer,k,daemon_fds,manager_fds,mode,socket_unit=snapshot
+    finally:
+        with diagnostic('PIDFD'):
+            os.close(fd)
+    with diagnostic('PIDFD'):
+        self_fd=os.pidfd_open(os.getpid(),0)
+        try:
+            q=select.poll();q.register(self_fd,select.POLLIN|select.POLLHUP|select.POLLERR);require(not q.poll(0),'self PIDFD invalid')
+        finally: os.close(self_fd)
+    with diagnostic('HOST'):
+        left(end)
+        return dict(boot_id=b,systemd=systemd,kernel=os.uname().release,docker_client=client,docker_server=server,dockerd_pid=pid,dockerd_start_ticks=before[0],dockerd_sha256=before[2],docker_cli_sha256=digest(Path('/usr/bin/docker').read_bytes()),socket_dev=st.st_dev,socket_ino=st.st_ino,peer_pid=peer[0],peer_uid=peer[1],dockerd_exe_dev=before[3],dockerd_exe_ino=before[4],kernel_listener_ino=k[0],listener_cookie=list(k[1:3]),listener_vfs_ino=k[3],listener_vfs_dev=k[4],daemon_listener_fds=list(daemon_fds),manager_listener_fds=list(manager_fds),peer_mode=mode,service_triggered_by=d['TriggeredBy'],socket_unit=socket_unit,manager_start_ticks=manager_start,cgroup_version='2',cgroup_driver='systemd',pidfd=True,host_pid_namespace=True,rootful=True)
 
 def sample(fd,path,name,b,end):
     left(end); st=os.fstat(fd); cur=path.lstat(); require(stat.S_ISDIR(cur.st_mode) and identity(st)==identity(cur) and boot()==b,'slice identity drift')
@@ -246,34 +285,40 @@ def sample(fd,path,name,b,end):
 
 def slice_measure(name,b,end):
     path=ROOT/name; unit=UNITS/name; keys=('LoadState','ActiveState','ControlGroup')
-    require(absent(path) and absent(unit),'preexisting slice')
-    # systemctl show may successfully describe not-found or fail; never guess from failure.
-    require(show(name,keys,end)=={'LoadState':'not-found','ActiveState':'inactive','ControlGroup':''},'preexisting or unresolved unit')
-    fd=os.open(unit,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_CLOEXEC,0o644)
+    with diagnostic('SLICE_PRECHECK'):
+        require(absent(path) and absent(unit),'preexisting slice')
+        # systemctl show may successfully describe not-found or fail; never guess from failure.
+        require(show(name,keys,end)=={'LoadState':'not-found','ActiveState':'inactive','ControlGroup':''},'preexisting or unresolved unit')
+    with diagnostic('SLICE_CREATION'):
+        fd=os.open(unit,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_CLOEXEC,0o644)
+        try:
+            require(os.write(fd,UNIT)==len(UNIT),'short unit write'); os.fsync(fd); unit_id=identity(os.fstat(fd))
+        finally: os.close(fd)
+        # On any uncertainty after this point, do NOT stop an unknown or populated
+        # slice, unlink an unverified unit, or retry. Quarantine the disposable VM.
+        cmd(SYSTEM+['daemon-reload'],end); cmd(SYSTEM+['start',name],end)
+        dfd=os.open(path,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
     try:
-        require(os.write(fd,UNIT)==len(UNIT),'short unit write'); os.fsync(fd); unit_id=identity(os.fstat(fd))
-    finally: os.close(fd)
-    # On any uncertainty after this point, do NOT stop an unknown or populated
-    # slice, unlink an unverified unit, or retry. Quarantine the disposable VM.
-    cmd(SYSTEM+['daemon-reload'],end); cmd(SYSTEM+['start',name],end)
-    dfd=os.open(path,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
-    try:
-        t0=time.monotonic(); first=sample(dfd,path,name,b,end)
-        require(left(end)>2,'persistence interval unavailable'); time.sleep(2)
-        last=sample(dfd,path,name,b,end); elapsed=int((time.monotonic()-t0)*1000)
-        require(first==last and elapsed>=2000,'persistent empty slice unverified')
-        require(identity(unit.lstat())==unit_id and unit.read_bytes()==UNIT,'unit file changed')
-        # Last observation before stop; not an atomic exclusion of concurrent writers.
-        require(sample(dfd,path,name,b,end)==last,'pre-stop drift')
-        cmd(SYSTEM+['stop',name],end)
-        require(absent(path),'slice cgroup still present')
-        require(show(name,keys,end)=={'LoadState':'loaded','ActiveState':'inactive','ControlGroup':''},'stopped unit unverified')
-        require(identity(unit.lstat())==unit_id and unit.read_bytes()==UNIT,'unit identity changed before unlink')
-        unit.unlink(); cmd(SYSTEM+['daemon-reload'],end)
-        require(absent(path) and absent(unit) and boot()==b,'slice removal incomplete')
-        require(show(name,keys,end)=={'LoadState':'not-found','ActiveState':'inactive','ControlGroup':''},'unit remains loaded')
-        left(end)
-    finally: os.close(dfd)
+        with diagnostic('SLICE_PERSISTENCE'):
+            t0=time.monotonic(); first=sample(dfd,path,name,b,end)
+            require(left(end)>2,'persistence interval unavailable'); time.sleep(2)
+            last=sample(dfd,path,name,b,end); elapsed=int((time.monotonic()-t0)*1000)
+            require(first==last and elapsed>=2000,'persistent empty slice unverified')
+            require(identity(unit.lstat())==unit_id and unit.read_bytes()==UNIT,'unit file changed')
+            # Last observation before stop; not an atomic exclusion of concurrent writers.
+            require(sample(dfd,path,name,b,end)==last,'pre-stop drift')
+        with diagnostic('SLICE_REMOVAL'):
+            cmd(SYSTEM+['stop',name],end)
+            require(absent(path),'slice cgroup still present')
+            require(show(name,keys,end)=={'LoadState':'loaded','ActiveState':'inactive','ControlGroup':''},'stopped unit unverified')
+            require(identity(unit.lstat())==unit_id and unit.read_bytes()==UNIT,'unit identity changed before unlink')
+            unit.unlink(); cmd(SYSTEM+['daemon-reload'],end)
+            require(absent(path) and absent(unit) and boot()==b,'slice removal incomplete')
+            require(show(name,keys,end)=={'LoadState':'not-found','ActiveState':'inactive','ControlGroup':''},'unit remains loaded')
+            left(end)
+    finally:
+        with diagnostic('SLICE_FD_CLOSE'):
+            os.close(dfd)
     return dict(name=name,first=first,last=last,persistence_ms=elapsed,unit_sha256=digest(UNIT),cgroup_removed=True,unit_removed=True,unit_not_found=True)
 
 def validate_receipt(r,commit,run):
@@ -303,13 +348,19 @@ def validate_receipt(r,commit,run):
     return r
 
 def main(args):
-    name=auth(args); commit,run,attempt,_,_=args; t=time.monotonic(); end=t+45
-    h=host_measure(min(end,t+15)); s=slice_measure(name,h['boot_id'],end)
-    r=dict(schema='sg-linux-host-compatibility-v2',result='HOST_COMPATIBILITY_REVIEW_REQUIRED',commit=commit,run=run,attempt=attempt,host=h,slice=s,elapsed_ms=int((time.monotonic()-t)*1000),runtime_containment_approved=False,private_inputs_approved=False,native_approved=False)
-    left(end); validate_receipt(r,commit,run); print(json.dumps(r,sort_keys=True,separators=(',',':')))
+    with diagnostic('AUTH'):
+        name=auth(args)
+    with diagnostic('HOST'):
+        commit,run,attempt,_,_=args; t=time.monotonic(); end=t+45
+        h=host_measure(min(end,t+15))
+    with diagnostic('SLICE_CREATION'):
+        s=slice_measure(name,h['boot_id'],end)
+    with diagnostic('RECEIPT'):
+        r=dict(schema='sg-linux-host-compatibility-v2',result='HOST_COMPATIBILITY_REVIEW_REQUIRED',commit=commit,run=run,attempt=attempt,host=h,slice=s,elapsed_ms=int((time.monotonic()-t)*1000),runtime_containment_approved=False,private_inputs_approved=False,native_approved=False)
+        left(end); validate_receipt(r,commit,run); print(json.dumps(r,sort_keys=True,separators=(',',':')))
 
 if __name__=='__main__':
     try: main(sys.argv[1:])
-    except Exception:
+    except Exception as exc:
         # No raw host output, no receipt, no retry, no blanket cleanup.
-        print('HOST_COMPATIBILITY_HOLD_QUARANTINE',file=sys.stderr); sys.exit(1)
+        report_hold(exc); sys.exit(1)
