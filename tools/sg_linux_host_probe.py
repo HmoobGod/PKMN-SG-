@@ -22,7 +22,7 @@ VERSION=re.compile(r'[0-9][0-9A-Za-z.+~_-]{0,63}\Z')
 class Hold(RuntimeError): pass
 
 # Fixed stage labels only. Never emit exception text or host-derived values.
-DIAGNOSTIC_CODES=frozenset({'AUTH', 'HOST', 'CGROUP', 'DOCKER_IDENTITY', 'DOCKER_API', 'KERNEL_LISTENER', 'PIDFD', 'SLICE_PRECHECK', 'SLICE_PRECHECK_QUERY', 'SLICE_PRECHECK_STATE', 'SLICE_CREATION', 'SLICE_PERSISTENCE', 'SLICE_REMOVAL', 'SLICE_FD_CLOSE', 'RECEIPT', 'UNCLASSIFIED'})
+DIAGNOSTIC_CODES=frozenset({'AUTH', 'HOST', 'CGROUP', 'DOCKER_IDENTITY', 'DOCKER_API', 'KERNEL_LISTENER', 'PIDFD', 'SLICE_PRECHECK', 'SLICE_PRECHECK_QUERY', 'SLICE_PRECHECK_STATE', 'SLICE_CREATION', 'SLICE_PERSISTENCE', 'SLICE_REMOVAL', 'SLICE_PRECHECK_STATE_LOAD_LOADED', 'SLICE_PRECHECK_STATE_LOAD_OTHER', 'SLICE_PRECHECK_STATE_ACTIVE', 'SLICE_PRECHECK_STATE_CGROUP', 'SLICE_REMOVAL_FINAL_STATE_LOAD_LOADED', 'SLICE_REMOVAL_FINAL_STATE_LOAD_OTHER', 'SLICE_REMOVAL_FINAL_STATE_ACTIVE', 'SLICE_REMOVAL_FINAL_STATE_CGROUP', 'SLICE_REMOVAL_FINAL_QUERY', 'SLICE_REMOVAL_FINAL_STATE', 'SLICE_FD_CLOSE', 'RECEIPT', 'UNCLASSIFIED'})
 class DiagnosticHold(Hold):
     def __init__(self,code):
         self.code=code if type(code) is str and code in DIAGNOSTIC_CODES else 'UNCLASSIFIED'
@@ -283,6 +283,23 @@ def sample(fd,path,name,b,end):
     require(identity(path.lstat())==identity(st) and boot()==b,'slice changed during sample'); left(end)
     return {'dev':st.st_dev,'ino':st.st_ino,'populated':0,'procs':0,'children':0,'active':True}
 
+def require_absent_slice_state(state, phase):
+    # Preserve the exact R4 acceptance predicate. Report only a fixed first mismatch.
+    require(phase in ('SLICE_PRECHECK_STATE','SLICE_REMOVAL_FINAL_STATE'),'invalid diagnostic phase')
+    expected={'LoadState':'not-found','ActiveState':'inactive','ControlGroup':''}
+    if state==expected:
+        return
+    require(type(state) is dict and set(state)==set(expected),'unexpected property shape')
+    if state['LoadState']!='not-found':
+        suffix='LOAD_LOADED' if state['LoadState']=='loaded' else 'LOAD_OTHER'
+    elif state['ActiveState']!='inactive':
+        suffix='ACTIVE'
+    elif state['ControlGroup']!='':
+        suffix='CGROUP'
+    else:
+        raise Hold('unresolved state')
+    raise DiagnosticHold(phase+'_'+suffix)
+
 def slice_measure(name,b,end):
     path=ROOT/name; unit=UNITS/name; keys=('LoadState','ActiveState','ControlGroup')
     with diagnostic('SLICE_PRECHECK'):
@@ -291,7 +308,7 @@ def slice_measure(name,b,end):
         with diagnostic('SLICE_PRECHECK_QUERY'):
             state=show(name,keys,end)
         with diagnostic('SLICE_PRECHECK_STATE'):
-            require(state=={'LoadState':'not-found','ActiveState':'inactive','ControlGroup':''},'preexisting or unresolved unit')
+            require_absent_slice_state(state,'SLICE_PRECHECK_STATE')
     with diagnostic('SLICE_CREATION'):
         fd=os.open(unit,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_CLOEXEC,0o644)
         try:
@@ -317,7 +334,10 @@ def slice_measure(name,b,end):
             require(identity(unit.lstat())==unit_id and unit.read_bytes()==UNIT,'unit identity changed before unlink')
             unit.unlink(); cmd(SYSTEM+['daemon-reload'],end)
             require(absent(path) and absent(unit) and boot()==b,'slice removal incomplete')
-            require(show(name,keys,end)=={'LoadState':'not-found','ActiveState':'inactive','ControlGroup':''},'unit remains loaded')
+            with diagnostic('SLICE_REMOVAL_FINAL_QUERY'):
+                state=show(name,keys,end)
+            with diagnostic('SLICE_REMOVAL_FINAL_STATE'):
+                require_absent_slice_state(state,'SLICE_REMOVAL_FINAL_STATE')
             left(end)
     finally:
         with diagnostic('SLICE_FD_CLOSE'):

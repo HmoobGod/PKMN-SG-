@@ -55,11 +55,11 @@ jobs:
           test "$(git rev-parse HEAD)" = "$SG_EXPECTED_COMMIT"
           src="$GITHUB_WORKSPACE/tools/sg_linux_host_probe.py"
           test -f "$src" && test ! -L "$src"
-          printf '%s  %s\n' '66c32995f79caa67fb36766ee06de7f962cd95aa39cfd7bc5adcdaef39570481' "$src" | sha256sum --check --status
+          printf '%s  %s\n' '7a1b272c34c033d1b959f7e972e28b8d97e6825625e5abc776ac2b95efa86971' "$src" | sha256sum --check --status
           out=$(sudo -n /usr/bin/mktemp -d /run/sg-linux-host.XXXXXXXX)
           # Root-owned fixed source copy; no untrusted arguments, no runtime container.
           sudo -n /usr/bin/install -m 0400 -o root -g root "$src" "$out/probe.py"
-          sudo -n /usr/bin/sha256sum "$out/probe.py" | grep -Fx '66c32995f79caa67fb36766ee06de7f962cd95aa39cfd7bc5adcdaef39570481  '"$out/probe.py"
+          sudo -n /usr/bin/sha256sum "$out/probe.py" | grep -Fx '7a1b272c34c033d1b959f7e972e28b8d97e6825625e5abc776ac2b95efa86971  '"$out/probe.py"
           receipt="$RUNNER_TEMP/sg-linux-host-receipt-$GITHUB_RUN_ID.json"
           test ! -e "$receipt" && test ! -L "$receipt"
           (set -o noclobber; sudo -n /usr/bin/env -i PATH=/usr/bin:/bin HOME=/ LANG=C LC_ALL=C /usr/bin/timeout -k 2s 50s /usr/bin/python3 -I -B "$out/probe.py" "$SG_EXPECTED_COMMIT" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$SG_HOST_AUTH" "$SG_SLICE_AUTH" > "$receipt")
