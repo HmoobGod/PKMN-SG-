@@ -1,0 +1,75 @@
+name: SoulGold Linux host compatibility (empty slice only)
+'on':
+  workflow_dispatch:
+    inputs:
+      host_authorization:
+        required: true
+        type: string
+        description: I_AUTHORIZE_ONE_LINUX_HOST_COMPATIBILITY_MEASUREMENT
+      slice_authorization:
+        required: true
+        type: string
+        description: I_AUTHORIZE_ONE_EMPTY_SYSTEMD_SLICE_CREATE_OBSERVE_REMOVE
+      expected_commit:
+        required: true
+        type: string
+        description: Independently reviewed exact main commit
+permissions:
+  contents: read
+concurrency:
+  group: sg-linux-empty-slice-compatibility
+  cancel-in-progress: false
+jobs:
+  host-compatibility:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      SG_HOST_AUTH: ${{ inputs.host_authorization }}
+      SG_SLICE_AUTH: ${{ inputs.slice_authorization }}
+      SG_EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+    steps:
+      - name: Require separately authorized owner first attempt
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REPOSITORY" == HmoobGod/PKMN-SG- && "$GITHUB_REF" == refs/heads/main ]]
+          [[ "$GITHUB_ACTOR" == HmoobGod && "$GITHUB_TRIGGERING_ACTOR" == HmoobGod ]]
+          [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "$GITHUB_RUN_ATTEMPT" == 1 ]]
+          [[ "$RUNNER_ENVIRONMENT" == github-hosted && "$RUNNER_OS" == Linux && "$RUNNER_ARCH" == X64 ]]
+          [[ "$SG_EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ && "$SG_EXPECTED_COMMIT" == "$GITHUB_SHA" && "$GITHUB_WORKFLOW_SHA" == "$GITHUB_SHA" ]]
+          [[ "$GITHUB_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
+          [[ "$SG_HOST_AUTH" == I_AUTHORIZE_ONE_LINUX_HOST_COMPATIBILITY_MEASUREMENT ]]
+          [[ "$SG_SLICE_AUTH" == I_AUTHORIZE_ONE_EMPTY_SYSTEMD_SLICE_CREATE_OBSERVE_REMOVE ]]
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          sparse-checkout: tools/sg_linux_host_probe.py
+          sparse-checkout-cone-mode: false
+      - name: Measure host and one empty slice only
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$(git rev-parse HEAD)" = "$SG_EXPECTED_COMMIT"
+          src="$GITHUB_WORKSPACE/tools/sg_linux_host_probe.py"
+          test -f "$src" && test ! -L "$src"
+          printf '%s  %s\n' '042ce77f780a51fbf22457b38056cfcf5c284c080d1396fbf2919fb9845e84f0' "$src" | sha256sum --check --status
+          out=$(sudo -n /usr/bin/mktemp -d /run/sg-linux-host.XXXXXXXX)
+          # Root-owned fixed source copy; no untrusted arguments, no runtime container.
+          sudo -n /usr/bin/install -m 0400 -o root -g root "$src" "$out/probe.py"
+          sudo -n /usr/bin/sha256sum "$out/probe.py" | grep -Fx '042ce77f780a51fbf22457b38056cfcf5c284c080d1396fbf2919fb9845e84f0  '"$out/probe.py"
+          receipt="$RUNNER_TEMP/sg-linux-host-receipt-$GITHUB_RUN_ID.json"
+          test ! -e "$receipt" && test ! -L "$receipt"
+          (set -o noclobber; sudo -n /usr/bin/env -i PATH=/usr/bin:/bin HOME=/ LANG=C LC_ALL=C /usr/bin/timeout -k 2s 50s /usr/bin/python3 -I -B "$out/probe.py" "$SG_EXPECTED_COMMIT" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$SG_HOST_AUTH" "$SG_SLICE_AUTH" > "$receipt")
+          test -s "$receipt"
+          echo HOST_COMPATIBILITY_REVIEW_REQUIRED
+      - name: Export successful host metadata only
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: linux-host-compatibility-attempt-1
+          path: ${{ runner.temp }}/sg-linux-host-receipt-${{ github.run_id }}.json
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: false
