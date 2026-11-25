@@ -1,0 +1,159 @@
+diff --git a/include/battle_util.h b/include/battle_util.h
+--- a/include/battle_util.h
++++ b/include/battle_util.h
+@@ -252,6 +252,7 @@
+ bool32 SGReconstructionBeginFight(enum BattlerId battler);
+ bool32 SGReconstructionCheckFight(enum BattlerId battler);
+ void SGReconstructionRecordMoveRequest(enum BattlerId battler);
++bool32 SGReconstructionConsumeMoveRequest(enum BattlerId battler, u8 *slot);
+ u8 GetImprisonedMovesCount(enum BattlerId battler, enum Move move);
+ s32 GetDrainedBigRootHp(enum BattlerId battler, s32 hp);
+ bool32 IsAbilityAndRecord(enum BattlerId battler, enum Ability abilityToCheck);
+diff --git a/src/battle_util.c b/src/battle_util.c
+--- a/src/battle_util.c
++++ b/src/battle_util.c
+@@ -11,6 +11,7 @@
+ #include "battle_setup.h"
+ #include "battle_z_move.h"
+ #include "battle_gimmick.h"
++#include "follower_npc.h"
+ #include "battle_hold_effects.h"
+ #include "generational_changes.h"
+ #include "party_menu.h"
+@@ -2022,12 +2023,17 @@
+  * deny ALL shiny foes. The normal player menu remains available. */
+ static bool32 SGReconstructionScope(enum BattlerId battler)
+ {
+-    if (battler != 0 || gBattleResources == NULL || gBattlersCount != 2
++    if (battler != 0 || gBattleResources == NULL || gBattleStruct == NULL
++        || gSaveBlock1Ptr == NULL || gSaveBlock2Ptr == NULL || gTestRunnerEnabled
++        || gBattlersCount != 2
+         || gBattleTypeFlags != BATTLE_TYPE_IS_MASTER || gAbsentBattlerFlags != 0
+         || GetBattlerAtPosition(B_POSITION_PLAYER_LEFT) != 0
+         || GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT) != 1
+         || gBattlerPartyIndexes[0] >= PARTY_SIZE || gBattlerPartyIndexes[1] >= PARTY_SIZE
+-        || !IsBattlerAlive(0) || !IsBattlerAlive(1))
++        || !IsBattlerAlive(0) || !IsBattlerAlive(1)
++        || IsNPCFollowerWildBattle() || GetActiveGimmick(0) != GIMMICK_NONE
++        || GetActiveGimmick(1) != GIMMICK_NONE
++        || gBattleStruct->gimmick.playerSelect || gBattleStruct->gimmick.toActivate)
+         return FALSE;
+     struct Pokemon *foe = &gEnemyParty[gBattlerPartyIndexes[1]];
+     if (!IsMonShiny(foe))
+@@ -2129,7 +2135,91 @@
+     memcpy(sSGReconstructionReceipt.payload, gBattleResources->bufferA[battler],
+            sizeof(sSGReconstructionReceipt.payload));
+     sSGReconstructionReceipt.phase = SG_RECEIPT_REQUEST;
+-    /* No receipt consumer, lease, scorer or move emitter is enabled yet. */
++}
++
++/* Only the original player ChooseMove handler consumes this receipt. The
++ * existing engine still validates the returned slot and target, spends PP,
++ * executes the move, and owns all retry/selection-script behavior. */
++bool32 SGReconstructionConsumeMoveRequest(enum BattlerId battler, u8 *slot)
++{
++    u32 bestScore = 0;
++    u8 bestSlot = MAX_MON_MOVES;
++
++    if (!SG_RECONSTRUCTION_AUTO_ENABLED || battler != 0)
++        return FALSE;
++    if (slot == NULL
++        || sSGReconstructionReceipt.phase != SG_RECEIPT_REQUEST
++        || !SGReconstructionSameContext(battler))
++        goto fallback;
++
++    const u8 *request = gBattleResources->bufferA[battler];
++    if (request[0] != CONTROLLER_CHOOSEMOVE || request[1] != 0
++        || request[2] != 0 || request[3] != 0
++        || (sSGReconstructionReceipt.unusableMask & ~ALL_MOVES_MASK) != 0
++        || memcmp(request, sSGReconstructionReceipt.payload,
++                  sizeof(sSGReconstructionReceipt.payload)) != 0)
++        goto fallback;
++
++    const struct ChooseMoveStruct *info = (const struct ChooseMoveStruct *)(&request[4]);
++    if (info->species != gBattleMons[battler].species)
++        goto fallback;
++    for (u32 i = 0; i < ARRAY_COUNT(info->monTypes); i++)
++        if (info->monTypes[i] != gBattleMons[battler].types[i])
++            goto fallback;
++    for (u32 i = 0; i < MAX_MON_MOVES; i++)
++        if (info->moves[i] != gBattleMons[battler].moves[i]
++            || info->currentPp[i] != gBattleMons[battler].pp[i]
++            || info->currentPp[i] > info->maxPp[i])
++            goto fallback;
++
++    /* Initial bounded policy: plain direct damaging moves only. Use native
++     * move metadata and type chart; this is not a damage/ability simulator. */
++    enum Type foeTypes[3];
++    GetBattlerTypes(1, FALSE, foeTypes);
++    for (u32 i = 0; i < ARRAY_COUNT(foeTypes); i++)
++        if (foeTypes[i] >= NUMBER_OF_MON_TYPES || foeTypes[i] == TYPE_NONE)
++            goto fallback;
++    for (u32 i = 0; i < MAX_MON_MOVES; i++)
++    {
++        enum Move move = info->moves[i];
++        if ((sSGReconstructionReceipt.unusableMask & (1u << i))
++            || move == MOVE_NONE || move >= MOVES_COUNT || info->currentPp[i] == 0
++            || GetMoveEffect(move) != EFFECT_HIT || IsBattleMoveStatus(move)
++            || GetBattlerMoveTargetType(battler, move) != TARGET_SELECTED
++            || GetMovePower(move) == 0)
++            continue;
++        enum Type type = GetMoveType(move);
++        if (type <= TYPE_NONE || type >= NUMBER_OF_MON_TYPES || type == TYPE_MYSTERY)
++            continue;
++        uq4_12_t modifier = GetTypeModifier(type, foeTypes[0]);
++        if (foeTypes[1] != foeTypes[0])
++            modifier = uq4_12_multiply(modifier, GetTypeModifier(type, foeTypes[1]));
++        if (foeTypes[2] != TYPE_MYSTERY && foeTypes[2] != foeTypes[0] && foeTypes[2] != foeTypes[1])
++            modifier = uq4_12_multiply(modifier, GetTypeModifier(type, foeTypes[2]));
++        if (modifier == 0)
++            continue;
++        u32 accuracy = GetMoveAccuracy(move);
++        u32 score = GetMovePower(move) * (accuracy == 0 ? 100 : accuracy);
++        score = uq4_12_multiply_by_int_half_up(modifier, score);
++        if (type == info->monTypes[0] || type == info->monTypes[1] || type == info->monTypes[2])
++            score = score * 3 / 2;
++        if (score > bestScore)
++        {
++            bestScore = score;
++            bestSlot = i;
++        }
++    }
++    if (bestSlot >= MAX_MON_MOVES)
++        goto fallback;
++
++    // Consume before returning: a rejection/reissued request cannot replay it.
++    SGReconstructionResetReceipt(battler);
++    *slot = bestSlot;
++    return TRUE;
++
++fallback:
++    SGReconstructionResetReceipt(battler);
++    return FALSE;
+ }
+ 
+ u8 GetImprisonedMovesCount(enum BattlerId battler, enum Move move)
+diff --git a/src/battle_controller_player.c b/src/battle_controller_player.c
+--- a/src/battle_controller_player.c
++++ b/src/battle_controller_player.c
+@@ -2302,8 +2302,18 @@
+ 
+ void PlayerHandleChooseMove(enum BattlerId battler)
+ {
+-    /* Until a complete legal scorer exists, every ChooseMove uses the
+-     * original manual UI; no receipt can survive the fallback. */
++    u8 slot;
++    if (!JOY_HELD(B_BUTTON) && SGReconstructionConsumeMoveRequest(battler, &slot))
++    {
++        // Same native return as a manual direct-target selection, no gimmick.
++        BtlController_EmitTwoReturnValues(battler, B_COMM_TO_ENGINE, B_ACTION_EXEC_SCRIPT,
++                                          slot | (GetOpposingSideBattler(battler) << 8));
++        if (IsGimmickTriggerSpriteActive())
++            HideGimmickTriggerSprite();
++        TryHideLastUsedBall();
++        BtlController_Complete(battler);
++        return;
++    }
+     SGReconstructionResetReceipt(battler);
+     if (gBattleTypeFlags & BATTLE_TYPE_PALACE)
+     {
