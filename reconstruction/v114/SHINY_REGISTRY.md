@@ -1,0 +1,23 @@
+# Native shiny registry — overlay 0003 (hard-disabled)
+
+Base developer commit: afd290f7f8f965c73aa1ac6a1ae3196895d971db.
+Apply 0001, 0002, then 0003 in order. 0003 is against the prior two overlays, not pristine upstream.
+Patch commit fb7e9f0ccbc6ba2e8da599ddbe7a5a6e958499ab; Git blob c78f6bb159f1032f88d9510281057f07786052f2.
+Checkpoint 7154460773.
+
+## Authenticated historical behavior
+- October20 requirements https://docs.google.com/document/d/1uGclyaRvgwYl6pkCW4p1G8A6xNd6Y_fz/edit and Rev4.17 handoff https://docs.google.com/document/d/1i_d5Iwd69RsKbLpxfkcwUTsrWNU7YeaM/edit document National Dex IDs 1..0x401 -> flag 0x1041+dex (0x1042..0x1442), shared by forms. 0x1041 is not a registry entry. Historical gate file offset 0x06DF4C, writer 0x06E070 and capture call 0x0BB8EA; do not transplant those addresses.
+- September16 report documents historical save-bit toggle and persistent registry. October19 source trace does not supply the option bit mask. Historical static checkpoint observes option byte +0x17; exact mask/polarity, option UI read/write and default/migration remain unverified. Do not name or allocate an option bit. Upstream SaveBlock2 option fields include real neighboring settings; no save layout change, no new toggle, and original R1 hard lock FALSE remains.
+- Historical documents include a future auto-catch proposal, not authorization or implementation. No automatic capture/item/switch is added.
+
+## Real source integration
+- include/constants/flags.h exact blob e84ead26b3816d8406de126ee2b015f4281dd009: the upstream 0x1041 flag is FLAG_PYRAMID_ACHIEVEMENT_MIGRATION_COMPLETE. Reserve the authenticated registry range by extending CUSTOM_FLAGS_END to 0x1442; DAILY_FLAGS_START remains 0x1508, FLAGS_COUNT remains 0x1548, NUM_FLAG_BYTES remains 0x2A9. No array resizing or new save fields. The header declares no other named flags in that interval. Whole-tree numeric/script/dynamic flag collision audit and compiled save offsets are still required; source allocation fit is not runtime save compatibility.
+- src/event_data.c exact blob 099269458e91ba44cd482d4f8f9cfa5a03212055: persistent FlagGet/FlagSet resolve existing SaveBlock1 flags[id/8]. Bounds are enforced by the new dex check, not by GetFlagPointer.
+- src/battle_util.c exact upstream blob 366baa33513cd44a327e9397a2581e806bd429d6: R1's ordinary player-only wild-single scope uses IsMonShiny, SpeciesToNationalPokedexNum and FlagGet. With registry gate off, all shinies remain manual; with any eventual approved gate on, only registered valid species can pass this part of the scope. All other R1 scope guards and B/manual fallback remain. No automatic response authorization.
+- src/battle_script_commands.c exact upstream blob 6c14f1e737f3294f65c4e4f04b2130214d3760ec: use original Cmd_givecaughtmon GIVECAUGHTMON_GIVE_AND_SHOW_MSG path, not shared GiveCapturedMonToPlayer (also used for gifts). Snapshot shiny identity and National Dex before the give routine overwrites OT. Invoke original give routine exactly once; set flag only on MON_GIVEN_TO_PARTY or MON_GIVEN_TO_PC. Original result/message handling retained. Guard limits to ordinary master wild singles, opponent, non-follower and non-test context. No flag on failed delivery. This post-delivery commit is an explicit reconstruction choice rather than byte-identical historical writer timing. Scripted/special/doubles and alternative capture paths remain unimplemented; do not enable until the intended scope and delivery semantics are verified. Historical 10% generation not modified.
+- Both gates remain disabled: SG_RECONSTRUCTION_SHINY_REGISTRY_ENABLED=0 and SG_RECONSTRUCTION_AUTO_ENABLED=FALSE. R2 rewards/recovery remain disabled. Current unchanged.
+
+## Validation
+Readback sequentially reconstructed the 3 touched upstream files through applicable 0001/0002/0003 hunks, exact contexts, counts and line offsets; all 3 new hunks passed; generation reverse substitutions matched parent source. 47 net added lines. Source-only verification; no full git checkout apply, compiler/link or runtime claim. No Current ROM/save access, installation, cloud, automatic actions, flag writes or test game execution. Previous exact source/tree and GNU ARM toolchain blockers persist.
+
+Next useful task: restore existing balance/QoL rules whose exact source seams are available (e.g. 2x trainer money and duration rules), without enabling or claiming parity. Obtain authenticated historical exact toggle mask and UI semantics separately when available; do not repeat searches with no new inputs. Preserve full custom content and all holds. Formal 0/20, R5 NATIVE HOLD, Auto-Switch2 NO-GO.
