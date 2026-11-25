@@ -10,4 +10,8 @@ size_t sg_rank_public_damage_workspace(const SG_View *,const SG_PublicBattleObse
    Returns full damage candidate count and writes only the first stable best. */
 size_t sg_rank_damage_best(const SG_View *,const SG_PublicBattleObservation *,SG_Proposal *);
 
+/* Explicit opt-in bound type-only proposal. Same score/order as the full damage
+ * ranker with support tactics disabled. Does not confer native authority. */
+size_t sg_rank_typed_damage_best(const SG_View *,const SG_PublicBattleObservation *,SG_Proposal *);
+
 #endif

@@ -271,6 +271,20 @@ static bool sg_workspace_observation_valid(const SG_View *v,
     return true;
 }
 
+/* Shared type-only scoring: unknown coverage remains neutral, not proof of legality. */
+static int sg_damage_effect(const SG_PublicBattleObservation *o, unsigned m, unsigned t)
+{
+    if (o->use_engine_type_effect_heuristic &&
+        (o->effect_known_move_mask & (1u << m)) &&
+        (o->effect_public_foe_mask & (1u << t)))
+        return o->effect_quarters[m][t];
+    if (o->use_public_type_heuristic && o->owned_move_type[m] &&
+        (o->public_foe_type_mask & (1u << t)))
+        return sg_public_type_effect_quarters(o->owned_move_type[m],
+                                             o->foe_type1[t], o->foe_type2[t]);
+    return 4;
+}
+
 static int32_t sg_move_score(const SG_PublicMove *move,
                               const SG_PublicBattler *target,
                               int effectiveness_quarters)
@@ -344,21 +358,8 @@ size_t sg_rank_public_damage_workspace(const SG_View *view,
             p.move_slot = (uint8_t)m;
             p.target = (uint8_t)t;
             if (!sg_validate(view, &p)) continue;
-            int eff = 4;
-            if (observation->use_engine_type_effect_heuristic &&
-                (observation->effect_known_move_mask & (1u << m)) &&
-                (observation->effect_public_foe_mask & (1u << t))) {
-                eff = observation->effect_quarters[m][t];
-                if (eff == 0) continue; /* Verified type-only immunity */
-            }
-            if (observation->use_public_type_heuristic &&
-                observation->owned_move_type[m] &&
-                (observation->public_foe_type_mask & (1u << t))) {
-                eff = sg_public_type_effect_quarters(
-                    observation->owned_move_type[m],
-                    observation->foe_type1[t], observation->foe_type2[t]);
-                if (eff <= 0) continue; /* Known type immunity: no attack */
-            }
+            int eff = sg_damage_effect(observation, m, t);
+            if (eff <= 0) continue; /* Verified type-only immunity */
             int32_t score = sg_move_score(&observation->moves[m],
                                           &observation->active[t], eff);
             /* Doubles urgency: only when SAME-PLAYER ally ownership and its
@@ -568,14 +569,20 @@ size_t sg_rank_public_damage_workspace(const SG_View *view,
  * The shared observation validator requires verified_owned_ally_context_mask
  * and verified_last_field_turn_attack_mask (and other support fields) to be zero
  * when support tactics is off; their urgency bonuses cannot apply here.
- * No full-list sorting or workspace. Tactical/type modes use the full API.
+ * No full-list sorting or workspace. Tactical modes use the full API; bound type-only scoring has a separate opt-in entry point.
  */
-size_t sg_rank_damage_best(const SG_View *v,
-                          const SG_PublicBattleObservation *o,SG_Proposal *out)
+static size_t sg_rank_damage_best_impl(const SG_View *v,
+                          const SG_PublicBattleObservation *o,SG_Proposal *out,
+                          bool typed)
 {
     if (!v || !o || !out || !sg_workspace_observation_valid(v,o) ||
-        o->use_public_support_tactics || o->use_public_type_heuristic ||
-        o->use_engine_type_effect_heuristic)
+        o->use_public_support_tactics)
+        return 0;
+    if (typed) {
+        if (!o->require_owned_move_identity_proof ||
+            !(o->type_heuristic_bound || o->engine_type_effect_bound))
+            return 0;
+    } else if (o->use_public_type_heuristic || o->use_engine_type_effect_heuristic)
         return 0;
     if (sg_workspace_overlap((uintptr_t)out,sizeof(*out),(uintptr_t)v,sizeof(*v)) ||
         sg_workspace_overlap((uintptr_t)out,sizeof(*out),(uintptr_t)o,sizeof(*o)))
@@ -599,11 +606,27 @@ size_t sg_rank_damage_best(const SG_View *v,
             p.choice_token=v->choice_token;p.actor=v->actor;
             p.action=SG_USE_MOVE;p.move_slot=m;p.target=t;
             if(!sg_validate(v,&p))continue;
-            int32_t score=sg_move_score(&o->moves[m],&o->active[t],4);
+            int eff=sg_damage_effect(o,m,t);
+            if(eff<=0)continue;
+            int32_t score=sg_move_score(&o->moves[m],&o->active[t],eff);
             if(!count || score>best_score) {best=p;best_score=score;}
             count++;
         }
     }
     if(count)*out=best;
     return count;
+}
+
+/* Preserve the old diagnostic contract, including rejection of typed input. */
+size_t sg_rank_damage_best(const SG_View *v, const SG_PublicBattleObservation *o,
+                          SG_Proposal *out)
+{
+    return sg_rank_damage_best_impl(v,o,out,false);
+}
+
+/* Opt-in type-aware best proposal, with no full ranked-list workspace. */
+size_t sg_rank_typed_damage_best(const SG_View *v, const SG_PublicBattleObservation *o,
+                                SG_Proposal *out)
+{
+    return sg_rank_damage_best_impl(v,o,out,true);
 }
