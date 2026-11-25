@@ -200,7 +200,24 @@ typedef struct {
     bool engine_type_effect_bound;
     uint8_t effect_known_move_mask, effect_public_foe_mask;
     uint8_t effect_quarters[4][4]; /* [own move slot][public active foe] */
+    /* Opt-in source-facing UQ4.12 type-only matrix (4096 = neutral).
+     * Supports up to 8x for three defensive types. No rounding or conversion
+     * of 1/8x into immunity. Raw engine u32 values must be bounded before
+     * narrowing: use sg_store_engine_type_q12. In this mode the legacy
+     * quarter matrix MUST be all zero. This changes the source struct layout,
+     * not a native ABI; every caller must be rebuilt and separately certified. */
+    bool use_engine_q12_effects;
+    uint16_t effect_q12[4][4];
+
 } SG_PublicBattleObservation;
+
+#define SG_TYPE_Q12_ONE 4096u
+#define SG_TYPE_Q12_MAX 32768u
+/* Store an independently verified type-only value, not a full battle
+ * calculation. The existing move/foe masks must already identify the cell.
+ * Invalid values leave the observation unchanged. No provenance is granted. */
+bool sg_store_engine_type_q12(SG_PublicBattleObservation *, unsigned move_slot,
+                             unsigned foe_slot, uint32_t raw_q12);
 
 /* On any invalid or mismatched observation, returns zero WITHOUT changing
  * output. Candidate generation intentionally handles MOVE SELECTION ONLY;

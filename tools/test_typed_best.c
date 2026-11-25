@@ -38,6 +38,43 @@ static void parity(SG_View *v, SG_PublicBattleObservation *o, size_t n, unsigned
         assert(best.action==SG_USE_MOVE && best.choice_token==all[0].choice_token);
     }
 }
+static void q12_cases(void)
+{
+    SG_View v; SG_PublicBattleObservation o; SG_Proposal p={0};
+    fixture(&v,&o);
+    o.effect_quarters[0][1]=o.effect_quarters[1][1]=0;
+    o.use_engine_q12_effects=true;
+    assert(sg_store_engine_type_q12(&o,0,1,512u)); /* 1/8x, NOT immunity */
+    assert(sg_store_engine_type_q12(&o,1,1,32768u)); /* 8x */
+    parity(&v,&o,2,1);
+    v.permitted_move_mask=1; parity(&v,&o,1,0);
+    v.permitted_move_mask=3;
+    assert(sg_store_engine_type_q12(&o,0,1,32768u));
+    o.moves[0].displayed_base_power=999; /* unsigned product > INT32_MAX */
+    parity(&v,&o,2,0);
+    assert(!sg_store_engine_type_q12(&o,0,1,32769u));
+    assert(!sg_store_engine_type_q12(&o,0,1,65536u));
+    assert(!sg_store_engine_type_q12(&o,0,1,UINT32_MAX));
+    assert(o.effect_q12[0][1]==32768u);
+    assert(!sg_store_engine_type_q12(&o,4,1,4096u));
+    assert(!sg_store_engine_type_q12(&o,0,0,4096u));
+    assert(sg_store_engine_type_q12(&o,0,1,0u)); parity(&v,&o,1,1);
+    assert(sg_store_engine_type_q12(&o,1,1,0u)); parity(&v,&o,0,0);
+    assert(sg_store_engine_type_q12(&o,0,1,4096u));
+    assert(sg_store_engine_type_q12(&o,1,1,6144u)); /* 1.5 exact */
+    o.moves[0].displayed_base_power=80; parity(&v,&o,2,1);
+    o.effect_quarters[0][1]=4; parity(&v,&o,0,0); /* conflicting formats */
+    o.effect_quarters[0][1]=0;
+    o.effect_q12[0][0]=4096; parity(&v,&o,0,0); /* absent cell */
+    o.effect_q12[0][0]=0;
+    o.use_engine_q12_effects=false; parity(&v,&o,0,0);
+    fixture(&v,&o); assert(!sg_store_engine_type_q12(&o,0,1,4096u));
+    o.use_engine_type_effect_heuristic=false; o.engine_type_effect_bound=false;
+    o.effect_known_move_mask=o.effect_public_foe_mask=0;
+    o.effect_quarters[0][1]=o.effect_quarters[1][1]=0;
+    o.use_engine_q12_effects=true; p.move_slot=3;
+    assert(sg_rank_damage_best(&v,&o,&p)==0 && p.move_slot==3);
+}
 int main(void)
 {
     SG_View v; SG_PublicBattleObservation o; SG_Proposal p={0};
@@ -60,6 +97,7 @@ int main(void)
     o.public_foe_type_mask=2; o.foe_type1[1]=SG_TYPE_GHOST;
     parity(&v,&o,1,1);
     o.type_heuristic_bound=false; assert(sg_rank_typed_damage_best(&v,&o,&p)==0);
-    puts("PASS: type-aware best move parity, immunity, masks, unknowns, ties and legacy API");
+    q12_cases();
+    puts("PASS: type-aware best move parity, immunity, masks, unknowns, ties and legacy API; UQ4.12 triple-type range and overflow checks");
     return 0;
 }

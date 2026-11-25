@@ -99,6 +99,16 @@ int main(void)
     setup(&f);f.mutate_after_rank=1;defer(&f);
     setup(&f);f.legal.known_ineffective_mask=2;l=(R7Lease){7,10,0};t=(R7FightTicket){0};
     p=run(&f,&l,&t);assert(p.outcome==R7_FIGHT && p.slot==0);
-    puts("PASS: typed scorer composed with existing R7 Fight/Move, continuity and fallback");
+    /* Same existing controller, raw source fixed-point type multipliers. */
+    setup(&f);f.obs.effect_quarters[0][1]=f.obs.effect_quarters[1][1]=0;
+    f.obs.use_engine_q12_effects=true;
+    assert(sg_store_engine_type_q12(&f.obs,0,1,512u));
+    assert(sg_store_engine_type_q12(&f.obs,1,1,32768u));
+    l=(R7Lease){7,10,0};t=(R7FightTicket){0};
+    p=run(&f,&l,&t);assert(p.outcome==R7_FIGHT && p.slot==1);
+    next(&f);l=(R7Lease){7,11,0};
+    p=run(&f,&l,&t);assert(p.outcome==R7_MOVE && p.slot==1 && !t.pending);
+    setup(&f);f.obs.use_engine_q12_effects=true;defer(&f); /* legacy mix */
+    puts("PASS: typed scorer composed with existing R7 Fight/Move, continuity and fallback; source UQ4.12 inputs");
     return 0;
 }

@@ -188,7 +188,7 @@ static bool sg_workspace_observation_valid(const SG_View *v,
          !o->require_owned_move_identity_proof)) return false;
     if (!o->use_engine_type_effect_heuristic) {
         if (o->engine_type_effect_bound || o->effect_known_move_mask ||
-            o->effect_public_foe_mask) return false;
+            o->effect_public_foe_mask || o->use_engine_q12_effects) return false;
     } else if (!o->engine_type_effect_bound ||
                (o->effect_known_move_mask & 0xf0u) ||
                (o->effect_public_foe_mask & 0xf0u)) return false;
@@ -200,12 +200,18 @@ static bool sg_workspace_observation_valid(const SG_View *v,
         for (unsigned t = 0; t < 4u; ++t) {
             const bool known_foe = (o->effect_public_foe_mask & (1u << t)) != 0u;
             const unsigned eff = o->effect_quarters[m][t];
+            const unsigned q12 = o->effect_q12[m][t];
             if (!o->use_engine_type_effect_heuristic || !known_move || !known_foe) {
-                if (eff != 0u) return false;
-            } else if (t >= v->battler_count ||
-                       o->active[t].role != SG_PUBLIC_FOE ||
-                       (eff != 0u && eff != 1u && eff != 2u &&
-                        eff != 4u && eff != 8u && eff != 16u)) return false;
+                if (eff != 0u || q12 != 0u) return false;
+            } else {
+                if (t >= v->battler_count || o->active[t].role != SG_PUBLIC_FOE)
+                    return false;
+                if (o->use_engine_q12_effects) {
+                    if (eff != 0u || q12 > SG_TYPE_Q12_MAX) return false;
+                } else if (q12 != 0u ||
+                           (eff != 0u && eff != 1u && eff != 2u &&
+                            eff != 4u && eff != 8u && eff != 16u)) return false;
+            }
         }
     }
     for (unsigned t = 0; t < 4u; ++t) {
@@ -272,29 +278,51 @@ static bool sg_workspace_observation_valid(const SG_View *v,
 }
 
 /* Shared type-only scoring: unknown coverage remains neutral, not proof of legality. */
+bool sg_store_engine_type_q12(SG_PublicBattleObservation *o, unsigned m,
+                             unsigned t, uint32_t raw_q12)
+{
+    if (!o || m >= 4u || t >= 4u || !o->use_engine_type_effect_heuristic ||
+        !o->engine_type_effect_bound || !o->require_owned_move_identity_proof ||
+        !o->use_engine_q12_effects || raw_q12 > SG_TYPE_Q12_MAX ||
+        !(o->effect_known_move_mask & (1u << m)) ||
+        !(o->effect_public_foe_mask & (1u << t)) ||
+        !o->owned_move_identity[m] ||
+        o->owned_move_identity[m] != o->classified_move_identity[m] ||
+        !o->moves[m].known_damaging_move || o->active[t].role != SG_PUBLIC_FOE ||
+        o->effect_quarters[m][t] != 0u)
+        return false;
+    o->effect_q12[m][t] = (uint16_t)raw_q12;
+    return true;
+}
+
+/* Normalize old quarter and new UQ4.12 inputs to identical scoring units. */
 static int sg_damage_effect(const SG_PublicBattleObservation *o, unsigned m, unsigned t)
 {
     if (o->use_engine_type_effect_heuristic &&
         (o->effect_known_move_mask & (1u << m)) &&
         (o->effect_public_foe_mask & (1u << t)))
-        return o->effect_quarters[m][t];
+        return o->use_engine_q12_effects ? o->effect_q12[m][t] :
+               (int)o->effect_quarters[m][t] * 1024;
     if (o->use_public_type_heuristic && o->owned_move_type[m] &&
         (o->public_foe_type_mask & (1u << t)))
         return sg_public_type_effect_quarters(o->owned_move_type[m],
-                                             o->foe_type1[t], o->foe_type2[t]);
-    return 4;
+                                             o->foe_type1[t], o->foe_type2[t]) * 1024;
+    return SG_TYPE_Q12_ONE;
 }
 
 static int32_t sg_move_score(const SG_PublicMove *move,
                               const SG_PublicBattler *target,
-                              int effectiveness_quarters)
+                              int effectiveness_q12)
 {
     /* Entire score uses only the user's known move description and the
-     * opponent's displayed HP BAR band. It cannot predict type/ability,
-     * PP changes, exact damage, held items, or opponent intentions. */
-    const int32_t accuracy = move->known_always_hits ? 100 : move->displayed_accuracy;
-    int32_t score = ((int32_t)move->displayed_base_power * accuracy *
-                      effectiveness_quarters) / 4;
+     * opponent's displayed HP BAR band plus an optional verified type-only
+     * multiplier. No ability prediction, PP changes, exact damage, held
+     * items, or opponent intentions. */
+    const uint32_t accuracy = move->known_always_hits ? 100u : move->displayed_accuracy;
+    /* Max product 999 * 100 * 32768 < UINT32_MAX. Keep it unsigned to
+     * avoid signed overflow at 8x, and preserve legacy floor rounding. */
+    int32_t score = (int32_t)(((uint32_t)move->displayed_base_power * accuracy *
+                              (uint32_t)effectiveness_q12) / SG_TYPE_Q12_ONE);
     score += (int32_t)move->known_priority * 150;
     if (target->visible_hp_band == SG_HP_BAR_CRITICAL) score += 1200;
     else if (target->visible_hp_band == SG_HP_BAR_LOW) score += 800;
