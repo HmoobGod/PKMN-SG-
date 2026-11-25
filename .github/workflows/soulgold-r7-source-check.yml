@@ -14,6 +14,16 @@ jobs:
             review/r5/source-first/player0_fail_closed_guard.c \
             -o /tmp/soulgold-r7-source-only-check
           /tmp/soulgold-r7-source-only-check
+      - name: Compose existing R7 controller with type-aware scorer
+        run: |
+          cc -std=c11 -O2 -Wall -Wextra -Werror -pedantic -Iinclude -Isrc \
+            review/r7/engine_adapter.c review/r7/typed_adapter.c review/r7/test_typed_adapter.c \
+            review/r5/source-first/player0_fail_closed_guard.c \
+            src/ranker_workspace.c src/sg_action_gate.c src/sg_baseline_mode_guard.c src/sg_public_types.c \
+            -o /tmp/sg-r7-typed
+          /tmp/sg-r7-typed
+          cc -std=c11 -Wall -Wextra -Werror -Iinclude -Isrc tools/test_typed_best.c src/ranker_workspace.c src/sg_action_gate.c src/sg_baseline_mode_guard.c src/sg_public_types.c -o /tmp/sg-typed-best
+          /tmp/sg-typed-best
       - name: Refuse raw game artifacts and snapshots in new R7 files
         run: |
           if find review/r7 -type f | grep -Ei '\.(gba|sav|state|so|dll|elf|bin|dmp|trace|log|png|jpe?g|jsonl)$'; then
