@@ -1,0 +1,85 @@
+diff --git a/include/constants/flags.h b/include/constants/flags.h
+--- a/include/constants/flags.h
++++ b/include/constants/flags.h
+@@ -1749,7 +1749,16 @@
+ #define FLAG_TM_PICKUP_MIGRATION_COMPLETE           0x103D
+ 
+ #define FLAG_PYRAMID_ACHIEVEMENT_MIGRATION_COMPLETE 0x1041
+-#define CUSTOM_FLAGS_END                            FLAG_PYRAMID_ACHIEVEMENT_MIGRATION_COMPLETE
++// Historical custom caught-shiny registry: national dex 1..1025.
++// 0x1041 belongs to the Pyramid migration and is never a registry entry.
++#define SG_SHINY_REGISTRY_BASE                      0x1041
++#define SG_SHINY_REGISTRY_FIRST                     0x1042
++#define SG_SHINY_REGISTRY_LAST                      0x1442
++#define SG_SHINY_REGISTRY_MAX_DEX                   0x401
++#define CUSTOM_FLAGS_END                            SG_SHINY_REGISTRY_LAST
++
++// Hard-disabled until exact save-layout and capture-path validation.
++#define SG_RECONSTRUCTION_SHINY_REGISTRY_ENABLED   0
+ 
+ 
+ #define FLAG_0x1500                                 0x1500
+diff --git a/src/battle_util.c b/src/battle_util.c
+--- a/src/battle_util.c
++++ b/src/battle_util.c
+@@ -2029,7 +2029,20 @@
+         || gBattlerPartyIndexes[0] >= PARTY_SIZE || gBattlerPartyIndexes[1] >= PARTY_SIZE
+         || !IsBattlerAlive(0) || !IsBattlerAlive(1))
+         return FALSE;
+-    return !IsMonShiny(&gEnemyParty[gBattlerPartyIndexes[1]]);
++    struct Pokemon *foe = &gEnemyParty[gBattlerPartyIndexes[1]];
++    if (!IsMonShiny(foe))
++        return TRUE;
++
++    // Missing/disabled registry, invalid dex and unregistered shiny all
++    // preserve the ordinary manual fallback. No automatic capture.
++    if (!SG_RECONSTRUCTION_SHINY_REGISTRY_ENABLED || gSaveBlock1Ptr == NULL)
++        return FALSE;
++
++    u32 dex = SpeciesToNationalPokedexNum(GetMonData(foe, MON_DATA_SPECIES));
++    if (dex == 0 || dex > SG_SHINY_REGISTRY_MAX_DEX)
++        return FALSE;
++
++    return FlagGet(SG_SHINY_REGISTRY_BASE + dex);
+ }
+ 
+ static bool32 SGReconstructionSameContext(enum BattlerId battler)
+diff --git a/src/battle_script_commands.c b/src/battle_script_commands.c
+--- a/src/battle_script_commands.c
++++ b/src/battle_script_commands.c
+@@ -11974,8 +11974,33 @@
+                 break;
+         }
+ 
+-        if (GiveCapturedMonToPlayer(caughtMon) != MON_GIVEN_TO_PARTY
+-         && gBattleCommunication[MULTISTRING_CHOOSER] != B_MSG_SWAPPED_INTO_PARTY)
++        // Snapshot the actual caught mon before GiveCapturedMonToPlayer
++        // rewrites its OT. Only the native capture command can register it.
++        // Script gifts use the same give routine but never this binding.
++        u16 shinyRegistryFlag = 0;
++        if (SG_RECONSTRUCTION_SHINY_REGISTRY_ENABLED
++            && gSaveBlock1Ptr != NULL
++            && gBattleTypeFlags == BATTLE_TYPE_IS_MASTER
++            && gBattlersCount == 2
++            && !IsNPCFollowerWildBattle() && !gTestRunnerEnabled
++            && GetCatchingBattler() == GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT)
++            && GetCatchingBattler() < gBattlersCount
++            && !IsOnPlayerSide(GetCatchingBattler())
++            && IsMonShiny(caughtMon))
++        {
++            u32 dex = SpeciesToNationalPokedexNum(GetMonData(caughtMon, MON_DATA_SPECIES));
++            if (dex != 0 && dex <= SG_SHINY_REGISTRY_MAX_DEX)
++                shinyRegistryFlag = SG_SHINY_REGISTRY_BASE + dex;
++        }
++
++        u8 giveResult = GiveCapturedMonToPlayer(caughtMon);
++        if (shinyRegistryFlag >= SG_SHINY_REGISTRY_FIRST
++            && shinyRegistryFlag <= SG_SHINY_REGISTRY_LAST
++            && (giveResult == MON_GIVEN_TO_PARTY || giveResult == MON_GIVEN_TO_PC))
++            FlagSet(shinyRegistryFlag);
++
++        if (giveResult != MON_GIVEN_TO_PARTY
++         && gBattleCommunication[MULTISTRING_CHOOSER] != B_MSG_SWAPPED_INTO_PARTY)
+         {
+             if (!ShouldShowBoxWasFullMessage())
+             {
