@@ -1,0 +1,283 @@
+diff --git a/include/constants/items.h b/include/constants/items.h
+--- a/include/constants/items.h
++++ b/include/constants/items.h
+@@ -1152,11 +1152,15 @@
+ #define MAIL_NONE 0xFF
+ #define ITEM_TO_MULCH(itemId)(((itemId) - ITEM_GROWTH_MULCH) + 1)
+ 
+-#define MAX_BAG_ITEM_CAPACITY         999
+-#define MAX_PC_ITEM_CAPACITY          999
+-#define MAX_PYRAMID_BAG_ITEM_CAPACITY  99 // Values higher than 255 require free SaveBlock2 space.
+-
+-#define MAX_ITEM_DIGITS         ((MAX_BAG_ITEM_CAPACITY > 99) ? 3 : 2)
++// Historical 9999-stack restoration; hard-disabled pending native validation.
++#define SG_RECONSTRUCTION_LARGE_BAG 0
++#define MAX_BAG_ITEM_CAPACITY         (SG_RECONSTRUCTION_LARGE_BAG ? 9999 : 999)
++// Aggregate guard for existing signed task quantity consumers. No save resize.
++#define SG_RECONSTRUCTION_BAG_TOTAL_LIMIT 32767
++#define MAX_PC_ITEM_CAPACITY          999
++#define MAX_PYRAMID_BAG_ITEM_CAPACITY  99 // Values higher than 255 require free SaveBlock2 space.
++
++#define MAX_ITEM_DIGITS         ((MAX_BAG_ITEM_CAPACITY > 999) ? 4 : ((MAX_BAG_ITEM_CAPACITY > 99) ? 3 : 2))
+ #define MAX_PYRAMID_ITEM_DIGITS ((MAX_PYRAMID_BAG_ITEM_CAPACITY > 99) ? 3 : 2)
+ 
+ // Secondary IDs for rods
+diff --git a/src/item.c b/src/item.c
+--- a/src/item.c
++++ b/src/item.c
+@@ -276,18 +276,34 @@
+ 
+ static u32 NONNULL BagPocket_GetFreeSpaceForItem(struct BagPocket *pocket, enum Item itemId)
+ {
+-    u32 spaceForItem = 0;
+-    struct ItemSlot tempItem;
+-
+-    // Check space in any existing item slots that already contain this item
+-    for (u32 i = 0; i < pocket->capacity; i++)
+-    {
+-        tempItem = BagPocket_GetSlotData(pocket, i);
+-        if (tempItem.itemId == ITEM_NONE || tempItem.itemId == itemId)
+-            spaceForItem += (tempItem.itemId ? (MAX_BAG_ITEM_CAPACITY - tempItem.quantity) : MAX_BAG_ITEM_CAPACITY);
+-    }
+-
+-    return spaceForItem;
++    u32 spaceForItem = 0;
++    u32 ownedCount = 0;
++    const u32 capacity = pocket->id == POCKET_DUMMY ? MAX_PC_ITEM_CAPACITY : MAX_BAG_ITEM_CAPACITY;
++    struct ItemSlot tempItem;
++
++    // Check space in any existing item slots that already contain this item
++    for (u32 i = 0; i < pocket->capacity; i++)
++    {
++        tempItem = BagPocket_GetSlotData(pocket, i);
++        if (tempItem.itemId == itemId)
++            ownedCount += tempItem.quantity;
++        if (tempItem.itemId == ITEM_NONE)
++            spaceForItem += capacity;
++        else if (tempItem.itemId == itemId)
++        {
++            if (SG_RECONSTRUCTION_LARGE_BAG && tempItem.quantity > capacity)
++                return 0; // Do not wrap or truncate an unsupported inherited stack.
++            spaceForItem += capacity - tempItem.quantity;
++        }
++    }
++
++    if (SG_RECONSTRUCTION_LARGE_BAG && pocket->id != POCKET_DUMMY)
++    {
++        if (ownedCount >= SG_RECONSTRUCTION_BAG_TOTAL_LIMIT)
++            return 0;
++        spaceForItem = min(spaceForItem, SG_RECONSTRUCTION_BAG_TOTAL_LIMIT - ownedCount);
++    }
++    return spaceForItem;
+ }
+ 
+ u32 GetFreeSpaceForItemInBag(enum Item itemId)
+@@ -307,9 +323,14 @@
+         if (tempItem.itemId == ITEM_NONE)
+             tempItem.quantity = 0;
+ 
+-        // Record slot quantity in tempPocketSlotQuantities, adjust count
+-        tempPocketSlotQuantities[pocketPos] = min(MAX_BAG_ITEM_CAPACITY, *count + tempItem.quantity);
+-        *count -= min(*count, MAX_BAG_ITEM_CAPACITY - tempItem.quantity);
++        // The PC shares this routine, but retains its native 999-stack limit.
++        const u32 capacity = pocket->id == POCKET_DUMMY ? MAX_PC_ITEM_CAPACITY : MAX_BAG_ITEM_CAPACITY;
++        if (SG_RECONSTRUCTION_LARGE_BAG && tempItem.quantity > capacity)
++            return FALSE;
++
++        // Record slot quantity in tempPocketSlotQuantities, adjust count
++        tempPocketSlotQuantities[pocketPos] = min(capacity, *count + tempItem.quantity);
++        *count -= min(*count, capacity - tempItem.quantity);
+ 
+         // Set the starting index for the next loop to set items (shifted by one)
+         if (!*nextPocketPos)
+@@ -323,9 +344,13 @@
+ 
+ static bool32 NONNULL BagPocket_AddItem(struct BagPocket *pocket, enum Item itemId, u16 count)
+ {
+-    u32 itemLookupIndex, itemAddIndex = 0;
+-
+-    // First, check that there is a free slot for this item
++    u32 itemLookupIndex, itemAddIndex = 0;
++
++    if (SG_RECONSTRUCTION_LARGE_BAG && pocket->id != POCKET_DUMMY
++        && count > BagPocket_GetFreeSpaceForItem(pocket, itemId))
++        return FALSE;
++
++    // First, check that there is a free slot for this item
+     u16 *tempPocketSlotQuantities = AllocZeroed(sizeof(u16) * pocket->capacity);
+ 
+     switch (pocket->id)
+@@ -391,8 +416,9 @@
+ 
+ static bool32 NONNULL BagPocket_RemoveItem(struct BagPocket *pocket, enum Item itemId, u16 count)
+ {
+-    u32 itemLookupIndex, itemRemoveIndex = 0, totalQuantity = 0;
+-    struct ItemSlot tempItem;
++    u32 itemLookupIndex, itemRemoveIndex = 0, totalQuantity = 0;
++    u16 remaining = count;
++    struct ItemSlot tempItem;
+     u16 *tempPocketSlotQuantities = AllocZeroed(sizeof(u16) * pocket->capacity);
+ 
+     for (itemLookupIndex = 0; itemLookupIndex < pocket->capacity && totalQuantity < count; itemLookupIndex++)
+@@ -406,7 +432,14 @@
+ 
+             // Gather quantities (+ 1 to tempPocketSlotQuantities so that even if setting to 0 we know which indices to target)
+             totalQuantity += tempItem.quantity;
+-            tempPocketSlotQuantities[itemLookupIndex] = (tempItem.quantity <= count ? 0 : tempItem.quantity - count) + 1;
++            if (SG_RECONSTRUCTION_LARGE_BAG)
++            {
++                u16 debit = min(remaining, tempItem.quantity);
++                tempPocketSlotQuantities[itemLookupIndex] = tempItem.quantity - debit + 1;
++                remaining -= debit;
++            }
++            else
++                tempPocketSlotQuantities[itemLookupIndex] = (tempItem.quantity <= count ? 0 : tempItem.quantity - count) + 1;
+         }
+     }
+ 
+diff --git a/src/shop.c b/src/shop.c
+--- a/src/shop.c
++++ b/src/shop.c
+@@ -1375,8 +1375,8 @@
+ {
+     s16 *data = gTasks[taskId].data;
+ 
+-    u16 quantityInBag = CountTotalItemQuantityInBag(tItemId);
+-    u16 maxQuantity;
++    u16 quantityInBag = CountTotalItemQuantityInBag(tItemId);
++    u32 maxQuantity;
+ 
+     DrawStdFrameWithCustomTileAndPalette(WIN_QUANTITY_IN_BAG, FALSE, 1, 13);
+     ConvertIntToDecimalStringN(gStringVar1, quantityInBag, STR_CONV_MODE_RIGHT_ALIGN, MAX_ITEM_DIGITS + 1);
+@@ -1395,8 +1395,12 @@
+     else
+         maxQuantity = GetMoney(&gSaveBlock1Ptr->money) / sShopData->totalCost;
+ 
+-    if (maxQuantity > MAX_BAG_ITEM_CAPACITY)
+-        sShopData->maxQuantity = MAX_BAG_ITEM_CAPACITY;
++    // Retain the native disabled-path narrowing; custom mode clamps before
++    // storing into the u16 selector so a large wallet cannot wrap the limit.
++    if (!SG_RECONSTRUCTION_LARGE_BAG)
++        maxQuantity = (u16)maxQuantity;
++    if (maxQuantity > MAX_BAG_ITEM_CAPACITY)
++        sShopData->maxQuantity = MAX_BAG_ITEM_CAPACITY;
+     else
+         sShopData->maxQuantity = maxQuantity;
+ 
+diff --git a/src/item_menu.c b/src/item_menu.c
+--- a/src/item_menu.c
++++ b/src/item_menu.c
+@@ -1563,7 +1563,8 @@
+ {
+     ConvertIntToDecimalStringN(gStringVar1, quantity, STR_CONV_MODE_LEADING_ZEROS, MAX_ITEM_DIGITS);
+     StringExpandPlaceholders(gStringVar4, gText_xVar1);
+-    AddTextPrinterParameterized(windowId, FONT_NORMAL, gStringVar4, GetStringCenterAlignXOffset(FONT_NORMAL, gStringVar4, 0x28), 2, 0, 0);
++    u8 font = SG_RECONSTRUCTION_LARGE_BAG ? FONT_NARROW : FONT_NORMAL;
++    AddTextPrinterParameterized(windowId, font, gStringVar4, GetStringCenterAlignXOffset(font, gStringVar4, 0x28), 2, 0, 0);
+ }
+ 
+ // Prints the quantity of items to be sold and the amount that would be earned
+@@ -1571,8 +1572,8 @@
+ {
+     ConvertIntToDecimalStringN(gStringVar1, numSold, STR_CONV_MODE_LEADING_ZEROS, MAX_ITEM_DIGITS);
+     StringExpandPlaceholders(gStringVar4, gText_xVar1);
+-    AddTextPrinterParameterized(windowId, FONT_NORMAL, gStringVar4, 0, 1, TEXT_SKIP_DRAW, 0);
+-    PrintMoneyAmount(windowId, CalculateMoneyTextHorizontalPosition(moneyEarned), 1, moneyEarned, 0);
++    AddTextPrinterParameterized(windowId, SG_RECONSTRUCTION_LARGE_BAG ? FONT_NARROW : FONT_NORMAL, gStringVar4, 0, 1, TEXT_SKIP_DRAW, 0);
++    PrintMoneyAmount(windowId, CalculateMoneyTextHorizontalPosition(moneyEarned), 1, moneyEarned, 0);
+ }
+ 
+ static void Task_BagMenu_HandleInput(u8 taskId)
+diff --git a/src/debug.c b/src/debug.c
+--- a/src/debug.c
++++ b/src/debug.c
+@@ -190,7 +190,7 @@
+ #define DEBUG_NUMBER_DIGITS_VARIABLES 5
+ #define DEBUG_NUMBER_DIGITS_VARIABLE_VALUE 5
+ #define DEBUG_NUMBER_DIGITS_ITEMS 4
+-#define DEBUG_NUMBER_DIGITS_ITEM_QUANTITY 3
++#define DEBUG_NUMBER_DIGITS_ITEM_QUANTITY MAX_ITEM_DIGITS
+ #define DEBUG_NUMBER_DIGITS_LOCALID 2
+ #define DEBUG_NUMBER_DIGITS_TRAINERS MAX_DIGITS(TRAINERS_COUNT)
+ 
+diff --git a/src/pokemon_storage_system.c b/src/pokemon_storage_system.c
+--- a/src/pokemon_storage_system.c
++++ b/src/pokemon_storage_system.c
+@@ -7572,16 +7572,21 @@
+         u16 newSlots;
+ 
+         pocketId = GetItemPocket(items[itemIndex].item);
+-        if (pocketId >= POCKETS_COUNT)
+-            return FALSE;
+-
+-        for (pocketPosition = 0; pocketPosition < gBagPockets[pocketId].capacity; pocketPosition++)
+-        {
+-            struct ItemSlot slot = BagPocket_GetSlotData(&gBagPockets[pocketId], pocketPosition);
+-
+-            if (slot.itemId == items[itemIndex].item)
+-            {
+-                u32 space = MAX_BAG_ITEM_CAPACITY - slot.quantity;
++        if (pocketId >= POCKETS_COUNT)
++            return FALSE;
++        if (SG_RECONSTRUCTION_LARGE_BAG
++            && GetFreeSpaceForItemInBag(items[itemIndex].item) < remaining)
++            return FALSE;
++
++        for (pocketPosition = 0; pocketPosition < gBagPockets[pocketId].capacity; pocketPosition++)
++        {
++            struct ItemSlot slot = BagPocket_GetSlotData(&gBagPockets[pocketId], pocketPosition);
++
++            if (slot.itemId == items[itemIndex].item)
++            {
++                if (SG_RECONSTRUCTION_LARGE_BAG && slot.quantity > MAX_BAG_ITEM_CAPACITY)
++                    return FALSE;
++                u32 space = MAX_BAG_ITEM_CAPACITY - slot.quantity;
+ 
+                 hasExistingStack = TRUE;
+                 remaining -= min(remaining, space);
+diff --git a/test/bag.c b/test/bag.c
+--- a/test/bag.c
++++ b/test/bag.c
+@@ -8,7 +8,41 @@
+ #include "test/overworld_script.h"
+ #include "test/test.h"
+ 
+-TEST("Items are stored in their correct bag pockets")
++#if SG_RECONSTRUCTION_LARGE_BAG
++TEST("Large bag stack retains native quantity encoding and one-ball debit")
++{
++    struct BagPocket *pocket = &gBagPockets[POCKET_POKE_BALLS];
++    for (u32 i = 0; i < pocket->capacity; i++)
++        BagPocket_SetSlotItemIdAndCount(pocket, i, ITEM_NONE, 0);
++    EXPECT(AddBagItem(ITEM_MOON_BALL, 9999));
++    EXPECT_EQ(BagPocket_GetSlotData(pocket, 0).quantity, 9999);
++    EXPECT_EQ(CountTotalItemQuantityInBag(ITEM_MOON_BALL), 9999);
++    EXPECT(RemoveBagItem(ITEM_MOON_BALL, 1));
++    EXPECT_EQ(CountTotalItemQuantityInBag(ITEM_MOON_BALL), 9998);
++}
++
++TEST("Large bag removal debits only the requested amount across stacks")
++{
++    struct BagPocket *pocket = &gBagPockets[POCKET_POKE_BALLS];
++    for (u32 i = 0; i < pocket->capacity; i++)
++        BagPocket_SetSlotItemIdAndCount(pocket, i, ITEM_NONE, 0);
++    EXPECT(AddBagItem(ITEM_MOON_BALL, 10001));
++    EXPECT(RemoveBagItem(ITEM_MOON_BALL, 10000));
++    EXPECT_EQ(CountTotalItemQuantityInBag(ITEM_MOON_BALL), 1);
++    EXPECT(!RemoveBagItem(ITEM_MOON_BALL, 2));
++    EXPECT_EQ(CountTotalItemQuantityInBag(ITEM_MOON_BALL), 1);
++}
++
++TEST("Large bag keeps item PC stack capacity at 999")
++{
++    memset(gSaveBlock1Ptr->pcItems, 0, sizeof(gSaveBlock1Ptr->pcItems));
++    EXPECT(AddPCItem(ITEM_MOON_BALL, 1000));
++    EXPECT_EQ(gSaveBlock1Ptr->pcItems[0].quantity, 999);
++    EXPECT_EQ(gSaveBlock1Ptr->pcItems[1].quantity, 1);
++}
++#endif
++
++TEST("Items are stored in their correct bag pockets")
+ {
+     struct BagPocket *medicinePocket = &gBagPockets[POCKET_MEDICINE];
+     struct BagPocket *battleItemsPocket = &gBagPockets[POCKET_BATTLE_ITEMS];
