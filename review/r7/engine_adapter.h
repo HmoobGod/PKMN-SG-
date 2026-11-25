@@ -99,4 +99,7 @@ typedef int (*R7ReadFightReceipt)(void *ctx, const R7Original *pinned,
  * must not reset/recreate that lease for the same native request. */
 R7Plan r7_plan_after_original_fight(const R7Host *, R7Lease *,
                                     R7ReadFightReceipt, void *);
+/* Actual native payload acquisition only, not an R7Host permission callback.
+ * Requires independently approved caller output, exact ROM and live context. */
+int r7_native_capture_current44(uint32_t actor,uint8_t *out,uint32_t capacity);
 #endif
