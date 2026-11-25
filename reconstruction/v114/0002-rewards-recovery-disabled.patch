@@ -1,0 +1,150 @@
+diff --git a/src/battle_script_commands.c b/src/battle_script_commands.c
+--- a/src/battle_script_commands.c
++++ b/src/battle_script_commands.c
+@@ -4770,9 +4770,26 @@
+                         gBattleStruct->battlerExpReward += GetSoftLevelCapExpValue(gPlayerParty[*expMonId].level, gBattleStruct->expShareExpValue);
+                     }
+ 
+-                    ApplyExperienceMultipliers(&gBattleStruct->battlerExpReward, *expMonId, gBattlerFainted);
+-
+-                    if (GetCurrentExpCapType() == EXP_CAP_HARD && gBattleStruct->battlerExpReward != 0)
++                    ApplyExperienceMultipliers(&gBattleStruct->battlerExpReward, *expMonId, gBattlerFainted);
++
++                    // Reconstruction only: enable only after exact engine build and reward parity review.
++                    // Triple the native per-recipient award once, after native bonuses and before
++                    // the original hard-cap clamp. Candy Jar, EVs and trainer money are untouched.
++                    if (FALSE && gBattleStruct->battlerExpReward > 0
++                        && !(gBattleTypeFlags & (BATTLE_TYPE_LINK | BATTLE_TYPE_RECORDED | BATTLE_TYPE_RECORDED_LINK)))
++                    {
++                        enum GrowthRate growthRate = gSpeciesInfo[GetMonData(mon, MON_DATA_SPECIES)].growthRate;
++                        u32 currentExp = GetMonData(mon, MON_DATA_EXP);
++                        u32 maxExp = gExperienceTables[growthRate][MAX_LEVEL];
++                        u64 boosted = (u64)gBattleStruct->battlerExpReward * 3;
++                        u32 remaining = currentExp < maxExp ? maxExp - currentExp : 0;
++
++                        if (boosted > remaining)
++                            boosted = remaining;
++                        gBattleStruct->battlerExpReward = (s32)boosted;
++                    }
++
++                    if (GetCurrentExpCapType() == EXP_CAP_HARD && gBattleStruct->battlerExpReward != 0)
+                     {
+                         enum GrowthRate growthRate = gSpeciesInfo[GetMonData(&gPlayerParty[*expMonId], MON_DATA_SPECIES)].growthRate;
+                         u32 currentExp = GetMonData(&gPlayerParty[*expMonId], MON_DATA_EXP);
+diff --git a/src/battle_main.c b/src/battle_main.c
+--- a/src/battle_main.c
++++ b/src/battle_main.c
+@@ -5936,9 +5936,67 @@
+     gBattleMainFunc = HandleEndTurn_FinishBattle;
+ }
+ 
+-static void HandleEndTurn_FinishBattle(void)
+-{
+-    if (gCurrentActionFuncId == B_ACTION_TRY_FINISH || gCurrentActionFuncId == B_ACTION_FINISHED)
++/* Reconstruction only; deliberately hard-disabled until source build and
++ * outcome/item provenance parity. No save field, no additional heap. */
++#define SG_RECONSTRUCTION_RECOVERY_ENABLED FALSE
++
++static bool32 SGReconstructionCanRecoverParty(void)
++{
++    // Ordinary owned parties only. Unknown/special battle modes fail closed.
++    const u32 allowed = BATTLE_TYPE_IS_MASTER | BATTLE_TYPE_TRAINER
++                      | BATTLE_TYPE_DOUBLE | BATTLE_TYPE_TWO_OPPONENTS
++                      | BATTLE_TYPE_ROAMER | BATTLE_TYPE_LEGENDARY;
++
++    if (!SG_RECONSTRUCTION_RECOVERY_ENABLED
++        || !(gBattleTypeFlags & BATTLE_TYPE_IS_MASTER)
++        || (gBattleTypeFlags & ~allowed)
++        || IsNPCFollowerWildBattle() || gTestRunnerEnabled)
++        return FALSE;
++
++    // Exact outcome allowlist, never loss, draw, forfeit or link outcome.
++    switch (gBattleOutcome)
++    {
++    case B_OUTCOME_WON:
++    case B_OUTCOME_RAN:
++    case B_OUTCOME_PLAYER_TELEPORTED:
++    case B_OUTCOME_MON_FLED:
++    case B_OUTCOME_CAUGHT:
++        return TRUE;
++    default:
++        return FALSE;
++    }
++}
++
++static void SGReconstructionRestoreConsumedItems(void)
++{
++    if (!SGReconstructionCanRecoverParty() || gBattleStruct == NULL)
++        return;
++
++    // Reuse the engine's original-item and consumed-item ledgers while live.
++    // Only restore a matching originally held item into an empty slot.
++    // Leave theft, exchanged items, replacement/PC transfer and occupied
++    // slots to the existing native behavior until their provenance is proven.
++    for (u32 i = 0; i < PARTY_SIZE; i++)
++    {
++        struct Pokemon *mon = &gPlayerParty[i];
++        u32 species = GetMonData(mon, MON_DATA_SPECIES_OR_EGG);
++        if (species == SPECIES_NONE || species == SPECIES_EGG)
++            continue;
++        for (u32 j = 0; j < MAX_MON_ITEMS; j++)
++        {
++            u16 original = gBattleStruct->itemLost[B_SIDE_PLAYER][i][j].originalItem;
++            u16 consumed = gBattleStruct->partyState[B_SIDE_PLAYER][i].consumedHeldItems[j];
++            if (original != ITEM_NONE && consumed == original
++                && !gBattleStruct->itemLost[B_SIDE_PLAYER][i][j].stolen
++                && GetMonData(mon, MON_DATA_HELD_ITEM + j) == ITEM_NONE)
++                SetMonData(mon, MON_DATA_HELD_ITEM + j, &original);
++        }
++    }
++}
++
++static void HandleEndTurn_FinishBattle(void)
++{
++    if (gCurrentActionFuncId == B_ACTION_TRY_FINISH || gCurrentActionFuncId == B_ACTION_FINISHED)
+     {
+         if (!(gBattleTypeFlags & (BATTLE_TYPE_LINK
+                                   | BATTLE_TYPE_RECORDED_LINK
+@@ -6006,10 +6064,12 @@
+ 
+         BeginFastPaletteFade(3);
+         FadeOutMapMusic(5);
+-        if (B_TRAINERS_KNOCK_OFF_ITEMS == TRUE || GetConfig(B_RESTORE_HELD_BATTLE_ITEMS) >= GEN_9)
+-            TryRestoreHeldItems();
+-
+-        for (u32 i = 0; i < PARTY_SIZE; i++)
++        if (B_TRAINERS_KNOCK_OFF_ITEMS == TRUE || GetConfig(B_RESTORE_HELD_BATTLE_ITEMS) >= GEN_9)
++            TryRestoreHeldItems();
++
++        SGReconstructionRestoreConsumedItems();
++
++        for (u32 i = 0; i < PARTY_SIZE; i++)
+         {
+             bool32 changedForm = TryRevertPartyMonFormChange(i);
+ 
+@@ -6139,9 +6199,22 @@
+         gBattleMainFunc = TryEvolvePokemon;
+ }
+ 
+-static void ReturnFromBattleToOverworld(void)
+-{
+-    if (!(gBattleTypeFlags & BATTLE_TYPE_LINK))
++static void ReturnFromBattleToOverworld(void)
++{
++    // After native stat recalculation/evolution; heal only actual party mons.
++    // HealPlayerParty would also heal boxes and recharge the Tera Orb.
++    if (SGReconstructionCanRecoverParty())
++    {
++        for (u32 i = 0; i < PARTY_SIZE; i++)
++        {
++            struct Pokemon *mon = &gPlayerParty[i];
++            u32 species = GetMonData(mon, MON_DATA_SPECIES_OR_EGG);
++            if (species != SPECIES_NONE && species != SPECIES_EGG)
++                HealPokemon(mon);
++        }
++    }
++
++    if (!(gBattleTypeFlags & BATTLE_TYPE_LINK))
+     {
+         CalculatePlayerPartyCount();
+         RandomlyGivePartyPokerus();
