@@ -16,7 +16,9 @@ static int payload_matches_move_data(const R7Original *s) {
   /* No truncated ChooseMove prefix may authorize a move. Requiring the
    * complete source-side command length binds the entire buffer snapshot,
    * including its opaque trailing fields, through the legality callback. */
-  if (s->payload_length!=R7_CHOOSEMOVE_TOTAL_BYTES) return 0;
+  unsigned expected=s->choosemove_layout==R7_LAYOUT_CURRENT44 ?
+      R7_CHOOSEMOVE_CURRENT44_BYTES : R7_CHOOSEMOVE_TOTAL_BYTES;
+  if (s->payload_length!=expected) return 0;
   /* Original header: command, isDoubleBattle, NoPpNumber, reserved zero.
    * Only the conservative single/no-PP-suppression form is auto eligible;
    * other forms must defer to the ORIGINAL manual controller. */
@@ -41,6 +43,8 @@ static int payload_matches_move_data(const R7Original *s) {
 static int valid_original(const R7Original *s) {
   if (!s || !s->request_id || !s->original_epoch || !s->resources ||
       s->payload_length<4u || s->payload_length>R7_PAYLOAD_CAP) return 0;
+  if (s->choosemove_layout!=R7_LAYOUT_SOURCE40 &&
+      s->choosemove_layout!=R7_LAYOUT_CURRENT44) return 0;
   if (s->battler!=0u || (s->command!=17u && s->command!=19u)) return 0;
   /* BtlController_EmitChooseAction sends exactly four original bytes.
    * A longer buffer is not an authenticated ChooseAction request. */
@@ -64,6 +68,7 @@ static int equal_original(const R7Original *a,const R7Original *b) {
     a->player_owned==b->player_owned && a->wild_single==b->wild_single &&
     a->doubles==b->doubles && a->partner==b->partner &&
     a->auto_enabled==b->auto_enabled && a->foe_live==b->foe_live &&
+    a->choosemove_layout==b->choosemove_layout &&
     a->payload_length==b->payload_length &&
     memcmp(a->original_header,b->original_header,sizeof a->original_header)==0 &&
     memcmp(a->original_payload,b->original_payload,a->payload_length)==0 &&
@@ -123,13 +128,14 @@ R7Plan r7_plan(const R7Host *host,R7Lease *lease,R7FightTicket *ticket) {
     /* No response is emitted; the caller may issue Fight only after all
      * original-engine authorizations are independently proven. */
     R7FightTicket next={before.original_epoch,before.turn,before.owner_party,
-       before.foe_party,before.moves[s],(uint8_t)s,1u};
+       before.foe_party,before.moves[s],(uint8_t)s,1u,before.choosemove_layout};
     *ticket=next;
   } else {
     if (ticket->pending!=1u || ticket->epoch!=before.original_epoch ||
         ticket->turn!=before.turn || ticket->owner_party!=before.owner_party ||
         ticket->foe_party!=before.foe_party || ticket->slot!=s ||
-        ticket->planned_move!=before.moves[s])
+        ticket->planned_move!=before.moves[s] ||
+        ticket->choosemove_layout!=before.choosemove_layout)
       return fail(R7_STAGE_CONTINUITY_FAILED);
     ticket->pending=0u;
   }

@@ -109,6 +109,15 @@ int main(void)
     next(&f);l=(R7Lease){7,11,0};
     p=run(&f,&l,&t);assert(p.outcome==R7_MOVE && p.slot==1 && !t.pending);
     setup(&f);f.obs.use_engine_q12_effects=true;defer(&f); /* legacy mix */
+    /* Source-only 44-byte profile exercises the real typed composition. */
+    setup(&f);f.original.choosemove_layout=R7_LAYOUT_CURRENT44;
+    l=(R7Lease){7,10,0};t=(R7FightTicket){0};
+    p=run(&f,&l,&t);
+    assert(p.outcome==R7_FIGHT && p.slot==1 && t.pending);
+    next(&f);f.original.payload_length=R7_CHOOSEMOVE_CURRENT44_BYTES;
+    for(unsigned i=20;i<44;i++)f.original.original_payload[i]=(uint8_t)(i+1u);
+    l=(R7Lease){7,11,0};p=run(&f,&l,&t);
+    assert(p.outcome==R7_MOVE && p.slot==1 && l.consumed && !t.pending);
     puts("PASS: typed scorer composed with existing R7 Fight/Move, continuity and fallback; source UQ4.12 inputs");
     return 0;
 }
