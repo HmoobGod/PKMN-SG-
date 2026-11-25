@@ -1,0 +1,183 @@
+diff --git a/src/pokemon.c b/src/pokemon.c
+--- a/src/pokemon.c
++++ b/src/pokemon.c
+@@ -1049,9 +1049,12 @@
+     return selection >= SHINY_RATE_256 && selection < SHINY_RATE_COUNT ? selection : SHINY_RATE_256;
+ }
+ 
+-u32 GetShinyGenerationOdds(void)
+-{
+-    switch (GetShinyRateOption())
++// Historical generation threshold only: never alter the identity getter.
++#define SG_RECONSTRUCTION_SHINY_GENERATION 0
++
++static u32 GetNativeShinyGenerationOdds(void)
++{
++    switch (GetShinyRateOption())
+     {
+     case SHINY_RATE_256: return 256;
+     case SHINY_RATE_512: return 128;
+@@ -1060,10 +1063,19 @@
+     }
+ }
+ 
+-u32 GetTradeShinyGenerationOdds(void)
+-{
+-    return 12 * GetShinyGenerationOdds();
+-}
++u32 GetShinyGenerationOdds(void)
++{
++    if (SG_RECONSTRUCTION_SHINY_GENERATION)
++        return 6554; // 6554 / 65536, approximately 10% per eligible roll.
++    return GetNativeShinyGenerationOdds();
++}
++
++u32 GetTradeShinyGenerationOdds(void)
++{
++    // Preserve native trade odds; multiplying the custom threshold by 12
++    // would exceed the entire 16-bit random range.
++    return 12 * GetNativeShinyGenerationOdds();
++}
+ 
+ void CreateMonWithIVs(struct Pokemon *mon, u16 species, u8 level, u32 personality, struct OriginalTrainerId trainerId, u8 fixedIV)
+ {
+diff --git a/include/constants/abilities.h b/include/constants/abilities.h
+--- a/include/constants/abilities.h
++++ b/include/constants/abilities.h
+@@ -1,5 +1,8 @@
+ #ifndef GUARD_CONSTANTS_ABILITIES_H
+-#define GUARD_CONSTANTS_ABILITIES_H
++#define GUARD_CONSTANTS_ABILITIES_H
++
++// Historical Frisk replacement; retain the existing numeric ability ID.
++#define SG_RECONSTRUCTION_HAZARD_MASTER 0
+ 
+ enum __attribute__((packed)) Ability
+ {
+diff --git a/src/data/abilities.h b/src/data/abilities.h
+--- a/src/data/abilities.h
++++ b/src/data/abilities.h
+@@ -1355,15 +1355,24 @@
+         .aiRating = 0,
+     },
+ 
+-    [ABILITY_FRISK] =
+-    {
+-        .name = _("Frisk"),
+-        .description = COMPOUND_STRING("Checks a foe's item."),
+-        .longDescription = COMPOUND_STRING("On entry, reveals the\n"
+-                                           "held items of opposing\n"
+-                                           "Pokémon."),
+-        .aiRating = 3,
+-    },
++    [ABILITY_FRISK] =
++    {
++#if SG_RECONSTRUCTION_HAZARD_MASTER
++        .name = _("Hazard Master"),
++        .description = COMPOUND_STRING("Sets all four hazards."),
++        .longDescription = COMPOUND_STRING("On entry, sets opposing\n"
++                                           "Spikes, Toxic Spikes,\n"
++                                           "Stealth Rock and Sticky\n"
++                                           "Web at maximum layers."),
++#else
++        .name = _("Frisk"),
++        .description = COMPOUND_STRING("Checks a foe's item."),
++        .longDescription = COMPOUND_STRING("On entry, reveals the\n"
++                                           "held items of opposing\n"
++                                           "Pokémon."),
++#endif
++        .aiRating = 3,
++    },
+ 
+     [ABILITY_RECKLESS] =
+     {
+diff --git a/src/battle_util.c b/src/battle_util.c
+--- a/src/battle_util.c
++++ b/src/battle_util.c
+@@ -3755,7 +3755,68 @@
+     return effect;
+ }
+ 
+-static bool32 IsRestrictedAbility(enum BattlerId battler, enum Ability ability)
++// Use the native queue, not legacy side-status bits. Reject malformed
++// queue state before any writes; preserve existing order and extra hazards.
++static bool32 SGSetHazardMaster(enum BattlerId battler)
++{
++    static const enum Hazards hazards[] = {
++        HAZARDS_SPIKES, HAZARDS_TOXIC_SPIKES, HAZARDS_STEALTH_ROCK, HAZARDS_STICKY_WEB,
++    };
++    if (gBattleStruct == NULL || battler >= gBattlersCount || !IsBattlerAlive(battler)
++        || IsOpposingSideEmpty(battler))
++        return FALSE;
++
++    enum BattleSide setterSide = GetBattlerSide(battler);
++    enum BattleSide side = setterSide == B_SIDE_PLAYER ? B_SIDE_OPPONENT : B_SIDE_PLAYER;
++    u32 count = gBattleStruct->numHazards[side];
++    u32 seen = 0;
++    u32 missing = 0;
++    bool32 changed = FALSE;
++
++    if (count > HAZARDS_MAX_COUNT)
++        return FALSE;
++    for (u32 i = 0; i < HAZARDS_MAX_COUNT; i++)
++    {
++        u32 hazard = gBattleStruct->hazardsQueue[side][i];
++        if (i >= count)
++        {
++            if (hazard != HAZARDS_NONE)
++                return FALSE;
++        }
++        else
++        {
++            if (hazard <= HAZARDS_NONE || hazard >= HAZARDS_MAX_COUNT || (seen & (1u << hazard)))
++                return FALSE;
++            seen |= 1u << hazard;
++        }
++    }
++    for (u32 i = 0; i < ARRAY_COUNT(hazards); i++)
++        if (!IsHazardOnSide(side, hazards[i]))
++            missing++;
++    if (missing > HAZARDS_MAX_COUNT - count)
++        return FALSE;
++
++    for (u32 i = 0; i < ARRAY_COUNT(hazards); i++)
++    {
++        if (!IsHazardOnSide(side, hazards[i]))
++        {
++            PushHazardTypeToQueue(side, hazards[i]);
++            if (hazards[i] == HAZARDS_STICKY_WEB)
++            {
++                gSideTimers[side].stickyWebBattlerId = battler;
++                gSideTimers[side].stickyWebBattlerSide = setterSide;
++            }
++            changed = TRUE;
++        }
++    }
++    if (gSideTimers[side].spikesAmount != 3 || gSideTimers[side].toxicSpikesAmount != 2)
++        changed = TRUE;
++    gSideTimers[side].spikesAmount = 3;
++    gSideTimers[side].toxicSpikesAmount = 2;
++    return changed;
++}
++
++static bool32 IsRestrictedAbility(enum BattlerId battler, enum Ability ability)
+ {
+     return GetSpeciesAbility(gBattleMons[battler].species, 0) == ability
+         || GetSpeciesAbility(gBattleMons[battler].species, 1) == ability
+@@ -4051,7 +4112,15 @@
+         if ((traitCheck = SearchTraits(battlerTraits, ABILITY_FRISK)) && !gSpecialStatuses[battler].switchInTraitDone[traitCheck - 1]
+          && shouldAbilityTrigger)
+         {
+-            effect += CommonSwitchInAbilities(battler, ABILITY_FRISK, traitCheck, BattleScript_FriskActivates);
++            if (SG_RECONSTRUCTION_HAZARD_MASTER)
++            {
++                if (SGSetHazardMaster(battler))
++                    effect += CommonSwitchInAbilities(battler, ABILITY_FRISK, traitCheck, BattleScript_GenerateAbilityPopUp);
++                else
++                    gSpecialStatuses[battler].switchInTraitDone[traitCheck - 1] = TRUE;
++            }
++            else
++                effect += CommonSwitchInAbilities(battler, ABILITY_FRISK, traitCheck, BattleScript_FriskActivates);
+         }
+         if ((traitCheck = SearchTraits(battlerTraits, ABILITY_FOREWARN)) && !gSpecialStatuses[battler].switchInTraitDone[traitCheck - 1]
+          && shouldAbilityTrigger && !IsOpposingSideEmpty(battler))
