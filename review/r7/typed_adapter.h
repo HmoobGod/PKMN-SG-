@@ -12,4 +12,8 @@ typedef struct {
                                  SG_PublicBattleObservation *out);
 } R7TypedHost;
 R7Plan r7_plan_typed(const R7TypedHost *, R7Lease *, R7FightTicket *);
+/* Uses the same scorer and fail-closed guard, without proposing Fight.
+ * The receipt provider must independently establish all native provenance. */
+R7Plan r7_plan_typed_after_original_fight(const R7TypedHost *, R7Lease *,
+                                         R7ReadFightReceipt);
 #endif

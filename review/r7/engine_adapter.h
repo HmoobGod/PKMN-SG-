@@ -80,4 +80,23 @@ typedef struct {
  * A native installer must separately verify the real request, route manual
  * deferral to the ORIGINAL controllable menu, and prove no auto Switch path. */
 R7Plan r7_plan(const R7Host *host, R7Lease *lease, R7FightTicket *ticket);
+
+/* Source-only receipt contract for an already executed ORIGINAL auto Fight.
+ * The provider must prove actual actor0 auto Fight (not human Fight), natural
+ * full-mask return, completed copy/pending issue, one-use native lifetime,
+ * no cancellation/manual/shiny takeover, no auto Switch and freshness.
+ * A hash, ordinal, address or supplied struct is not that proof. This
+ * callback is read-only; never call CheckMoveLimitations a second time.
+ * The full snapshot includes the opaque tail of the 44-byte request. */
+typedef struct {
+  R7Original move_request;
+  uint32_t fight_request_id, check_mask, unusable_mask;
+} R7OriginalFightReceipt;
+typedef int (*R7ReadFightReceipt)(void *ctx, const R7Original *pinned,
+                                  R7OriginalFightReceipt *out);
+/* Opt-in source proposal only; never issues Fight or a native reply.
+ * Once a matching lease is attempted, even a denial spends it. The caller
+ * must not reset/recreate that lease for the same native request. */
+R7Plan r7_plan_after_original_fight(const R7Host *, R7Lease *,
+                                    R7ReadFightReceipt, void *);
 #endif
