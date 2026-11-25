@@ -1,0 +1,12 @@
+diff --git a/src/item.c b/src/item.c
+--- a/src/item.c
++++ b/src/item.c
+@@ -346,7 +346,7 @@
+ {
+     u32 itemLookupIndex, itemAddIndex = 0;
+ 
+-    if (SG_RECONSTRUCTION_LARGE_BAG && pocket->id != POCKET_DUMMY
++    if (SG_RECONSTRUCTION_LARGE_BAG && (pocket->id != POCKET_DUMMY)
+         && count > BagPocket_GetFreeSpaceForItem(pocket, itemId))
+         return FALSE;
+ 
