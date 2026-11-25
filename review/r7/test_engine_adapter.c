@@ -349,7 +349,7 @@ static void test_full_length_move_proposal(void){
   setup(&f);choose_move(&f);
   f.before.request_id=f.after.request_id=f.legal.request_id=102u;
   lease=(R7Lease){72,102,0};
-  CHECK(f.before.payload_length==R7_PAYLOAD_CAP);
+  CHECK(f.before.payload_length==R7_CHOOSEMOVE_TOTAL_BYTES);
   p=perform(&f,&lease,&ticket);
   CHECK(p.outcome==R7_MOVE && p.action==10u && p.slot==1u);
   CHECK(lease.consumed==1u && ticket.pending==0u);
@@ -480,7 +480,71 @@ static void test_choose_move_empty_slots_full_success(void){
   }
 }
 
+/* Generated fixtures only: explicit 44-byte profile, exact length,
+ * complete tail stability, and same profile across Fight and Move. */
+static void select44(Fake *f){
+  f->before.choosemove_layout=f->after.choosemove_layout=R7_LAYOUT_CURRENT44;
+}
+static void move44(Fake *f){
+  choose_move(f);select44(f);
+  f->before.payload_length=f->after.payload_length=R7_CHOOSEMOVE_CURRENT44_BYTES;
+  for(unsigned i=20;i<44;i++)
+    f->before.original_payload[i]=f->after.original_payload[i]=(uint8_t)(i+1u);
+}
+static void test_explicit_current44_profile(void){
+  Fake f;
+  setup(&f);select44(&f);R7Lease l={72,101,0};R7FightTicket t={0};
+  R7Plan p=perform(&f,&l,&t);
+  CHECK(p.outcome==R7_FIGHT && t.choosemove_layout==R7_LAYOUT_CURRENT44);
+  move44(&f);f.before.request_id=f.after.request_id=f.legal.request_id=102;
+  l=(R7Lease){72,102,0};
+  p=perform(&f,&l,&t);
+  CHECK(p.outcome==R7_MOVE && p.slot==1u && l.consumed && !t.pending);
+  expect_source_only_success(p);
+  /* Full-length requirement in both profiles. */
+  for(unsigned n=4;n<=45;n++){
+    setup(&f);move44(&f);
+    f.before.payload_length=f.after.payload_length=(uint8_t)n;
+    expect_defer(&f,n==44?R7_STAGE_CONTINUITY_FAILED:R7_UNSUPPORTED_SCOPE);
+  }
+  setup(&f);move44(&f);
+  f.before.choosemove_layout=f.after.choosemove_layout=R7_LAYOUT_SOURCE40;
+  expect_defer(&f,R7_UNSUPPORTED_SCOPE);
+  setup(&f);f.before.choosemove_layout=f.after.choosemove_layout=2u;
+  expect_defer(&f,R7_UNSUPPORTED_SCOPE);
+  setup(&f);move44(&f);f.after.choosemove_layout=R7_LAYOUT_SOURCE40;
+  expect_defer(&f,R7_ORIGINAL_REQUEST_CHANGED);
+  for(unsigned i=20;i<44;i++){
+    setup(&f);move44(&f);f.after.original_payload[i]^=1u;
+    expect_defer(&f,R7_ORIGINAL_REQUEST_CHANGED);
+  }
+  for(unsigned i=4;i<16;i++){
+    setup(&f);move44(&f);f.before.original_payload[i]^=1u;
+    f.after.original_payload[i]=f.before.original_payload[i];
+    expect_defer(&f,R7_UNSUPPORTED_SCOPE);
+  }
+  for(unsigned i=16;i<20;i++){
+    setup(&f);move44(&f);f.before.original_payload[i]=f.after.original_payload[i]=0;
+    expect_defer(&f,R7_UNSUPPORTED_SCOPE);
+  }
+  /* A valid 44-byte request must not consume a 40-byte profile ticket. */
+  setup(&f);l=(R7Lease){72,101,0};t=(R7FightTicket){0};
+  CHECK(perform(&f,&l,&t).outcome==R7_FIGHT);
+  move44(&f);f.before.request_id=f.after.request_id=f.legal.request_id=102;
+  l=(R7Lease){72,102,0};
+  p=perform(&f,&l,&t);
+  CHECK(p.reason==R7_STAGE_CONTINUITY_FAILED && !l.consumed && t.pending);
+  setup(&f);select44(&f);l=(R7Lease){72,101,0};t=(R7FightTicket){0};
+  CHECK(perform(&f,&l,&t).outcome==R7_FIGHT);
+  choose_move(&f);f.before.choosemove_layout=f.after.choosemove_layout=R7_LAYOUT_SOURCE40;
+  f.before.request_id=f.after.request_id=f.legal.request_id=102;
+  l=(R7Lease){72,102,0};
+  p=perform(&f,&l,&t);
+  CHECK(p.reason==R7_STAGE_CONTINUITY_FAILED && !l.consumed && t.pending);
+}
+
 int main(void){
+  test_explicit_current44_profile();
   test_two_stage_and_replay();test_owner_and_scope();test_lease_and_host_failures();
   test_engine_legality_binding();test_original_data_drift();test_stage_continuity();
   test_command19_length_boundary();

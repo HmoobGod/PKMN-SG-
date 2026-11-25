@@ -9,7 +9,13 @@
  * A source-side working hypothesis (36-byte struct) pending exact-ROM ABI
  * authentication; NEVER claim native evidence from this constant alone. */
 #define R7_CHOOSEMOVE_TOTAL_BYTES 40u
-#define R7_PAYLOAD_CAP R7_CHOOSEMOVE_TOTAL_BYTES
+/* Explicit source-model profiles; provider must independently bind the exact
+ * producer/copy and full request to the selected profile. A profile value
+ * alone is NOT an authenticated native request. Legacy 40 remains default. */
+#define R7_CHOOSEMOVE_CURRENT44_BYTES 44u
+#define R7_PAYLOAD_CAP R7_CHOOSEMOVE_CURRENT44_BYTES
+#define R7_LAYOUT_SOURCE40 0u
+#define R7_LAYOUT_CURRENT44 1u
 #define R7_NO_ACTION UINT32_MAX
 #define R7_NO_SLOT UINT32_MAX
 
@@ -22,6 +28,7 @@ typedef struct {
   uint8_t payload_length;
   uint16_t moves[4];
   uint8_t pp[4];
+  uint8_t choosemove_layout; /* same profile for original Fight and Move */
 } R7Original;
 
 typedef struct {
@@ -40,11 +47,14 @@ typedef struct {
   uint32_t epoch, turn, owner_party, foe_party;
   uint16_t planned_move;
   uint8_t slot, pending;
+  uint8_t choosemove_layout;
 } R7FightTicket;
 
 typedef struct {
   void *ctx;
   /* Return 1 only with complete, unmodified original engine buffers.
+   * The provider must independently authenticate producer/copy length and
+   * layout for this engine and keep it constant across both stages.
    * A host that fabricates snapshots cannot earn native certification here. */
   int (*read_original)(void *ctx, R7Original *out);
   /* Must invoke original move limitations / target helpers for the pinned request. */
