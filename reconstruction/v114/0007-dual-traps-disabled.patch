@@ -1,0 +1,366 @@
+diff --git a/include/constants/battle.h b/include/constants/battle.h
+--- a/include/constants/battle.h
++++ b/include/constants/battle.h
+@@ -1,7 +1,10 @@
+ #ifndef GUARD_CONSTANTS_BATTLE_H
+ #define GUARD_CONSTANTS_BATTLE_H
+ 
+-#include "constants/moves.h"
++#include "constants/moves.h"
++
++// Historical dual trapping reconstruction; hard-disabled.
++#define SG_RECONSTRUCTION_DUAL_TRAPS 0
+ 
+ /*
+  * A battler may be in one of four positions on the field. The first bit determines
+diff --git a/include/battle.h b/include/battle.h
+--- a/include/battle.h
++++ b/include/battle.h
+@@ -718,7 +718,14 @@
+     u8 moldBreakerActive:1;
+     struct MessageStatus slideMessageStatus;
+     u8 trainerSlideSpriteIds[MAX_BATTLERS_COUNT];
+-    u8 hazardsQueue[NUM_BATTLE_SIDES][HAZARDS_MAX_COUNT];
++#if SG_RECONSTRUCTION_DUAL_TRAPS
++    // Battle-only records: slots 0/1 Fire Spin/Whirlpool; 1 = release due.
++    struct {
++        u8 ticksPlusOne;
++        u8 setter;
++    } sgTraps[MAX_BATTLERS_COUNT][2];
++#endif
++    u8 hazardsQueue[NUM_BATTLE_SIDES][HAZARDS_MAX_COUNT];
+     u8 numHazards[NUM_BATTLE_SIDES];
+     u8 hazardsCounter:4; // Counter for applying hazard on switch in
+     enum SubmoveState submoveAnnouncement:2;
+diff --git a/include/battle_util.h b/include/battle_util.h
+--- a/include/battle_util.h
++++ b/include/battle_util.h
+@@ -472,7 +472,14 @@
+ void SetStartingStatus(enum StartingStatus status);
+ void ResetStartingStatuses(void);
+ bool32 IsUsableWhileAsleepEffect(enum BattleMoveEffects effect);
+-void SetWrapTurns(enum BattlerId battler);
++void SetWrapTurns(enum BattlerId battler);
++#if SG_RECONSTRUCTION_DUAL_TRAPS
++bool32 SGHasCustomTraps(enum BattlerId battler);
++bool32 SGStartCustomTrap(enum BattlerId battler, enum BattlerId setter, u16 move);
++void SGSyncCustomTraps(enum BattlerId battler);
++void SGClearCustomTraps(enum BattlerId battler);
++void SGTrapBattlerLeaves(enum BattlerId battler);
++#endif
+ bool32 ChangeOrderTargetAfterAttacker(void);
+ void TryUpdateEvolutionTracker(enum EvolutionConditions evolutionCondition, u32 upAmount, enum Move usedMove);
+ bool32 CanUseMoveConsecutively(enum BattlerId battler);
+diff --git a/src/data/moves_info.h b/src/data/moves_info.h
+--- a/src/data/moves_info.h
++++ b/src/data/moves_info.h
+@@ -2314,9 +2314,9 @@
+             "Traps the foe in a ring of\n"
+             "fire for "BINDING_TURNS" turns."),
+         .effect = EFFECT_HIT,
+-        .power = B_UPDATED_MOVE_DATA >= GEN_5 ? 35 : 15,
+-        .type = TYPE_FIRE,
+-        .accuracy = B_UPDATED_MOVE_DATA >= GEN_5 ? 85 : 70,
++        .power = SG_RECONSTRUCTION_DUAL_TRAPS ? 55 : (B_UPDATED_MOVE_DATA >= GEN_5 ? 35 : 15),
++        .type = TYPE_FIRE,
++        .accuracy = SG_RECONSTRUCTION_DUAL_TRAPS ? 100 : (B_UPDATED_MOVE_DATA >= GEN_5 ? 85 : 70),
+         .pp = 15,
+         .target = TARGET_SELECTED,
+         .priority = 0,
+@@ -6824,9 +6824,9 @@
+             "Traps and hurts the foe in\n"
+             "a whirlpool for "BINDING_TURNS" turns."),
+         .effect = EFFECT_HIT,
+-        .power = B_UPDATED_MOVE_DATA >= GEN_5 ? 35 : 15,
+-        .type = TYPE_WATER,
+-        .accuracy = B_UPDATED_MOVE_DATA >= GEN_5 ? 85 : 70,
++        .power = SG_RECONSTRUCTION_DUAL_TRAPS ? 55 : (B_UPDATED_MOVE_DATA >= GEN_5 ? 35 : 15),
++        .type = TYPE_WATER,
++        .accuracy = SG_RECONSTRUCTION_DUAL_TRAPS ? 100 : (B_UPDATED_MOVE_DATA >= GEN_5 ? 85 : 70),
+         .pp = 15,
+         .target = TARGET_SELECTED,
+         .priority = 0,
+diff --git a/src/battle_util.c b/src/battle_util.c
+--- a/src/battle_util.c
++++ b/src/battle_util.c
+@@ -13235,9 +13235,13 @@
+ 
+ // Sets the value of a volatile status flag for a certain battler
+ // Primarily used for the debug menu and scripts. Outside of it explicit references are preferred
+-void SetMonVolatile(enum BattlerId battler, enum Volatile _volatile, u32 newValue)
+-{
+-    switch (_volatile)
++void SetMonVolatile(enum BattlerId battler, enum Volatile _volatile, u32 newValue)
++{
++#if SG_RECONSTRUCTION_DUAL_TRAPS
++    if (_volatile == VOLATILE_WRAPPED && newValue == 0)
++        SGClearCustomTraps(battler);
++#endif
++    switch (_volatile)
+     {
+         VOLATILE_DEFINITIONS(UNPACK_VOLATILE_SETTERS)
+         /* Expands to:
+@@ -13852,8 +13856,84 @@
+     }
+ }
+ 
+-void SetWrapTurns(enum BattlerId battler)
+-{
++#if SG_RECONSTRUCTION_DUAL_TRAPS
++bool32 SGHasCustomTraps(enum BattlerId battler)
++{
++    return gBattleStruct != NULL && battler < MAX_BATTLERS_COUNT
++        && (gBattleStruct->sgTraps[battler][0].ticksPlusOne
++            || gBattleStruct->sgTraps[battler][1].ticksPlusOne);
++}
++
++void SGSyncCustomTraps(enum BattlerId battler)
++{
++    // Project the native escape marker, not the custom timer.
++    u32 slot = gBattleStruct->sgTraps[battler][0].ticksPlusOne ? 0 : 1;
++    if (gBattleStruct->sgTraps[battler][slot].ticksPlusOne)
++    {
++        gBattleMons[battler].volatiles.wrapped = TRUE;
++        gBattleMons[battler].volatiles.wrappedMove = slot == 0 ? MOVE_FIRE_SPIN : MOVE_WHIRLPOOL;
++        gBattleMons[battler].volatiles.wrappedBy = gBattleStruct->sgTraps[battler][slot].setter;
++        gBattleMons[battler].volatiles.wrapTurns = 1;
++    }
++    else
++    {
++        gBattleMons[battler].volatiles.wrapped = FALSE;
++        gBattleMons[battler].volatiles.wrapTurns = 0;
++    }
++}
++
++void SGClearCustomTraps(enum BattlerId battler)
++{
++    if (!SGHasCustomTraps(battler))
++        return;
++    memset(gBattleStruct->sgTraps[battler], 0, sizeof(gBattleStruct->sgTraps[battler]));
++    SGSyncCustomTraps(battler);
++}
++
++bool32 SGStartCustomTrap(enum BattlerId battler, enum BattlerId setter, u16 move)
++{
++    if (gBattleStruct == NULL || battler >= gBattlersCount || setter >= gBattlersCount
++        || battler == setter || !IsBattlerAlive(battler) || !IsBattlerAlive(setter)
++        || (move != MOVE_FIRE_SPIN && move != MOVE_WHIRLPOOL))
++        return FALSE;
++    if (SGHasCustomTraps(battler) && !gBattleMons[battler].volatiles.wrapped)
++        SGClearCustomTraps(battler);
++    if (gBattleMons[battler].volatiles.wrapped && !SGHasCustomTraps(battler))
++        return FALSE; // Do not overwrite another native bind.
++
++    u32 slot = move == MOVE_FIRE_SPIN ? 0 : 1;
++    if (gBattleStruct->sgTraps[battler][slot].ticksPlusOne)
++        return FALSE; // Same-move non-refresh.
++    gBattleStruct->sgTraps[battler][slot].setter = setter;
++    gBattleStruct->sgTraps[battler][slot].ticksPlusOne =
++        BattlerHasHeldItemEffect(setter, HOLD_EFFECT_GRIP_CLAW, TRUE) ? 13 : 9;
++    SGSyncCustomTraps(battler);
++    return TRUE;
++}
++
++void SGTrapBattlerLeaves(enum BattlerId battler)
++{
++    SGClearCustomTraps(battler);
++    for (enum BattlerId target = 0; target < gBattlersCount; target++)
++    {
++        if (!SGHasCustomTraps(target))
++            continue;
++        if (!gBattleMons[target].volatiles.wrapped)
++        {
++            SGClearCustomTraps(target);
++            continue;
++        }
++        for (u32 slot = 0; slot < 2; slot++)
++            if (gBattleStruct->sgTraps[target][slot].ticksPlusOne
++                && gBattleStruct->sgTraps[target][slot].setter == battler)
++                gBattleStruct->sgTraps[target][slot].ticksPlusOne = 0;
++        SGSyncCustomTraps(target);
++    }
++}
++#endif
++
++void SetWrapTurns(enum BattlerId battler)
++{
+     u32 normalWrapTurns = B_WRAP_TURNS - 2; // 5 turns
+ 
+     for (u32 i = 0; i < MAX_MON_ITEMS; i++)
+diff --git a/src/battle_script_commands.c b/src/battle_script_commands.c
+--- a/src/battle_script_commands.c
++++ b/src/battle_script_commands.c
+@@ -3081,8 +3081,21 @@
+             SetMoveEffect(battlerAtk, effectBattler, sTriAttackEffects[chosenMoveEffect], battleScript, effectFlags);
+         break;
+     }
+-    case MOVE_EFFECT_WRAP:
+-        if (gBattleMons[gEffectBattler].volatiles.wrapped)
++    case MOVE_EFFECT_WRAP:
++#if SG_RECONSTRUCTION_DUAL_TRAPS
++        if (gCurrentMove == MOVE_FIRE_SPIN || gCurrentMove == MOVE_WHIRLPOOL)
++        {
++            if (SGStartCustomTrap(gEffectBattler, gBattlerAttacker, gCurrentMove))
++            {
++                BattleScriptPush(battleScript);
++                gBattlescriptCurrInstr = BattleScript_MoveEffectWrap;
++            }
++            else
++                gBattlescriptCurrInstr = battleScript;
++            break;
++        }
++#endif
++        if (gBattleMons[gEffectBattler].volatiles.wrapped)
+         {
+             gBattlescriptCurrInstr = battleScript;
+         }
+@@ -9339,8 +9352,11 @@
+     }
+     else
+     {
+-        gBattleMons[gBattlerAttacker].volatiles.substitute = TRUE;
+-        gBattleMons[gBattlerAttacker].volatiles.wrapped = FALSE;
++        gBattleMons[gBattlerAttacker].volatiles.substitute = TRUE;
++#if SG_RECONSTRUCTION_DUAL_TRAPS
++        SGClearCustomTraps(gBattlerAttacker);
++#endif
++        gBattleMons[gBattlerAttacker].volatiles.wrapped = FALSE;
+         if (factor == 2)
+             gBattleMons[gBattlerAttacker].volatiles.substituteHP = hp / 2;
+         else
+@@ -10117,8 +10133,11 @@
+         gBattleScripting.battler = gBattlerTarget;
+         gBattleMons[gBattlerAttacker].volatiles.wrapped = FALSE;
+         gBattlerTarget = gBattleMons[gBattlerAttacker].volatiles.wrappedBy;
+-        PREPARE_MOVE_BUFFER(gBattleTextBuff1, gBattleMons[gBattlerAttacker].volatiles.wrappedMove);
+-        BattleScriptCall(BattleScript_WrapFree);
++        PREPARE_MOVE_BUFFER(gBattleTextBuff1, gBattleMons[gBattlerAttacker].volatiles.wrappedMove);
++#if SG_RECONSTRUCTION_DUAL_TRAPS
++        SGClearCustomTraps(gBattlerAttacker);
++#endif
++        BattleScriptCall(BattleScript_WrapFree);
+     }
+     else if (gBattleMons[gBattlerAttacker].volatiles.leechSeed)
+     {
+diff --git a/src/battle_main.c b/src/battle_main.c
+--- a/src/battle_main.c
++++ b/src/battle_main.c
+@@ -3310,8 +3310,11 @@
+ 
+ #define UNPACK_VOLATILE_BATON_PASSABLES(_enum, _fieldName, _typeMaxValue, ...) __VA_OPT__(if ((FIRST(__VA_ARGS__)) & V_BATON_PASSABLE) gBattleMons[battler].volatiles._fieldName = volatilesCopy->_fieldName;)
+ 
+-void SwitchInClearSetData(enum BattlerId battler, struct Volatiles *volatilesCopy)
+-{
++void SwitchInClearSetData(enum BattlerId battler, struct Volatiles *volatilesCopy)
++{
++#if SG_RECONSTRUCTION_DUAL_TRAPS
++    SGTrapBattlerLeaves(battler);
++#endif
+     enum BattleMoveEffects effect = GetMoveEffect(gCurrentMove);
+ 
+     ClearIllusionMon(battler);
+@@ -3478,8 +3481,11 @@
+     Ai_UpdateSwitchInData(battler);
+ }
+ 
+-const u8* FaintClearSetData(enum BattlerId battler)
+-{
++const u8* FaintClearSetData(enum BattlerId battler)
++{
++#if SG_RECONSTRUCTION_DUAL_TRAPS
++    SGTrapBattlerLeaves(battler);
++#endif
+     const u8 *result = NULL;
+ 
+     for (enum Stat i = 0; i < NUM_BATTLE_STATS; i++)
+diff --git a/src/battle_boss.c b/src/battle_boss.c
+--- a/src/battle_boss.c
++++ b/src/battle_boss.c
+@@ -804,8 +804,11 @@
+ 
+     gBattleMons[battler].volatiles.confusionTurns = 0;
+     gBattleMons[battler].volatiles.infiniteConfusion = FALSE;
+-    gBattleMons[battler].volatiles.flinched = FALSE;
+-    gBattleMons[battler].volatiles.wrapped = FALSE;
++    gBattleMons[battler].volatiles.flinched = FALSE;
++#if SG_RECONSTRUCTION_DUAL_TRAPS
++    SGClearCustomTraps(battler);
++#endif
++    gBattleMons[battler].volatiles.wrapped = FALSE;
+     gBattleMons[battler].volatiles.infatuation = 0;
+     gBattleMons[battler].volatiles.escapePrevention = FALSE;
+     gBattleMons[battler].volatiles.leechSeed = 0;
+diff --git a/src/battle_end_turn.c b/src/battle_end_turn.c
+--- a/src/battle_end_turn.c
++++ b/src/battle_end_turn.c
+@@ -603,11 +603,65 @@
+     return effect;
+ }
+ 
+-static bool32 HandleEndTurnWrap(enum BattlerId battler)
+-{
+-    bool32 effect = FALSE;
+-
+-    gBattleStruct->eventState.endTurnBattler++;
++#if SG_RECONSTRUCTION_DUAL_TRAPS
++static bool32 SGHandleCustomTrapTick(enum BattlerId battler)
++{
++    if (!gBattleMons[battler].volatiles.wrapped || !IsBattlerAlive(battler))
++    {
++        SGClearCustomTraps(battler);
++        return FALSE;
++    }
++
++    u32 damaging = 0;
++    u16 displayMove = gBattleMons[battler].volatiles.wrappedMove;
++    for (u32 slot = 0; slot < 2; slot++)
++    {
++        if (!gBattleStruct->sgTraps[battler][slot].ticksPlusOne)
++            continue;
++        u32 setter = gBattleStruct->sgTraps[battler][slot].setter;
++        if (setter >= gBattlersCount || !IsBattlerAlive(setter)
++            || gBattleStruct->sgTraps[battler][slot].ticksPlusOne == 1)
++        {
++            gBattleStruct->sgTraps[battler][slot].ticksPlusOne = 0;
++            continue;
++        }
++        gBattleStruct->sgTraps[battler][slot].ticksPlusOne--;
++        if (damaging == 0)
++            displayMove = slot == 0 ? MOVE_FIRE_SPIN : MOVE_WHIRLPOOL;
++        damaging++;
++    }
++    SGSyncCustomTraps(battler);
++    if (damaging)
++    {
++        if (IsAbilityAndRecord(battler, ABILITY_MAGIC_GUARD))
++            return FALSE;
++        s32 damage = max(1, GetNonDynamaxMaxHP(battler) / 5) * damaging;
++        gBattleScripting.animArg1 = displayMove;
++        gBattleScripting.animArg2 = displayMove >> 8;
++        PREPARE_MOVE_BUFFER(gBattleTextBuff1, displayMove);
++        SetPassiveDamageAmount(battler, damage);
++        BattleScriptExecute(BattleScript_WrapTurnDmg);
++        return TRUE;
++    }
++    if (!SGHasCustomTraps(battler))
++    {
++        PREPARE_MOVE_BUFFER(gBattleTextBuff1, displayMove);
++        BattleScriptExecute(BattleScript_WrapEnds);
++        return TRUE;
++    }
++    return FALSE;
++}
++#endif
++
++static bool32 HandleEndTurnWrap(enum BattlerId battler)
++{
++    bool32 effect = FALSE;
++
++    gBattleStruct->eventState.endTurnBattler++;
++#if SG_RECONSTRUCTION_DUAL_TRAPS
++    if (SGHasCustomTraps(battler))
++        return SGHandleCustomTrapTick(battler);
++#endif
+ 
+     if (gBattleMons[battler].volatiles.wrapped && IsBattlerAlive(battler))
+     {
