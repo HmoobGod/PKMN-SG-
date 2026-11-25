@@ -1,0 +1,148 @@
+diff --git a/include/battle_util.h b/include/battle_util.h
+--- a/include/battle_util.h
++++ b/include/battle_util.h
+@@ -3,7 +3,13 @@
+ 
+ #include "move.h"
+ #include "constants/battle_string_ids.h"
+-#include "constants/hold_effects.h"
++#include "constants/hold_effects.h"
++
++// Historical custom balance, reconstruction only. All switches hard-disabled.
++#define SG_RECONSTRUCTION_TRAINER_MONEY 0
++#define SG_RECONSTRUCTION_FIELD_DURATION 0
++#define SG_RECONSTRUCTION_SCREEN_DURATION 0
++#define SG_RECONSTRUCTION_LEFTOVERS 0
+ 
+ #define MOVE_LIMITATION_ZEROMOVE                (1 << 0)
+ #define MOVE_LIMITATION_PP                      (1 << 1)
+diff --git a/src/battle_util.c b/src/battle_util.c
+--- a/src/battle_util.c
++++ b/src/battle_util.c
+@@ -2517,10 +2517,10 @@
+ 
+         if (gBattleWeather & B_WEATHER_PRIMAL_ANY)
+             gBattleStruct->weatherDuration = 0;
+-        else if (rock != 0 && BattlerHasHeldItemEffect(battler, rock, TRUE))
+-            gBattleStruct->weatherDuration = 8;
+-        else
+-            gBattleStruct->weatherDuration = 5;
++        else if (rock != 0 && BattlerHasHeldItemEffect(battler, rock, TRUE))
++            gBattleStruct->weatherDuration = SG_RECONSTRUCTION_FIELD_DURATION ? 12 : 8;
++        else
++            gBattleStruct->weatherDuration = SG_RECONSTRUCTION_FIELD_DURATION ? 8 : 5;
+     }
+ 
+     if (viaAbility) // Weather started by Ability
+@@ -2557,10 +2557,10 @@
+             gBattleMons[i].volatiles.terrainAbilityDone = FALSE;
+             ResetParadoxTerrainStat(i);
+         }
+-        if (BattlerHasHeldItemEffect(battler, HOLD_EFFECT_TERRAIN_EXTENDER, TRUE))
+-            gFieldTimers.terrainTimer = 8;
+-        else
+-            gFieldTimers.terrainTimer = 5;
++        if (BattlerHasHeldItemEffect(battler, HOLD_EFFECT_TERRAIN_EXTENDER, TRUE))
++            gFieldTimers.terrainTimer = SG_RECONSTRUCTION_FIELD_DURATION ? 12 : 8;
++        else
++            gFieldTimers.terrainTimer = SG_RECONSTRUCTION_FIELD_DURATION ? 8 : 5;
+         gBattleScripting.battler = battler;
+         return TRUE;
+     }
+diff --git a/src/battle_script_commands.c b/src/battle_script_commands.c
+--- a/src/battle_script_commands.c
++++ b/src/battle_script_commands.c
+@@ -2678,14 +2678,18 @@
+     if (!(gSideStatuses[side] & SIDE_STATUS_REFLECT))
+     {
+         gSideStatuses[side] |= SIDE_STATUS_REFLECT;
+-        gSideTimers[side].reflectTimer = 5;
+-
+-        for (u32 i = 0; i < MAX_MON_ITEMS; i++)
+-        {
+-            if (GetSlotHeldItemEffect(battler, i, TRUE) == HOLD_EFFECT_LIGHT_CLAY
+-             && (gSideTimers[side].reflectTimer == 5 || GetConfig(B_ALLOW_HELD_DUPES)))
+-                gSideTimers[side].reflectTimer += 3;
+-        }
++        gSideTimers[side].reflectTimer = SG_RECONSTRUCTION_SCREEN_DURATION ? 8 : 5;
++
++        for (u32 i = 0; i < MAX_MON_ITEMS; i++)
++        {
++            if (GetSlotHeldItemEffect(battler, i, TRUE) == HOLD_EFFECT_LIGHT_CLAY)
++            {
++                if (SG_RECONSTRUCTION_SCREEN_DURATION)
++                    gSideTimers[side].reflectTimer = 12; // Multiple extenders do not stack in custom 8/12 mode.
++                else if (gSideTimers[side].reflectTimer == 5 || GetConfig(B_ALLOW_HELD_DUPES))
++                    gSideTimers[side].reflectTimer += 3;
++            }
++        }
+ 
+         if (IsDoubleBattle() && CountAliveMonsInBattle(BATTLE_ALIVE_SIDE, battler) == 2)
+             gBattleCommunication[MULTISTRING_CHOOSER] = B_MSG_SET_REFLECT_DOUBLE;
+@@ -2703,14 +2707,18 @@
+     if (!(gSideStatuses[side] & SIDE_STATUS_LIGHTSCREEN))
+     {
+         gSideStatuses[side] |= SIDE_STATUS_LIGHTSCREEN;
+-        gSideTimers[side].lightscreenTimer = 5;
+-
+-        for (u32 i = 0; i < MAX_MON_ITEMS; i++)
+-        {
+-            if (GetSlotHeldItemEffect(battler, i, TRUE) == HOLD_EFFECT_LIGHT_CLAY
+-             && (gSideTimers[side].lightscreenTimer == 5 || GetConfig(B_ALLOW_HELD_DUPES)))
+-                gSideTimers[side].lightscreenTimer += 3;
+-        }
++        gSideTimers[side].lightscreenTimer = SG_RECONSTRUCTION_SCREEN_DURATION ? 8 : 5;
++
++        for (u32 i = 0; i < MAX_MON_ITEMS; i++)
++        {
++            if (GetSlotHeldItemEffect(battler, i, TRUE) == HOLD_EFFECT_LIGHT_CLAY)
++            {
++                if (SG_RECONSTRUCTION_SCREEN_DURATION)
++                    gSideTimers[side].lightscreenTimer = 12; // Multiple extenders do not stack in custom 8/12 mode.
++                else if (gSideTimers[side].lightscreenTimer == 5 || GetConfig(B_ALLOW_HELD_DUPES))
++                    gSideTimers[side].lightscreenTimer += 3;
++            }
++        }
+ 
+         if (IsDoubleBattle() && CountAliveMonsInBattle(BATTLE_ALIVE_SIDE, battler) == 2)
+             gBattleCommunication[MULTISTRING_CHOOSER] = B_MSG_SET_LIGHTSCREEN_DOUBLE;
+@@ -6779,9 +6787,20 @@
+     if (gBattleOutcome == B_OUTCOME_WON)
+     {
+         money = GetTrainerMoneyToGive(TRAINER_BATTLE_PARAM.opponentA);
+-        if (gBattleTypeFlags & BATTLE_TYPE_TWO_OPPONENTS)
+-            money += GetTrainerMoneyToGive(TRAINER_BATTLE_PARAM.opponentB);
+-        AddMoney(&gSaveBlock1Ptr->money, money);
++        if (gBattleTypeFlags & BATTLE_TYPE_TWO_OPPONENTS)
++            money += GetTrainerMoneyToGive(TRAINER_BATTLE_PARAM.opponentB);
++
++        // Apply once to the combined native trainer award, not the shared
++        // moneyMultiplier used by Pay Day. Preserve native wallet saturation.
++        if (SG_RECONSTRUCTION_TRAINER_MONEY
++            && (gBattleTypeFlags & BATTLE_TYPE_TRAINER)
++            && !(gBattleTypeFlags & ~(BATTLE_TYPE_IS_MASTER | BATTLE_TYPE_TRAINER
++                                      | BATTLE_TYPE_DOUBLE | BATTLE_TYPE_TWO_OPPONENTS)))
++        {
++            u64 doubled = (u64)money * 2;
++            money = doubled > MAX_MONEY ? MAX_MONEY : (u32)doubled;
++        }
++        AddMoney(&gSaveBlock1Ptr->money, money);
+     }
+     else
+     {
+diff --git a/src/battle_hold_effects.c b/src/battle_hold_effects.c
+--- a/src/battle_hold_effects.c
++++ b/src/battle_hold_effects.c
+@@ -699,9 +699,9 @@
+         {
+             if (itemEffect == HOLD_EFFECT_LEFTOVERS && (firstLeftover || GetConfig(B_ALLOW_HELD_DUPES))) 
+             {
+-                firstLeftover = FALSE;
+-                hpValue += GetNonDynamaxMaxHP(battler) / 16;
+-                RecordItemEffectBattle(battler, HOLD_EFFECT_LEFTOVERS);
++                firstLeftover = FALSE;
++                hpValue += GetNonDynamaxMaxHP(battler) / (SG_RECONSTRUCTION_LEFTOVERS ? 8 : 16);
++                RecordItemEffectBattle(battler, HOLD_EFFECT_LEFTOVERS);
+             }
+             if (itemEffect == HOLD_EFFECT_BLACK_SLUDGE && (firstSludge || GetConfig(B_ALLOW_HELD_DUPES)) //Black Sludge heal
+             && IS_BATTLER_OF_TYPE(battler, TYPE_POISON)) 
