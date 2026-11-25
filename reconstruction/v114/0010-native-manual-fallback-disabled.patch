@@ -1,0 +1,264 @@
+diff --git a/include/battle_util.h b/include/battle_util.h
+--- a/include/battle_util.h
++++ b/include/battle_util.h
+@@ -248,9 +248,17 @@
+ 
+ /* Reconstruction only: source-native, no Current address assumptions.
+  * Automatic emission remains hard-disabled until feature parity is proven. */
++enum SGReconstructionFightResult
++{
++    SG_FIGHT_CHOOSE_MOVE,
++    SG_FIGHT_NO_MOVES,
++    SG_FIGHT_RETURN_MANUAL
++};
+ void SGReconstructionResetReceipt(enum BattlerId battler);
++void SGReconstructionResetTurn(enum BattlerId battler);
++void SGReconstructionManualForTurn(enum BattlerId battler);
+ bool32 SGReconstructionBeginFight(enum BattlerId battler);
+-bool32 SGReconstructionCheckFight(enum BattlerId battler);
++enum SGReconstructionFightResult SGReconstructionCheckFight(enum BattlerId battler);
+ void SGReconstructionRecordMoveRequest(enum BattlerId battler);
+ bool32 SGReconstructionConsumeMoveRequest(enum BattlerId battler, u8 *slot);
+ u8 GetImprisonedMovesCount(enum BattlerId battler, enum Move move);
+diff --git a/src/battle_util.c b/src/battle_util.c
+--- a/src/battle_util.c
++++ b/src/battle_util.c
+@@ -1999,7 +1999,8 @@
+     SG_RECEIPT_EMPTY,
+     SG_RECEIPT_FIGHT,
+     SG_RECEIPT_MASK,
+-    SG_RECEIPT_REQUEST
++    SG_RECEIPT_REQUEST,
++    SG_RECEIPT_MANUAL
+ };
+ 
+ static EWRAM_DATA struct
+@@ -2013,10 +2014,26 @@
+     u8 payload[4 + sizeof(struct ChooseMoveStruct)];
+ } sSGReconstructionReceipt = {0};
+ 
+-void SGReconstructionResetReceipt(enum BattlerId battler)
++/* Only a real turn boundary or battle lifetime boundary clears manual mode. */
++void SGReconstructionResetTurn(enum BattlerId battler)
+ {
+     if (battler == 0)
+         memset(&sSGReconstructionReceipt, 0, sizeof(sSGReconstructionReceipt));
++}
++
++void SGReconstructionResetReceipt(enum BattlerId battler)
++{
++    if (battler == 0 && (!SG_RECONSTRUCTION_AUTO_ENABLED
++        || sSGReconstructionReceipt.phase != SG_RECEIPT_MANUAL))
++        SGReconstructionResetTurn(battler);
++}
++
++void SGReconstructionManualForTurn(enum BattlerId battler)
++{
++    if (!SG_RECONSTRUCTION_AUTO_ENABLED || battler != 0)
++        return;
++    SGReconstructionResetTurn(battler);
++    sSGReconstructionReceipt.phase = SG_RECEIPT_MANUAL;
+ }
+ 
+ /* Until the exact caught-shiny registry and save toggle are reconstructed,
+@@ -2024,7 +2041,7 @@
+ static bool32 SGReconstructionScope(enum BattlerId battler)
+ {
+     if (battler != 0 || gBattleResources == NULL || gBattleStruct == NULL
+-        || gSaveBlock1Ptr == NULL || gSaveBlock2Ptr == NULL || gTestRunnerEnabled
++        || gSaveBlock1Ptr == NULL || gSaveBlock2Ptr == NULL || TESTING || gTestRunnerEnabled
+         || gBattlersCount != 2
+         || gBattleTypeFlags != BATTLE_TYPE_IS_MASTER || gAbsentBattlerFlags != 0
+         || GetBattlerAtPosition(B_POSITION_PLAYER_LEFT) != 0
+@@ -2063,7 +2080,10 @@
+ bool32 SGReconstructionBeginFight(enum BattlerId battler)
+ {
+     SGReconstructionResetReceipt(battler);
+-    if (!SG_RECONSTRUCTION_AUTO_ENABLED || !SGReconstructionScope(battler))
++    if (!SG_RECONSTRUCTION_AUTO_ENABLED || battler != 0
++        || sSGReconstructionReceipt.phase == SG_RECEIPT_MANUAL
++        || !SGReconstructionScope(battler)
++        || (GetConfig(B_ENCORE_TARGET) < GEN_5 && gBattleMons[battler].volatiles.encoredMove != MOVE_NONE))
+         return FALSE;
+     sSGReconstructionReceipt.resources = gBattleResources;
+     sSGReconstructionReceipt.turn = gBattleTurnCounter;
+@@ -2073,14 +2093,9 @@
+     return TRUE;
+ }
+ 
+-/* The natural restriction invocation and original no-moves side effects
+- * are shared; only the actual Fight consumer is allowed to retain its mask. */
+-static bool32 CheckFightAndSetNoMoves(enum BattlerId battler, u32 *mask)
+-{
+-    u32 unusable = CheckMoveLimitations(battler, 0, MOVE_LIMITATIONS_ALL);
+-    if (mask != NULL)
+-        *mask = unusable;
+-
++/* Preserve the native no-moves side effects for an admitted Fight only. */
++static bool32 SetFightNoMoves(enum BattlerId battler, u32 unusable)
++{
+     if (unusable == ALL_MOVES_MASK) // All moves are unusable.
+     {
+         gProtectStructs[battler].noValidMoves = TRUE;
+@@ -2096,27 +2111,43 @@
+ 
+ bool32 AreAllMovesUnusable(enum BattlerId battler)
+ {
+-    return CheckFightAndSetNoMoves(battler, NULL);
+-}
+-
+-bool32 SGReconstructionCheckFight(enum BattlerId battler)
+-{
+-    u32 mask;
+-    bool32 allUnusable = CheckFightAndSetNoMoves(battler, &mask);
+-    if (battler == 0)
+-    {
+-        if (SG_RECONSTRUCTION_AUTO_ENABLED && !allUnusable
+-            && (mask & ~ALL_MOVES_MASK) == 0
+-            && sSGReconstructionReceipt.phase == SG_RECEIPT_FIGHT
+-            && SGReconstructionSameContext(battler))
+-        {
+-            sSGReconstructionReceipt.unusableMask = mask;
+-            sSGReconstructionReceipt.phase = SG_RECEIPT_MASK;
+-        }
+-        else
+-            SGReconstructionResetReceipt(battler);
+-    }
+-    return allUnusable;
++    return SetFightNoMoves(battler, CheckMoveLimitations(battler, 0, MOVE_LIMITATIONS_ALL));
++}
++
++enum SGReconstructionFightResult SGReconstructionCheckFight(enum BattlerId battler)
++{
++    bool32 automatic = SG_RECONSTRUCTION_AUTO_ENABLED && battler == 0
++        && sSGReconstructionReceipt.phase == SG_RECEIPT_FIGHT;
++
++    /* Stale automatic provenance is not a human-selected Fight. Reject it
++     * before reading a restriction mask or committing native selection state. */
++    if (automatic && (!SGReconstructionSameContext(battler)
++        || (GetConfig(B_ENCORE_TARGET) < GEN_5 && gBattleMons[battler].volatiles.encoredMove != MOVE_NONE)))
++    {
++        SGReconstructionManualForTurn(battler);
++        return SG_FIGHT_RETURN_MANUAL;
++    }
++
++    // Exactly one natural restriction invocation for this Fight attempt.
++    u32 mask = CheckMoveLimitations(battler, 0, MOVE_LIMITATIONS_ALL);
++    if (automatic && (mask == ALL_MOVES_MASK || (mask & ~ALL_MOVES_MASK) != 0))
++    {
++        // Do not commit noValidMoves or the Struggle selection script.
++        SGReconstructionManualForTurn(battler);
++        return SG_FIGHT_RETURN_MANUAL;
++    }
++
++    bool32 allUnusable = SetFightNoMoves(battler, mask);
++    if (automatic)
++    {
++        sSGReconstructionReceipt.unusableMask = mask;
++        sSGReconstructionReceipt.phase = SG_RECEIPT_MASK;
++    }
++    else
++    {
++        SGReconstructionResetReceipt(battler);
++    }
++    return allUnusable ? SG_FIGHT_NO_MOVES : SG_FIGHT_CHOOSE_MOVE;
+ }
+ 
+ void SGReconstructionRecordMoveRequest(enum BattlerId battler)
+@@ -2212,13 +2243,13 @@
+     if (bestSlot >= MAX_MON_MOVES)
+         goto fallback;
+ 
+-    // Consume before returning: a rejection/reissued request cannot replay it.
+-    SGReconstructionResetReceipt(battler);
++    // Consume before returning; rejection or cancellation stays manual this turn.
++    SGReconstructionManualForTurn(battler);
+     *slot = bestSlot;
+     return TRUE;
+ 
+ fallback:
+-    SGReconstructionResetReceipt(battler);
++    SGReconstructionManualForTurn(battler);
+     return FALSE;
+ }
+ 
+diff --git a/src/battle_controller_player.c b/src/battle_controller_player.c
+--- a/src/battle_controller_player.c
++++ b/src/battle_controller_player.c
+@@ -2206,6 +2206,7 @@
+         return;
+     }
+ 
++    SGReconstructionManualForTurn(battler);
+     gBattlerControllerFuncs[battler] = HandleChooseActionAfterDma3;
+     BattleTv_ClearExplosionFaintCause();
+     BattlePutTextOnWindow(gText_BattleMenu, B_WIN_ACTION_MENU);
+@@ -2314,6 +2315,7 @@
+         BtlController_Complete(battler);
+         return;
+     }
++    SGReconstructionManualForTurn(battler);
+     SGReconstructionResetReceipt(battler);
+     if (gBattleTypeFlags & BATTLE_TYPE_PALACE)
+     {
+diff --git a/src/battle_main.c b/src/battle_main.c
+--- a/src/battle_main.c
++++ b/src/battle_main.c
+@@ -4427,7 +4427,16 @@
+                 switch (gBattleResources->bufferB[battler][1])
+                 {
+                 case B_ACTION_USE_MOVE:
+-                    if (SGReconstructionCheckFight(battler))
++                {
++                    enum SGReconstructionFightResult fightResult = SGReconstructionCheckFight(battler);
++                    if (fightResult == SG_FIGHT_RETURN_MANUAL)
++                    {
++                        // Use the native cancel-to-action transition. No move was committed.
++                        RecordedBattle_ClearBattlerAction(battler, 1);
++                        gBattleCommunication[battler] = STATE_BEFORE_ACTION_CHOSEN;
++                        return;
++                    }
++                    if (fightResult == SG_FIGHT_NO_MOVES)
+                     {
+                         gBattleCommunication[battler] = STATE_SELECTION_SCRIPT;
+                         gBattleStruct->battlerState[battler].selectionScriptFinished = FALSE;
+@@ -4475,6 +4484,7 @@
+                         SGReconstructionRecordMoveRequest(battler);
+                     }
+                     break;
++                }
+                 case B_ACTION_USE_ITEM:
+                     if (ShouldBattleRestrictionsApply(battler) && !IsAllowedToUseBag())
+                     {
+diff --git a/src/battle_util2.c b/src/battle_util2.c
+--- a/src/battle_util2.c
++++ b/src/battle_util2.c
+@@ -36,7 +36,7 @@
+ 
+ void AllocateBattleResources(void)
+ {
+-    SGReconstructionResetReceipt(0);
++    SGReconstructionResetTurn(0);
+     if (gBattleTypeFlags & BATTLE_TYPE_TRAINER_HILL)
+         InitTrainerHillBattleStruct();
+ 
+@@ -74,7 +74,7 @@
+ {
+     bool32 wasBossBattle = (gBattleTypeFlags & BATTLE_TYPE_BOSS) || IsBossBattlePending();
+ 
+-    SGReconstructionResetReceipt(0);
++    SGReconstructionResetTurn(0);
+     if (gBattleTypeFlags & BATTLE_TYPE_TRAINER_HILL)
+         FreeTrainerHillBattleStruct();
+ 
+diff --git a/src/battle_end_turn.c b/src/battle_end_turn.c
+--- a/src/battle_end_turn.c
++++ b/src/battle_end_turn.c
+@@ -31,6 +31,7 @@
+     bool32 effect = FALSE;
+ 
+     gBattleTurnCounter++;
++    SGReconstructionResetTurn(0);
+     gBattleStruct->eventState.endTurn++;
+ 
+     for (enum BattlerId i = 0; i < gBattlersCount; i++)
