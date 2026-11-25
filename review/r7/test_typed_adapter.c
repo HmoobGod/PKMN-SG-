@@ -10,6 +10,9 @@ typedef struct {
     SG_PublicBattleObservation obs;
     unsigned reads;
     int mutate_after_rank;
+    R7OriginalFightReceipt receipt;
+    unsigned receipt_reads;
+    int deny_receipt, drift_receipt;
 } Fake;
 static int read_original(void *ctx,R7Original *out)
 {
@@ -78,8 +81,81 @@ static void defer(Fake *f)
     assert(p.outcome==R7_DEFER && p.action==R7_NO_ACTION &&
            p.slot==R7_NO_SLOT && !l.consumed && !t.pending);
 }
+static int read_receipt(void *ctx,const R7Original *p,R7OriginalFightReceipt *out)
+{
+    Fake *f=ctx;
+    assert(p->request_id==f->original.request_id);
+    ++f->receipt_reads;
+    if(f->deny_receipt) return 0;
+    *out=f->receipt;
+    if(f->drift_receipt && f->receipt_reads==2) out->unusable_mask^=1u;
+    return 1;
+}
+static void setup_post(Fake *f)
+{
+    setup(f);next(f);
+    f->original.choosemove_layout=R7_LAYOUT_CURRENT44;
+    f->original.payload_length=44;
+    for(unsigned i=20;i<44;i++) f->original.original_payload[i]=(uint8_t)(i+1u);
+    f->receipt.move_request=f->original;
+    f->receipt.fight_request_id=10;
+    f->receipt.check_mask=0xffff;
+}
+static R7Plan post(Fake *f,R7Lease *l)
+{
+    f->reads=f->receipt_reads=0;
+    R7TypedHost h={{f,read_original,read_legal},read_obs};
+    R7Plan p=r7_plan_typed_after_original_fight(&h,l,read_receipt);
+    assert(!p.native_move_accepted && !p.native_manual_fallback_accepted &&
+           !p.no_forced_switch_certified && !p.production_authorized);
+    return p;
+}
+static void post_denied(Fake *f)
+{
+    R7Lease l={7,11,0};
+    R7Plan p=post(f,&l);
+    assert(p.outcome==R7_DEFER && p.action==R7_NO_ACTION &&
+           p.slot==R7_NO_SLOT && p.manual_defer_requested && l.consumed);
+    assert(post(f,&l).reason==R7_BAD_LEASE);
+}
+static void test_original_fight_receipt(void)
+{
+    Fake f;setup_post(&f);
+    R7Lease l={7,11,0};
+    R7Plan p=post(&f,&l);
+    assert(p.outcome==R7_MOVE && p.action==10 && p.slot==1 && l.consumed);
+    assert(post(&f,&l).reason==R7_BAD_LEASE);
+    setup_post(&f);f.receipt.unusable_mask=2;l=(R7Lease){7,11,0};
+    p=post(&f,&l);
+    assert(p.outcome==R7_MOVE && p.slot==0 && l.consumed);
+    setup_post(&f);f.receipt.unusable_mask=3;post_denied(&f);
+    setup_post(&f);f.receipt.unusable_mask=15;post_denied(&f);
+    setup_post(&f);f.receipt.unusable_mask=16;post_denied(&f);
+    setup_post(&f);f.receipt.check_mask=1;post_denied(&f);
+    setup_post(&f);f.receipt.fight_request_id=0;post_denied(&f);
+    setup_post(&f);f.receipt.fight_request_id=11;post_denied(&f);
+    setup_post(&f);f.deny_receipt=1;post_denied(&f);
+    setup_post(&f);f.drift_receipt=1;post_denied(&f);
+    setup_post(&f);f.receipt.move_request.turn++;post_denied(&f);
+    setup_post(&f);f.receipt.move_request.owner_party++;post_denied(&f);
+    setup_post(&f);f.receipt.move_request.request_id++;post_denied(&f);
+    setup_post(&f);f.legal.target_helpers_verified=0;post_denied(&f);
+    setup_post(&f);f.legal.ineffectiveness_verified=0;post_denied(&f);
+    setup_post(&f);f.legal.verified_foe_target_mask=0;post_denied(&f);
+    setup_post(&f);f.mutate_after_rank=1;post_denied(&f);
+    for(unsigned i=0;i<44;i++){
+        setup_post(&f);f.receipt.move_request.original_payload[i]^=1u;
+        post_denied(&f);
+    }
+    setup_post(&f);f.original.choosemove_layout=R7_LAYOUT_SOURCE40;
+    f.original.payload_length=40;f.receipt.move_request=f.original;post_denied(&f);
+    setup(&f);f.receipt.move_request=f.original;f.receipt.fight_request_id=9;
+    f.receipt.check_mask=0xffff;l=(R7Lease){7,10,0};
+    assert(post(&f,&l).outcome==R7_DEFER && l.consumed);
+}
 int main(void)
 {
+    test_original_fight_receipt();
     Fake f;R7Lease l={7,10,0};R7FightTicket t={0};
     setup(&f);R7Plan p=run(&f,&l,&t);
     assert(p.outcome==R7_FIGHT && p.slot==1 && l.consumed && t.pending);

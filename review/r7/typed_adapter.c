@@ -1,9 +1,15 @@
 #include "typed_adapter.h"
 #include <string.h>
 
+typedef struct {
+    const R7TypedHost *host;
+    R7ReadFightReceipt receipt;
+    uint32_t unusable_mask;
+} TypedContext;
+
 static int typed_read(void *ctx, R7Original *out)
 {
-    const R7TypedHost *h=ctx;
+    const R7TypedHost *h=((TypedContext *)ctx)->host;
     return h->engine.read_original(h->engine.ctx,out);
 }
 
@@ -11,7 +17,8 @@ static int typed_read(void *ctx, R7Original *out)
  * eligibility to one scored slot; never add a legality or target bit. */
 static int typed_legal(void *ctx, const R7Original *s, R7Legal *out)
 {
-    const R7TypedHost *h=ctx;
+    const TypedContext *c=ctx;
+    const R7TypedHost *h=c->host;
     R7Legal legal={0};
     SG_PublicBattleObservation o={0};
     if (h->engine.read_engine_legality(h->engine.ctx,s,&legal)!=1 ||
@@ -22,6 +29,10 @@ static int typed_legal(void *ctx, const R7Original *s, R7Legal *out)
         ((legal.move_legal_mask|legal.verified_foe_target_mask|
           legal.known_ineffective_mask)&0xf0u) || s->turn==UINT32_MAX)
         return 0;
+    /* The already executed restriction mask can only REMOVE eligibility.
+     * All other positive engine legality and target proofs remain required. */
+    if (c->receipt)
+        legal.move_legal_mask&=(uint8_t)~c->unusable_mask;
     if (h->read_rank_observation(h->engine.ctx,s,&o)!=1)
         return 0;
     /* Use the mod's positively bound type chart, not the fixed Gen-IV
@@ -71,6 +82,25 @@ R7Plan r7_plan_typed(const R7TypedHost *h,R7Lease *lease,R7FightTicket *ticket)
     if(!h || !h->engine.read_original || !h->engine.read_engine_legality ||
        !h->read_rank_observation)
         return r7_plan(NULL,lease,ticket);
-    R7Host wrapped={(void *)h,typed_read,typed_legal};
+    TypedContext c={h,0,0};
+    R7Host wrapped={&c,typed_read,typed_legal};
     return r7_plan(&wrapped,lease,ticket);
+}
+
+static int typed_receipt(void *ctx,const R7Original *p,R7OriginalFightReceipt *out)
+{
+    TypedContext *c=ctx;
+    if (c->receipt(c->host->engine.ctx,p,out)!=1) return 0;
+    c->unusable_mask=out->unusable_mask;
+    return 1;
+}
+R7Plan r7_plan_typed_after_original_fight(const R7TypedHost *h,R7Lease *lease,
+                                         R7ReadFightReceipt receipt)
+{
+    if (!h || !h->engine.read_original || !h->engine.read_engine_legality ||
+        !h->read_rank_observation || !receipt)
+        return r7_plan(NULL,lease,NULL);
+    TypedContext c={h,receipt,0};
+    R7Host wrapped={&c,typed_read,typed_legal};
+    return r7_plan_after_original_fight(&wrapped,lease,typed_receipt,&c);
 }

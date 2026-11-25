@@ -85,16 +85,39 @@ static int valid_legality(const R7Original *before,const R7Legal *legal) {
   return 1;
 }
 
-R7Plan r7_plan(const R7Host *host,R7Lease *lease,R7FightTicket *ticket) {
-  if (!host || !lease || !ticket || !host->read_original ||
+static int valid_receipt(const R7Original *s,const R7OriginalFightReceipt *r) {
+  return r->fight_request_id!=0u && r->fight_request_id!=s->request_id &&
+    r->check_mask==0xffffu && r->unusable_mask<15u &&
+    equal_original(s,&r->move_request);
+}
+static R7Plan plan(const R7Host *host,R7Lease *lease,R7FightTicket *ticket,
+                  R7ReadFightReceipt read_receipt,void *receipt_ctx) {
+  if (!host || !lease || (!ticket && !read_receipt) || !host->read_original ||
       !host->read_engine_legality) return fail(R7_BAD_API);
   R7Original before={0},after={0};R7Legal legal={0};
   if (host->read_original(host->ctx,&before)!=1) return fail(R7_BAD_ENGINE_READ);
   if (!valid_original(&before)) return fail(R7_UNSUPPORTED_SCOPE);
   if (lease->consumed!=0u || lease->epoch!=before.original_epoch ||
       lease->request_id!=before.request_id) return fail(R7_BAD_LEASE);
+  R7OriginalFightReceipt receipt={0}, again={0};
+  if (read_receipt) {
+    /* No synthetic Fight ticket and no second Fight. Only this exact
+     * Current-profile ChooseMove is eligible for the separate entry. */
+    lease->consumed=1u;
+    if (before.command!=19u || before.choosemove_layout!=R7_LAYOUT_CURRENT44 ||
+        read_receipt(receipt_ctx,&before,&receipt)!=1 ||
+        !valid_receipt(&before,&receipt))
+      return fail(R7_STAGE_CONTINUITY_FAILED);
+  }
   if (host->read_engine_legality(host->ctx,&before,&legal)!=1 ||
       !valid_legality(&before,&legal)) return fail(R7_NO_ENGINE_LEGALITY);
+  if (read_receipt &&
+      ((legal.move_legal_mask & receipt.unusable_mask)!=0u ||
+       read_receipt(receipt_ctx,&before,&again)!=1 ||
+       !valid_receipt(&before,&again) ||
+       receipt.fight_request_id!=again.fight_request_id ||
+       receipt.unusable_mask!=again.unusable_mask))
+    return fail(R7_NO_ENGINE_LEGALITY);
   if (host->read_original(host->ctx,&after)!=1 || !equal_original(&before,&after))
     return fail(R7_ORIGINAL_REQUEST_CHANGED);
 
@@ -123,7 +146,10 @@ R7Plan r7_plan(const R7Host *host,R7Lease *lease,R7FightTicket *ticket) {
   if (outcome.outcome==SG_DEFER_TO_ORIGINAL_MANUAL || outcome.slot>=4u)
     return fail(R7_NO_VALID_MOVE);
   unsigned s=outcome.slot;
-  if (before.command==17u) {
+  if (read_receipt) {
+    /* No ticket mutation: the genuine original Fight already happened.
+     * Guard output remains an uninstalled source proposal. */
+  } else if (before.command==17u) {
     if (ticket->pending!=0u) return fail(R7_STAGE_CONTINUITY_FAILED);
     /* No response is emitted; the caller may issue Fight only after all
      * original-engine authorizations are independently proven. */
@@ -143,4 +169,13 @@ R7Plan r7_plan(const R7Host *host,R7Lease *lease,R7FightTicket *ticket) {
   R7Plan p={before.command==17u?R7_FIGHT:R7_MOVE,R7_REASON_NONE,
      before.command==17u?0u:10u,s,0u,0u,0u,0u,0u};
   return p;
+}
+
+R7Plan r7_plan(const R7Host *host,R7Lease *lease,R7FightTicket *ticket) {
+  return plan(host,lease,ticket,0,0);
+}
+R7Plan r7_plan_after_original_fight(const R7Host *host,R7Lease *lease,
+                                    R7ReadFightReceipt read_receipt,void *ctx) {
+  if (!read_receipt) return fail(R7_BAD_API);
+  return plan(host,lease,0,read_receipt,ctx);
 }
